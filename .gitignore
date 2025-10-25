@@ -3,6 +3,7 @@
 *.aet
 *.aepx
 *.aetx
+*.atn
 
 # Exclude all JSX files except the main Expression_Panel.jsx
 *.jsx
