@@ -30,7 +30,7 @@ A comprehensive After Effects script panel that provides quick access to common 
 - **Auto Trim** - Automatically trim overlapping layers
 - **Create Null** - Generate control null objects
 - **Sync Audio** - Apply time remapping for audio sync
-- **Puppet to Null** - Create null objects for puppet pins
+- **Puppet to Null** - Create null objects for puppet pins (inspired by [marpinen/AE-scripts](https://github.com/marpinen/AE-scripts))
 - **Flip H/V** - Horizontal and vertical layer flipping
 - **Reverse KF** - Reverse selected keyframes
 - **Batch Scale** - Scale multiple layers with presets
@@ -133,13 +133,17 @@ The script includes a comprehensive library system for organizing and reusing co
 
 Feel free to submit issues, feature requests, or pull requests to improve this script.
 
-## License
-
-This project is open source and available under the MIT License.
-
 ## Support
 
 For support, questions, or feature requests, please open an issue on GitHub.
+
+## Acknowledgments
+
+- **Puppet to Null functionality** inspired by [marpinen/AE-scripts](https://github.com/marpinen/AE-scripts) - A collection of useful After Effects scripts that provided inspiration for the puppet pin to null object conversion feature.
+
+## License
+
+This project is open source and available under the MIT License.
 
 ---
 
