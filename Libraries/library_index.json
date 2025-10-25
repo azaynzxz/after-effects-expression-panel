@@ -1,0 +1,59 @@
+{
+  "categories": {
+    "Characters": [
+      
+    ],
+    "Transitions": [
+      
+    ],
+    "Effects": [
+      
+    ],
+    "Backgrounds": [
+      
+    ],
+    "Logos": [
+      
+    ],
+    "Text_Animations": [
+      
+    ],
+    "Particles": [
+      
+    ],
+    "Overlays": [
+      
+    ],
+    "Allan": [
+      {
+        "name": "Stars",
+        "fileName": "Stars.aep",
+        "category": "Allan",
+        "type": "precomposition",
+        "width": 5670,
+        "height": 3240,
+        "duration": 17,
+        "frameRate": 24,
+        "thumbnailPath": null,
+        "dateCreated": "2025-08-05T00:03:39Z",
+        "sourceProject": "Stars.aep"
+      }
+    ],
+    "Ryan": [
+      {
+        "name": "ekspression bank",
+        "fileName": "ekspression_bank.aep",
+        "category": "Ryan",
+        "type": "precomposition",
+        "width": 407,
+        "height": 415,
+        "duration": 0.54166666666667,
+        "frameRate": 24,
+        "thumbnailPath": null,
+        "dateCreated": "2025-08-07T18:38:44Z",
+        "sourceProject": "ekspression_bank.aep"
+      }
+    ]
+  },
+  "version": "1.0"
+}
