@@ -143,6 +143,6 @@ For support, questions, or feature requests, please open an issue on GitHub.
 
 ---
 
-**Created by**: EWO Script Team  
+**Created by**: Zayn  
 **Last Updated**: January 2025  
 **Version**: 2.0
