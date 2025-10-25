@@ -4,6 +4,10 @@
 *.aepx
 *.aetx
 
+# Exclude all JSX files except the main Expression_Panel.jsx
+*.jsx
+!Expression_Panel.jsx
+
 # Auto-save files
 *auto-save*
 
