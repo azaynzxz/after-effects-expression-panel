@@ -661,8 +661,8 @@ function createPanel(thisObj) {
     // Panel properties
     myPanel.orientation = "column";
     myPanel.alignChildren = ["fill", "top"];
-    myPanel.spacing = 2;
-    myPanel.margins = 4;
+    myPanel.spacing = 1; // Reduced from 2
+    myPanel.margins = 3; // Reduced from 4
     myPanel.preferredSize.width = 230; // More compact width
     
     // Title
@@ -677,8 +677,8 @@ function createPanel(thisObj) {
     var timelineGroup = myPanel.add("group");
     timelineGroup.orientation = "column";
     timelineGroup.alignChildren = ["fill", "top"];
-    timelineGroup.spacing = 3;
-    timelineGroup.margins = 4;
+    timelineGroup.spacing = 2; // Reduced from 3
+    timelineGroup.margins = 3; // Reduced from 4
 
     // Top row with label and timecode input
     var topRow = timelineGroup.add("group");
@@ -1108,13 +1108,13 @@ function createPanel(thisObj) {
     var mainGroup = myPanel.add("group");
     mainGroup.orientation = "row";
     mainGroup.alignChildren = ["fill", "top"];
-    mainGroup.spacing = 3;
+    mainGroup.spacing = 2; // Reduced from 3
     
     // Left Column
     var leftCol = mainGroup.add("group");
     leftCol.orientation = "column";
     leftCol.alignChildren = ["fill", "top"];
-    leftCol.spacing = 2;
+    leftCol.spacing = 1; // Reduced from 2
     leftCol.preferredSize.width = 110;
     
     // Basic Animations (Left Column)
@@ -1143,8 +1143,8 @@ function createPanel(thisObj) {
     loopGroup.alignChildren = ["fill", "top"];
     loopGroup.spacing = 1;
     
-    // Loop buttons
-    var loopButtons = ["Loop Cycle", "Loop Continue", "Loop PingPong", "Loop Wiggle"];
+    // Loop buttons (Loop Wiggle moved to accordion)
+    var loopButtons = ["Loop Cycle", "Loop Continue", "Loop PingPong"];
     addButtonsToGroup(loopGroup, loopButtons);
     
     // Add separator before shape scaling section
@@ -1309,40 +1309,11 @@ function createPanel(thisObj) {
         updateStatus("Shape layer list refreshed");
     };
     
-    // Layer Navigation Section (below Scale & Center)
-    leftCol.add("panel");
-    var layerNavTitle = leftCol.add("statictext", undefined, "Layer Navigation");
-    layerNavTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-    layerNavTitle.alignment = "center";
-    
-    var layerNavGroup = leftCol.add("group");
-    layerNavGroup.orientation = "row";
-    layerNavGroup.alignChildren = ["fill", "center"];
-    layerNavGroup.spacing = 2;
-    
-    // Previous Layer button
-    var prevLayerBtn = layerNavGroup.add("button", undefined, "<");
-    prevLayerBtn.preferredSize.width = 30;
-    prevLayerBtn.preferredSize.height = 20;
-    prevLayerBtn.helpTip = "Jump to previous layer start";
-    prevLayerBtn.onClick = function() {
-        jumpToPreviousLayerDirect();
-    };
-    
-    // Next Layer button
-    var nextLayerBtn = layerNavGroup.add("button", undefined, ">");
-    nextLayerBtn.preferredSize.width = 30;
-    nextLayerBtn.preferredSize.height = 20;
-    nextLayerBtn.helpTip = "Jump to next layer start";
-    nextLayerBtn.onClick = function() {
-        jumpToNextLayerDirect();
-    };
-    
     // Right Column
     var rightCol = mainGroup.add("group");
     rightCol.orientation = "column";
     rightCol.alignChildren = ["fill", "top"];
-    rightCol.spacing = 2;
+    rightCol.spacing = 1; // Reduced from 2
     rightCol.preferredSize.width = 110;
     
     // Complex Animations (Right Column)
@@ -1356,8 +1327,8 @@ function createPanel(thisObj) {
     complexGroup.alignChildren = ["fill", "top"];
     complexGroup.spacing = 1;
     
-    // Complex animation buttons
-    var complexButtons = ["Water Float", "Glitter", "Fish-like"];
+    // Complex animation buttons (Fish-like moved to accordion)
+    var complexButtons = ["Water Float", "Glitter"];
     addButtonsToGroup(complexGroup, complexButtons);
     
     // Utility (Right Column)
@@ -1379,36 +1350,12 @@ function createPanel(thisObj) {
         toggleXLockLayers();
     };
     
-    // Add Layer Navigation button
-    var layerNavBtn = utilityGroup.add("button", undefined, "Layer Nav");
-    layerNavBtn.preferredSize.height = 16;
-    layerNavBtn.helpTip = "Open layer navigation window to jump between layers";
-    layerNavBtn.onClick = function() {
-        showLayerNavigationWindow();
-    };
-    
     // Add Auto Trim button
     var autoTrimBtn = utilityGroup.add("button", undefined, "Auto Trim");
     autoTrimBtn.preferredSize.height = 16;
     autoTrimBtn.helpTip = "Trim overlapping layers automatically in main_comp";
     autoTrimBtn.onClick = function() {
         autoTrimLayers();
-    };
-    
-    // Create Null button
-    var createNullBtn = utilityGroup.add("button", undefined, "Create Null");
-    createNullBtn.preferredSize.height = 16;
-    createNullBtn.helpTip = "Creates a null object for the selected layer";
-    createNullBtn.onClick = function() {
-        createNullObject();
-    };
-    
-    // Add Sync Audio button
-    var syncAudioBtn = utilityGroup.add("button", undefined, "Sync Audio");
-    syncAudioBtn.preferredSize.height = 16;
-    syncAudioBtn.helpTip = "Apply time remapping expression to sync audio with main_comp";
-    syncAudioBtn.onClick = function() {
-        applyTimeRemapExpression();
     };
     
     // Add Copy Audio button
@@ -1443,18 +1390,10 @@ function createPanel(thisObj) {
         addBounceKeyframes();
     };
     
-    // Add Walk/Run Arc button
-    var walkRunBtn = utilityGroup.add("button", undefined, "Walk/Run Arc");
-    walkRunBtn.preferredSize.height = 16;
-    walkRunBtn.helpTip = "Add walking/running arc movement to selected layers";
-    walkRunBtn.onClick = function() {
-        showWalkRunDialog();
-    };
-    
     // Add Puppet→Null button
     var puppetToNullBtn = utilityGroup.add("button", undefined, "Puppet→Null");
     puppetToNullBtn.preferredSize.height = 16;
-    puppetToNullBtn.helpTip = "Create null objects for all puppet pins on selected layer";
+    puppetToNullBtn.helpTip = "Create null objects for puppet pins on selected layer(s) - supports multiple layers";
     puppetToNullBtn.onClick = function() {
         createPuppetNulls();
     };
@@ -1491,47 +1430,41 @@ function createPanel(thisObj) {
         showBatchScaleDialog();
     };
     
-    // Add Smart Precomp button
-    var smartPrecompBtn = utilityGroup.add("button", undefined, "Smart Precomp");
-    smartPrecompBtn.preferredSize.height = 16;
-    smartPrecompBtn.helpTip = "Create precomp from selected layers while retaining size, scale and position";
-    smartPrecompBtn.onClick = function() {
-        createSmartPrecomp();
+    // More button (opens popup window)
+    var advancedToolsBtn = utilityGroup.add("button", undefined, "More");
+    advancedToolsBtn.preferredSize.height = 16;
+    advancedToolsBtn.helpTip = "Open advanced tools window";
+    advancedToolsBtn.onClick = function() {
+        showAdvancedToolsWindow();
     };
     
-    // Add 3x3 Anchor button
-    var anchorGridBtn = utilityGroup.add("button", undefined, "3x3 Anchor");
-    anchorGridBtn.preferredSize.height = 16;
-    anchorGridBtn.helpTip = "Move anchor point using 3x3 grid controller";
-    anchorGridBtn.onClick = function() {
-        show3x3AnchorDialog();
+    // Layer Navigation Section (below More button)
+    rightCol.add("panel");
+    var layerNavTitle = rightCol.add("statictext", undefined, "Layer Navigation");
+    layerNavTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+    layerNavTitle.alignment = "center";
+    
+    var layerNavGroup = rightCol.add("group");
+    layerNavGroup.orientation = "row";
+    layerNavGroup.alignChildren = ["fill", "center"];
+    layerNavGroup.spacing = 2;
+    
+    // Previous Layer button
+    var prevLayerBtn = layerNavGroup.add("button", undefined, "<");
+    prevLayerBtn.preferredSize.width = 30;
+    prevLayerBtn.preferredSize.height = 20;
+    prevLayerBtn.helpTip = "Jump to previous layer start";
+    prevLayerBtn.onClick = function() {
+        jumpToPreviousLayerDirect();
     };
     
-    // Add Mask to Crop button
-    var maskToCropBtn = utilityGroup.add("button", undefined, "Mask to Crop");
-    maskToCropBtn.preferredSize.height = 16;
-    maskToCropBtn.helpTip = "Trim selected layers to work area (replaces Ctrl+Shift+X)";
-    maskToCropBtn.onClick = function() {
-        maskToCropLayer();
-    };
-    
-    // Add separator for Libraries section
-    utilityGroup.add("panel");
-    
-    // Add to Libraries button
-    var addToLibraryBtn = utilityGroup.add("button", undefined, "Add to Lib");
-    addToLibraryBtn.preferredSize.height = 16;
-    addToLibraryBtn.helpTip = "Save selected composition or precomposition to library";
-    addToLibraryBtn.onClick = function() {
-        showAddToLibraryDialog();
-    };
-    
-    // Library Browser button
-    var libraryBrowserBtn = utilityGroup.add("button", undefined, "Browse Lib");
-    libraryBrowserBtn.preferredSize.height = 16;
-    libraryBrowserBtn.helpTip = "Browse and load compositions from library";
-    libraryBrowserBtn.onClick = function() {
-        showLibraryBrowserDialog();
+    // Next Layer button
+    var nextLayerBtn = layerNavGroup.add("button", undefined, ">");
+    nextLayerBtn.preferredSize.width = 30;
+    nextLayerBtn.preferredSize.height = 20;
+    nextLayerBtn.helpTip = "Jump to next layer start";
+    nextLayerBtn.onClick = function() {
+        jumpToNextLayerDirect();
     };
     
     // Status area at the bottom
@@ -3291,6 +3224,150 @@ function showExpressionDialog(expression) {
     closeBtn.onClick = function() {
         dialog.close();
     };
+    
+    dialog.center();
+    dialog.show();
+}
+
+// Show Advanced Tools popup window
+function showAdvancedToolsWindow() {
+    var dialog = new Window("dialog", "More Tools");
+    dialog.orientation = "column";
+    dialog.alignChildren = ["fill", "top"];
+    dialog.spacing = 1; // Minimal spacing
+    dialog.margins = 4; // Minimal margins
+    
+    // Title
+    var titleGroup = dialog.add("group");
+    titleGroup.orientation = "row";
+    titleGroup.alignChildren = ["center", "center"];
+    titleGroup.spacing = 0;
+    titleGroup.margins = 0;
+    var title = titleGroup.add("statictext", undefined, "More Tools");
+    title.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10); // Smaller font
+    
+    // Buttons container with 3 columns
+    var buttonsContainer = dialog.add("group");
+    buttonsContainer.orientation = "row";
+    buttonsContainer.alignChildren = ["fill", "top"];
+    buttonsContainer.spacing = 2; // Minimal spacing between columns
+    buttonsContainer.margins = 0;
+    
+    // Column 1
+    var col1 = buttonsContainer.add("group");
+    col1.orientation = "column";
+    col1.alignChildren = ["fill", "top"];
+    col1.spacing = 1; // Minimal spacing
+    col1.margins = 0;
+    col1.preferredSize.width = 130; // Compact width
+    
+    var libraryBrowserBtn = col1.add("button", undefined, "Browse Lib");
+    libraryBrowserBtn.preferredSize.height = 20; // Reduced from 24
+    libraryBrowserBtn.helpTip = "Browse and load compositions from library";
+    libraryBrowserBtn.onClick = function() {
+        dialog.close();
+        showLibraryBrowserDialog();
+    };
+    
+    var maskToCropBtn = col1.add("button", undefined, "Mask to Crop");
+    maskToCropBtn.preferredSize.height = 20;
+    maskToCropBtn.helpTip = "Trim selected layers to work area (replaces Ctrl+Shift+X)";
+    maskToCropBtn.onClick = function() {
+        dialog.close();
+        maskToCropLayer();
+    };
+    
+    var layerNavBtn = col1.add("button", undefined, "Layer Nav");
+    layerNavBtn.preferredSize.height = 20;
+    layerNavBtn.helpTip = "Open layer navigation window to jump between layers";
+    layerNavBtn.onClick = function() {
+        dialog.close();
+        showLayerNavigationWindow();
+    };
+    
+    var walkRunBtn = col1.add("button", undefined, "Walk/Run Arc");
+    walkRunBtn.preferredSize.height = 20;
+    walkRunBtn.helpTip = "Add walking/running arc movement to selected layers";
+    walkRunBtn.onClick = function() {
+        dialog.close();
+        showWalkRunDialog();
+    };
+    
+    // Column 2
+    var col2 = buttonsContainer.add("group");
+    col2.orientation = "column";
+    col2.alignChildren = ["fill", "top"];
+    col2.spacing = 1; // Minimal spacing
+    col2.margins = 0;
+    col2.preferredSize.width = 130; // Compact width
+    
+    var addToLibraryBtn = col2.add("button", undefined, "Add to Lib");
+    addToLibraryBtn.preferredSize.height = 20;
+    addToLibraryBtn.helpTip = "Save selected composition or precomposition to library";
+    addToLibraryBtn.onClick = function() {
+        dialog.close();
+        showAddToLibraryDialog();
+    };
+    
+    var anchorGridBtn = col2.add("button", undefined, "3x3 Anchor");
+    anchorGridBtn.preferredSize.height = 20;
+    anchorGridBtn.helpTip = "Move anchor point using 3x3 grid controller";
+    anchorGridBtn.onClick = function() {
+        dialog.close();
+        show3x3AnchorDialog();
+    };
+    
+    var createNullBtn = col2.add("button", undefined, "Create Null");
+    createNullBtn.preferredSize.height = 20;
+    createNullBtn.helpTip = "Creates a null object for the selected layer";
+    createNullBtn.onClick = function() {
+        dialog.close();
+        createNullObject();
+    };
+    
+    var loopWiggleBtn = col2.add("button", undefined, "Loop Wiggle");
+    loopWiggleBtn.preferredSize.height = 20;
+    loopWiggleBtn.helpTip = EXPRESSIONS["Loop Wiggle"];
+    loopWiggleBtn.onClick = function() {
+        dialog.close();
+        handleExpressionClick("Loop Wiggle", EXPRESSIONS["Loop Wiggle"]);
+    };
+    
+    // Column 3
+    var col3 = buttonsContainer.add("group");
+    col3.orientation = "column";
+    col3.alignChildren = ["fill", "top"];
+    col3.spacing = 1; // Minimal spacing
+    col3.margins = 0;
+    col3.preferredSize.width = 130; // Compact width
+    
+    var smartPrecompBtn = col3.add("button", undefined, "Smart Precomp");
+    smartPrecompBtn.preferredSize.height = 20;
+    smartPrecompBtn.helpTip = "Create precomp from selected layers while retaining size, scale and position";
+    smartPrecompBtn.onClick = function() {
+        dialog.close();
+        createSmartPrecomp();
+    };
+    
+    var syncAudioBtn = col3.add("button", undefined, "Sync Audio");
+    syncAudioBtn.preferredSize.height = 20;
+    syncAudioBtn.helpTip = "Apply time remapping expression to sync audio with main_comp";
+    syncAudioBtn.onClick = function() {
+        dialog.close();
+        applyTimeRemapExpression();
+    };
+    
+    var fishLikeBtn = col3.add("button", undefined, "Fish-like");
+    fishLikeBtn.preferredSize.height = 20;
+    fishLikeBtn.helpTip = "Swimming fish animation";
+    fishLikeBtn.onClick = function() {
+        dialog.close();
+        showFishDialog();
+    };
+    
+    // Calculate exact size: 3 columns × 130px + 2 gaps × 2px + 2 margins × 4px = 390 + 4 + 8 = 402px width
+    // Height: title (~18px) + spacing (1px) + 4 buttons × 20px + 3 gaps × 1px + 2 margins × 4px = 18 + 1 + 80 + 3 + 8 = 110px
+    dialog.preferredSize = [402, 110];
     
     dialog.center();
     dialog.show();
@@ -5236,7 +5313,7 @@ function applyWalkRunAnimation(expression) {
     }
 }
 
-// Create null objects for selected puppet pins
+// Create null objects for selected puppet pins (supports multiple layers)
 function createPuppetNulls() {
     try {
         var comp = app.project.activeItem;
@@ -5251,70 +5328,82 @@ function createPuppetNulls() {
             return;
         }
         
-        var myLayer = selectedLayers[0];
-        
-        // Check for Puppet effect
-        var puppetEffect = myLayer.effect("Puppet");
-        if (!puppetEffect) {
-            updateStatus("No Puppet effect found");
-            return;
-        }
-        
         // Function to get a random integer between min and max (inclusive)
         function getRandomInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
-        // Scan for all puppet pins
+        // Scan for all puppet pins from all selected layers
         var pinData = [];
-        var meshCount = 0;
         var totalPins = 0;
+        var layersWithPuppets = 0;
         
-        try {
-            // Loop through meshes
-            for (var m = 1; m <= 10; m++) {
-                try {
-                    var mesh = puppetEffect.arap.mesh("Mesh " + m);
-                    if (!mesh) break;
-                    
-                    meshCount++;
-                    
-                    // Loop through pins
-                    for (var p = 1; p <= 100; p++) {
-                        try {
-                            var pin = mesh.deform("Puppet Pin " + p);
-                            if (!pin) break;
-                            
-                            // Check if position property exists
-                            var pinPos = pin.position;
-                            if (pinPos) {
-                                totalPins++;
-                                
-                                // Store pin data
-                                var pinInfo = {
-                                    meshIndex: m,
-                                    pinIndex: p,
-                                    meshName: "Mesh " + m,
-                                    pinName: "Puppet Pin " + p,
-                                    displayName: myLayer.name + "_Mesh" + m + "_Pin" + p + "_null"
-                                };
-                                pinData.push(pinInfo);
-                            }
-                        } catch(e) {
-                            break; // No more pins
-                        }
-                    }
-                } catch(e) {
-                    break; // No more meshes
-                }
+        // Process all selected layers
+        for (var layerIdx = 0; layerIdx < selectedLayers.length; layerIdx++) {
+            var myLayer = selectedLayers[layerIdx];
+            
+            // Check for Puppet effect
+            var puppetEffect = myLayer.effect("Puppet");
+            if (!puppetEffect) {
+                continue; // Skip layers without Puppet effect
             }
-        } catch(e) {
-            updateStatus("Error scanning pins");
-            return;
+            
+            layersWithPuppets++;
+            var layerPinCount = 0; // Counter for pins in this layer (P1, P2, P3...)
+            
+            try {
+                // Loop through meshes
+                for (var m = 1; m <= 10; m++) {
+                    try {
+                        var mesh = puppetEffect.arap.mesh("Mesh " + m);
+                        if (!mesh) break;
+                        
+                        // Loop through pins
+                        for (var p = 1; p <= 100; p++) {
+                            try {
+                                var pin = mesh.deform("Puppet Pin " + p);
+                                if (!pin) break;
+                                
+                                // Check if position property exists
+                                var pinPos = pin.position;
+                                if (pinPos) {
+                                    totalPins++;
+                                    layerPinCount++;
+                                    
+                                    // Store pin data with layer reference
+                                    // Simple format: {layer name}_P{number}
+                                    var pinInfo = {
+                                        layer: myLayer,
+                                        layerName: myLayer.name,
+                                        layerIndex: layerIdx,
+                                        puppetEffect: puppetEffect,
+                                        meshIndex: m,
+                                        pinIndex: p,
+                                        meshName: "Mesh " + m,
+                                        pinName: "Puppet Pin " + p,
+                                        displayName: myLayer.name + "_P" + layerPinCount
+                                    };
+                                    pinData.push(pinInfo);
+                                }
+                            } catch(e) {
+                                break; // No more pins
+                            }
+                        }
+                    } catch(e) {
+                        break; // No more meshes
+                    }
+                }
+            } catch(e) {
+                // Continue with other layers if one fails
+            }
         }
         
         if (totalPins === 0) {
-            updateStatus("No puppet pins found");
+            if (layersWithPuppets === 0) {
+                updateStatus("No Puppet effect found on selected layers");
+            } else {
+                updateStatus("No puppet pins found");
+            }
             return;
         }
         
@@ -5326,8 +5415,8 @@ function createPuppetNulls() {
         dialog.margins = 15;
         
         // Info text
-        var infoText = dialog.add("statictext", undefined, "Layer: " + myLayer.name + "\nFound " + totalPins + " puppet pin(s) in " + meshCount + " mesh(es)");
-        infoText.preferredSize = [400, 40];
+        var infoText = dialog.add("statictext", undefined, "Found " + totalPins + " puppet pin(s) in " + layersWithPuppets + " layer(s)\nHold Ctrl/Cmd to select multiple pins");
+        infoText.preferredSize = [500, 40];
         
         dialog.add("panel", undefined, "", {borderStyle: "gray"});
         
@@ -5336,11 +5425,11 @@ function createPuppetNulls() {
         pinSelectGroup.orientation = "column";
         pinSelectGroup.alignChildren = ["fill", "top"];
         
-        pinSelectGroup.add("statictext", undefined, "Select Puppet Pins to Create Nulls For:");
-        var pinList = pinSelectGroup.add("listbox", undefined, [], {multiline: true});
-        pinList.preferredSize = [400, 250];
+        pinSelectGroup.add("statictext", undefined, "Select Puppet Pins to Create Nulls For (multi-select enabled):");
+        var pinList = pinSelectGroup.add("listbox", undefined, [], {multiline: true, multiselect: true});
+        pinList.preferredSize = [500, 300];
         
-        // Populate list
+        // Populate list with simple format: {layer name}_P{number}
         for (var i = 0; i < pinData.length; i++) {
             var listItem = pinList.add("item", pinData[i].displayName);
             listItem.selected = true; // Select all by default
@@ -5392,20 +5481,27 @@ function createPuppetNulls() {
             
             try {
                 var createdNulls = 0;
+                var processedLayers = {}; // Track layers we've processed to restore rotation/scale
                 
-                // Get the current rotation and scale of myLayer
-                var myLrotation = myLayer.property("Transform").property("Rotation").value;
-                var myLscale = myLayer.property("Transform").property("Scale").value;
-                
-                // Loop through selected pins only
+                // Loop through selected pins
                 for (var s = 0; s < selectedPins.length; s++) {
                     var pinInfo = selectedPins[s];
+                    var myLayer = pinInfo.layer;
+                    var puppetEffect = pinInfo.puppetEffect;
                     var m = pinInfo.meshIndex;
-                    var i = pinInfo.pinIndex;
+                    var p = pinInfo.pinIndex;
+                    
+                    // Store original rotation and scale for each layer (only once per layer)
+                    if (!processedLayers[myLayer.name]) {
+                        processedLayers[myLayer.name] = {
+                            rotation: myLayer.property("Transform").property("Rotation").value,
+                            scale: myLayer.property("Transform").property("Scale").value
+                        };
+                    }
                     
                     try {
                         var mesh = puppetEffect.arap.mesh("Mesh " + m);
-                        var puppetPin = mesh.deform("Puppet Pin " + i);
+                        var puppetPin = mesh.deform("Puppet Pin " + p);
                         
                         if (puppetPin != null) {
                             // Reset rotation and scale values of myLayer before operation
@@ -5441,14 +5537,22 @@ function createPuppetNulls() {
                             // Link null to myLayer
                             myNull.parent = myLayer;
                             
-                            // Set original rotation and scale values back to myLayer
-                            myLayer.property("Transform").property("Rotation").setValue(myLrotation);
-                            myLayer.property("Transform").property("Scale").setValue(myLscale);
-                            
                             createdNulls++;
                         }
                     } catch(e) {
                         // Continue with other pins if one fails
+                    }
+                }
+                
+                // Restore original rotation and scale values for all processed layers
+                for (var layerName in processedLayers) {
+                    for (var i = 1; i <= comp.numLayers; i++) {
+                        var layer = comp.layer(i);
+                        if (layer.name === layerName) {
+                            layer.property("Transform").property("Rotation").setValue(processedLayers[layerName].rotation);
+                            layer.property("Transform").property("Scale").setValue(processedLayers[layerName].scale);
+                            break;
+                        }
                     }
                 }
                 
