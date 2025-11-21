@@ -1,7 +1,7 @@
 /*
 Expression Panel - After Effects ExtendScript
 Non-modal dockable panel for expression snippets
-Author: Zayn
+Author: azaynzxz
 */
 
 // Expression definitions

@@ -129,10 +129,6 @@ The script includes a comprehensive library system for organizing and reusing co
 - Windows 10/11 or macOS 10.14 or later
 - 4GB RAM minimum (8GB recommended)
 
-## Contributing
-
-Feel free to submit issues, feature requests, or pull requests to improve this script.
-
 ## Support
 
 For support, questions, or feature requests, please open an issue on GitHub.
@@ -147,6 +143,6 @@ This project is open source and available under the MIT License.
 
 ---
 
-**Created by**: Zayn  
+**Created by**: azaynzxz  
 **Last Updated**: January 2025  
 **Version**: 2.0
