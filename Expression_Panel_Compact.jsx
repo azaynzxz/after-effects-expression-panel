@@ -1448,6 +1448,15 @@ function createPanel(thisObj) {
     copyAudioBtn.onClick = function() {
         copyAndSyncAudio();
     };
+    
+    // Add Lipsync button (abbreviated)
+    var lipsyncBtn = utilityGroup.add("button", undefined, "LS");
+    lipsyncBtn.preferredSize.width = 50; // Tight width
+    lipsyncBtn.preferredSize.height = 15; // Reduced height
+    lipsyncBtn.helpTip = "Lipsync: Copy audio, convert to keyframes, and apply lipsync expression to selected precomp layer";
+    lipsyncBtn.onClick = function() {
+        applyLipsync();
+    };
 
     // Add Choppy Flip button (abbreviated)
     var choppyFlipBtn = utilityGroup.add("button", undefined, "CF");
@@ -1779,6 +1788,209 @@ function copyAndSyncAudio() {
 
         app.endUndoGroup();
         updateStatus("Copied, synced, and locked audio to " + currentComp.name);
+
+    } catch (error) {
+        app.endUndoGroup();
+        updateStatus("Error: " + error.toString());
+    }
+}
+
+// Lipsync function - Copy audio, convert to keyframes, and apply lipsync expression
+function applyLipsync() {
+    try {
+        var currentComp = app.project.activeItem;
+        if (!currentComp || !(currentComp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        // Check if a layer is selected
+        var selectedLayers = currentComp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("Please select a layer (must be a precomposition)");
+            return;
+        }
+
+        var selectedLayer = selectedLayers[0];
+        
+        // Check if selected layer is a precomposition
+        if (!selectedLayer.source || !(selectedLayer.source instanceof CompItem)) {
+            updateStatus("Selected layer must be a precomposition");
+            return;
+        }
+
+        // Find main_comp in the project
+        var mainComp = null;
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem && item.name === "main_comp") {
+                mainComp = item;
+                break;
+            }
+        }
+
+        if (!mainComp) {
+            updateStatus("main_comp not found");
+            return;
+        }
+
+        // Search for audio layer in main_comp (case insensitive)
+        var audioLayer = null;
+        for (var i = 1; i <= mainComp.numLayers; i++) {
+            var layer = mainComp.layer(i);
+            var layerName = layer.name.toLowerCase();
+            if (layerName === "audio" || layerName.indexOf("audio") === 0) {
+                audioLayer = layer;
+                break;
+            }
+        }
+
+        if (!audioLayer) {
+            updateStatus("Audio layer not found in main_comp");
+            return;
+        }
+
+        app.beginUndoGroup("Apply Lipsync");
+
+        // Check if audio already exists in current comp
+        var existingAudio = null;
+        for (var i = 1; i <= currentComp.numLayers; i++) {
+            var layer = currentComp.layer(i);
+            var layerName = layer.name.toLowerCase();
+            if (layerName === "audio" || layerName.indexOf("audio") === 0) {
+                existingAudio = layer;
+                break;
+            }
+        }
+
+        // If audio already exists, remove it
+        if (existingAudio) {
+            existingAudio.remove();
+        }
+
+        // Get the source item of the audio layer
+        var audioSource = audioLayer.source;
+        
+        // Add the audio source to current comp
+        var newAudioLayer = currentComp.layers.add(audioSource);
+        
+        // Copy properties from original layer
+        newAudioLayer.startTime = 0;
+        newAudioLayer.inPoint = audioLayer.inPoint;
+        newAudioLayer.outPoint = audioLayer.outPoint;
+        
+        // Enable time remapping if not already enabled
+        if (!newAudioLayer.timeRemapEnabled) {
+            newAudioLayer.timeRemapEnabled = true;
+        }
+
+        // Apply the sync expression BEFORE converting to keyframes
+        var syncExpression = 'MasterC = "main_comp";\n' +
+                           'PreC = thisComp.name;\n\n' +
+                           'C = comp(MasterC);\n' +
+                           'L = C.layer(PreC);\n' +
+                           'Main_T = time + L.startTime;';
+        
+        newAudioLayer.timeRemap.expression = syncExpression;
+
+        // Select the audio layer and convert audio to keyframes
+        // Deselect all layers first
+        var allLayers = currentComp.selectedLayers;
+        for (var i = 0; i < allLayers.length; i++) {
+            allLayers[i].selected = false;
+        }
+        newAudioLayer.selected = true;
+
+        // Convert audio to keyframes using menu command
+        // Command ID 2161 is "Convert Audio to Keyframes"
+        try {
+            app.executeCommand(app.findMenuCommandId("Keyframe Assistant"), app.findMenuCommandId("Convert Audio to Keyframes"));
+        } catch (e) {
+            // Try alternative method if the above doesn't work
+            try {
+                app.executeCommand(2161);
+            } catch (e2) {
+                // If command execution fails, try using the menu path directly
+                updateStatus("Please manually convert audio to keyframes: Right-click Audio layer > Keyframe Assistant > Convert Audio to Keyframes");
+            }
+        }
+
+        // Wait a moment for the conversion to complete
+        // The "Audio Amplitude" layer should now exist
+        // Find the Audio Amplitude layer
+        var audioAmplitudeLayer = null;
+        for (var i = 1; i <= currentComp.numLayers; i++) {
+            var layer = currentComp.layer(i);
+            var layerName = layer.name.toLowerCase();
+            if (layerName.indexOf("audio amplitude") !== -1 || layerName.indexOf("audioamplitude") !== -1) {
+                audioAmplitudeLayer = layer;
+                break;
+            }
+        }
+
+        if (!audioAmplitudeLayer) {
+            updateStatus("Audio Amplitude layer not found. Please convert audio to keyframes manually.");
+            app.endUndoGroup();
+            return;
+        }
+
+        // Now work on the selected layer (the precomposition)
+        // Deselect all and select the original layer
+        allLayers = currentComp.selectedLayers;
+        for (var i = 0; i < allLayers.length; i++) {
+            allLayers[i].selected = false;
+        }
+        selectedLayer.selected = true;
+
+        // Enable time remapping on selected layer if not already enabled
+        if (!selectedLayer.timeRemapEnabled) {
+            selectedLayer.timeRemapEnabled = true;
+        }
+
+        // Get time remap property
+        var timeRemapProp = selectedLayer.timeRemap;
+        
+        // Get all keyframes
+        var numKeys = timeRemapProp.numKeys;
+        
+        // Delete the last keyframe if there are 2 or more keyframes
+        if (numKeys >= 2) {
+            var lastKeyIndex = numKeys;
+            timeRemapProp.removeKey(lastKeyIndex);
+        }
+
+        // Set the first keyframe to hold
+        if (timeRemapProp.numKeys >= 1) {
+            var firstKeyIndex = 1;
+            var firstKeyTime = timeRemapProp.keyTime(firstKeyIndex);
+            
+            // Select the first keyframe
+            selectedLayer.selected = true;
+            currentComp.time = firstKeyTime;
+            
+            // Set keyframe to hold (toggle hold keyframe)
+            // In After Effects scripting, we set the temporal ease to create a hold keyframe
+            try {
+                // Set temporal ease to create hold keyframe
+                var easeIn = [1, 1]; // Hold ease in
+                var easeOut = [1, 1]; // Hold ease out
+                timeRemapProp.setTemporalEaseAtKey(firstKeyIndex, easeIn, easeOut);
+            } catch (e) {
+                // Alternative: set the keyframe value directly and remove interpolation
+                updateStatus("Note: Please manually set first keyframe to hold if needed");
+            }
+        }
+
+        // Apply the lipsync expression
+        var lipsyncExpression = 'thisComp.layer("Audio Amplitude").effect("Both Channels")("Slider")/75';
+        timeRemapProp.expression = lipsyncExpression;
+
+        // Extend the layer to fill the entire timeline
+        var compDuration = currentComp.duration;
+        selectedLayer.outPoint = compDuration;
+
+        app.endUndoGroup();
+        updateStatus("Lipsync applied to '" + selectedLayer.name + "'");
 
     } catch (error) {
         app.endUndoGroup();
