@@ -13,6 +13,7 @@
     var currentPlayheadTime = -1;
     var searchForwardOnlyCheckbox;
     var autoMoveCheckbox;
+    var exactJumpCheckbox;
     
     // Helper function for trim (not available in ExtendScript)
     function trim(str) {
@@ -129,6 +130,17 @@
         autoMoveCheckbox.helpTip = "When enabled, automatically move the layer above the selected one to the jumped time";
         autoMoveCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         
+        // Exact jump checkbox
+        var exactJumpRow = searchContainer.add("group");
+        exactJumpRow.orientation = "row";
+        exactJumpRow.alignChildren = ["left", "center"];
+        exactJumpRow.spacing = 5;
+        
+        exactJumpCheckbox = exactJumpRow.add("checkbox", undefined, "Exact Jump");
+        exactJumpCheckbox.value = false; // Default: disabled (jump to next word)
+        exactJumpCheckbox.helpTip = "When enabled, jump to the matched word's time instead of the next word's time";
+        exactJumpCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        
         // Results list
         var listLabel = win.add("statictext", undefined, "Results:");
         listLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -172,9 +184,16 @@
             filterAndDisplayResults(searchInput.text);
         };
         
+        exactJumpCheckbox.onClick = function() {
+            // Re-filter when checkbox state changes to update display format
+            filterAndDisplayResults(searchInput.text);
+        };
+        
         listbox.onChange = function() {
             if (this.selection !== null) {
-                jumpToTime(this.selection.timeValue);
+                // Use exact jump time if checkbox is enabled, otherwise use next word time
+                var timeToJump = exactJumpCheckbox.value ? this.selection.matchTime : this.selection.timeValue;
+                jumpToTime(timeToJump);
             }
         };
         
@@ -641,48 +660,81 @@
         
         // Find closest to playhead
         var closestIdx = findClosestIndex(currentPlayheadTime);
+        var exactJumpMode = exactJumpCheckbox.value;
         
-        // Display: prev2 prev1 match > [timecode] nextword
+        // Display based on exact jump mode
         for (var i = 0; i < filtered.length; i++) {
             var matchIdx = filtered[i].index;
             var matchWord = filtered[i].data.word;
-            
-            // Get 2 previous words
-            var contextWords = [];
-            for (var j = 2; j >= 1; j--) {
-                var prevIdx = matchIdx - j;
-                if (prevIdx >= 0) {
-                    contextWords.push(searchData[prevIdx].word);
-                }
-            }
-            
-            // Add match word
-            contextWords.push(matchWord);
-            
-            // Get next word
-            var nextIdx = matchIdx + 1;
-            var displayText = "";
-            var timeValue = 0;
             
             // Check if this match word is closest to playhead
             var isClosest = (matchIdx === closestIdx || matchIdx === closestIdx - 1 || matchIdx === closestIdx - 2);
             var marker = isClosest ? "●" : " ";
             
-            if (nextIdx < searchData.length) {
-                var nextTime = formatTime(searchData[nextIdx].time);
-                var nextWord = searchData[nextIdx].word;
+            // Store both match time and next time
+            var matchTime = filtered[i].data.time;
+            var nextTime = null;
+            var nextWord = null;
+            var displayText = "";
+            
+            if (exactJumpMode) {
+                // Exact jump mode: show only match word + next 3 words
+                var exactWords = [matchWord];
                 
-                // Display format: "● prev2 prev1 match > [timecode] nextword"
-                displayText = marker + " " + contextWords.join(" ") + " > " + nextTime + " " + nextWord;
-                timeValue = searchData[nextIdx].time; // Jump to NEXT word when clicked
+                // Get next 3 words
+                for (var j = 1; j <= 3; j++) {
+                    var nextIdx = matchIdx + j;
+                    if (nextIdx < searchData.length) {
+                        exactWords.push(searchData[nextIdx].word);
+                    }
+                }
+                
+                // Display format: "● match word1 word2 word3 > [timecode]"
+                displayText = marker + " " + exactWords.join(" ");
+                
+                // In exact mode, we jump to match time, but show next word's timecode for reference
+                var nextIdx = matchIdx + 1;
+                if (nextIdx < searchData.length) {
+                    nextTime = searchData[nextIdx].time;
+                    nextWord = searchData[nextIdx].word;
+                    displayText += " > " + formatTime(matchTime); // Show match word's time
+                } else {
+                    displayText += " > " + formatTime(matchTime) + " (end)";
+                }
             } else {
-                // No next word available
-                displayText = marker + " " + contextWords.join(" ") + " > (end)";
-                timeValue = filtered[i].data.time; // Jump to match if no next word
+                // Regular mode: show prev2 prev1 match > [timecode] nextword
+                var contextWords = [];
+                
+                // Get 2 previous words
+                for (var j = 2; j >= 1; j--) {
+                    var prevIdx = matchIdx - j;
+                    if (prevIdx >= 0) {
+                        contextWords.push(searchData[prevIdx].word);
+                    }
+                }
+                
+                // Add match word
+                contextWords.push(matchWord);
+                
+                // Get next word
+                var nextIdx = matchIdx + 1;
+                if (nextIdx < searchData.length) {
+                    nextTime = searchData[nextIdx].time;
+                    nextWord = searchData[nextIdx].word;
+                    
+                    // Display format: "● prev2 prev1 match > [timecode] nextword"
+                    displayText = marker + " " + contextWords.join(" ") + " > " + formatTime(nextTime) + " " + nextWord;
+                } else {
+                    // No next word available
+                    displayText = marker + " " + contextWords.join(" ") + " > (end)";
+                }
             }
             
             var item = listbox.add("item", displayText);
-            item.timeValue = timeValue;
+            // Store both times - exact jump checkbox will determine which to use
+            item.matchTime = matchTime; // Time of the matched word
+            item.nextTime = nextTime !== null ? nextTime : matchTime; // Time of next word (or match if no next)
+            item.timeValue = nextTime !== null ? nextTime : matchTime; // Default: next word (current behavior)
         }
         
         var statusMsg = "Showing " + filtered.length + " matches";
