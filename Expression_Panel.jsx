@@ -1383,6 +1383,14 @@ function createPanel(thisObj) {
         showWaterDistortionDialog();
     };
     
+    // Add Rim Light button
+    var rimLightBtn = utilityGroup.add("button", undefined, "Rim Light");
+    rimLightBtn.preferredSize.height = 16;
+    rimLightBtn.helpTip = "Adds Drop Shadow, Set Matte, CC Composite, Glow";
+    rimLightBtn.onClick = function() {
+        addRimLightEffects();
+    };
+    
     // Add Bounce x2 button
     var bounceX2Btn = utilityGroup.add("button", undefined, "Bounce x2");
     bounceX2Btn.preferredSize.height = 16;
@@ -1413,6 +1421,14 @@ function createPanel(thisObj) {
     flipVerticalBtn.helpTip = "Flip layers vertically (invert Y scale)";
     flipVerticalBtn.onClick = function() {
         flipVertical();
+    };
+    
+    // Add Kick Out button
+    var kickOutBtn = utilityGroup.add("button", undefined, "Kick Out");
+    kickOutBtn.preferredSize.height = 16;
+    kickOutBtn.helpTip = "Kick layer out of frame (up or right) with keyframes";
+    kickOutBtn.onClick = function() {
+        showKickOutOfFrameDialog();
     };
     
     // Add Reverse KF button
@@ -4254,6 +4270,235 @@ function addWaterDistortion() {
     }
 }
 
+// Add Rim Light Effects
+function addRimLightEffects() {
+    try {
+        app.beginUndoGroup("Add Rim Light");
+
+        var comp = app.project.activeItem;
+        if (!(comp && comp instanceof CompItem)) {
+            alert("Please select a composition first.");
+            updateStatus("No active composition");
+            app.endUndoGroup();
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (!layers || layers.length === 0) {
+            alert("Please select at least one layer.");
+            updateStatus("No layers selected");
+            app.endUndoGroup();
+            return;
+        }
+
+        function tryAddEffect(layer, matchNames) {
+            if (!(matchNames instanceof Array)) {
+                matchNames = [matchNames];
+            }
+            for (var i = 0; i < matchNames.length; i++) {
+                try {
+                    var fx = layer.Effects.addProperty(matchNames[i]);
+                    if (fx) {
+                        return fx;
+                    }
+                } catch (err) {
+                    // Try next matchName
+                }
+            }
+            return null;
+        }
+
+        function setProp(effect, names, value) {
+            if (!effect) return false;
+            if (!(names instanceof Array)) {
+                names = [names];
+            }
+            for (var i = 0; i < names.length; i++) {
+                var prop = effect.property(names[i]);
+                if (prop) {
+                    try {
+                        prop.setValue(value);
+                        return true;
+                    } catch (err) {
+                        // Skip if cannot set
+                    }
+                }
+            }
+            return false;
+        }
+
+        function setFxValue(effect, targets, value) {
+            if (!effect) return false;
+            if (!(targets instanceof Array)) {
+                targets = [targets];
+            }
+            for (var i = 0; i < targets.length; i++) {
+                var p = effect.property(targets[i]);
+                if (p) {
+                    try {
+                        p.setValue(value);
+                        return true;
+                    } catch (err1) {}
+                }
+            }
+            // Fallback: index if number provided at end of list
+            for (var j = 0; j < targets.length; j++) {
+                if (typeof targets[j] === "number") {
+                    var pIdx = effect.property(targets[j]);
+                    if (pIdx) {
+                        try {
+                            pIdx.setValue(value);
+                            return true;
+                        } catch (err2) {}
+                    }
+                }
+            }
+            return false;
+        }
+
+        function findPuppetEffect(layer) {
+            try {
+                var fxGroup = layer.property("ADBE Effect Parade");
+                if (!fxGroup) return null;
+                var direct = layer.effect("Puppet");
+                if (direct) return direct;
+                for (var i = 1; i <= fxGroup.numProperties; i++) {
+                    var fx = fxGroup.property(i);
+                    if (!fx) continue;
+                    if (fx.matchName === "ADBE FreePin3" || (fx.name && fx.name.toLowerCase().indexOf("puppet") === 0)) {
+                        return fx;
+                    }
+                }
+            } catch (err) {}
+            return null;
+        }
+
+        function reorderRimLightEffects(layer, refs) {
+            try {
+                var parade = layer.property("ADBE Effect Parade");
+                if (!parade) return;
+                
+                // Get the total number of effects
+                var totalEffects = parade.numProperties;
+                
+                // Move all Rim Light effects to the end first to clear their positions
+                if (refs.glow) { try { refs.glow.moveTo(totalEffects); } catch(e) {} }
+                if (refs.puppetFx) { try { refs.puppetFx.moveTo(totalEffects); } catch(e) {} }
+                if (refs.ccComposite) { try { refs.ccComposite.moveTo(totalEffects); } catch(e) {} }
+                if (refs.setMatte) { try { refs.setMatte.moveTo(totalEffects); } catch(e) {} }
+                if (refs.dropShadow) { try { refs.dropShadow.moveTo(totalEffects); } catch(e) {} }
+                
+                // Now move them to correct order from position 1
+                var targetIdx = 1;
+                
+                if (refs.dropShadow) {
+                    try { refs.dropShadow.moveTo(targetIdx++); } catch(e) {}
+                }
+                if (refs.setMatte) {
+                    try { refs.setMatte.moveTo(targetIdx++); } catch(e) {}
+                }
+                if (refs.ccComposite) {
+                    try { refs.ccComposite.moveTo(targetIdx++); } catch(e) {}
+                }
+                if (refs.puppetFx) {
+                    try { refs.puppetFx.moveTo(targetIdx++); } catch(e) {}
+                }
+                if (refs.glow) {
+                    try { refs.glow.moveTo(targetIdx++); } catch(e) {}
+                }
+            } catch (err) {}
+        }
+
+        var processed = 0;
+        for (var i = 0; i < layers.length; i++) {
+            var layer = layers[i];
+            if (!layer || layer.locked) {
+                continue;
+            }
+
+            var refs = {
+                dropShadow: null,
+                setMatte: null,
+                ccComposite: null,
+                puppetFx: null,
+                glow: null
+            };
+
+            // Drop Shadow
+            var dropShadow = tryAddEffect(layer, "ADBE Drop Shadow");
+            if (dropShadow) {
+                setFxValue(dropShadow, ["ADBE Drop Shadow-0002", "Opacity", 3], 125);
+                setFxValue(dropShadow, ["ADBE Drop Shadow-0003", "Direction", 4], 254);
+                setFxValue(dropShadow, ["ADBE Drop Shadow-0004", "Distance", 5], 128);
+                setFxValue(dropShadow, ["ADBE Drop Shadow-0006", "Softness", 6], 0);
+                setFxValue(dropShadow, ["ADBE Drop Shadow-0007", "Shadow Only", 7], true);
+            }
+            refs.dropShadow = dropShadow;
+
+            // Set Matte
+            var setMatte = tryAddEffect(layer, ["ADBE Set Matte3", "ADBE Set Matte"]);
+            if (setMatte) {
+                setProp(setMatte, "Take Matte From Layer", layer.index);
+                setProp(setMatte, "Use For Matte", 4); // Alpha Channel
+                setProp(setMatte, "Invert Matte", false);
+                setProp(setMatte, ["Stretch Matte to Fit", "Stretch Matte To Fit"], true);
+                setProp(setMatte, ["Composite Matte with Original", "Composite Matte With Original"], true);
+                setProp(setMatte, "Premultiply Matte Layer", true);
+            }
+            refs.setMatte = setMatte;
+
+            // CC Composite
+            var ccComposite = tryAddEffect(layer, ["CC Composite", "ADBE CC Composite"]);
+            if (ccComposite) {
+                setProp(ccComposite, ["Top Layer", "Layer"], layer.index);
+                setProp(ccComposite, "Opacity", 100);
+                var multiplyValue = (typeof BlendingMode !== "undefined" && BlendingMode.MULTIPLY) ? BlendingMode.MULTIPLY : 17;
+                setProp(ccComposite, ["Transfer Mode", "Blending Mode", "Mode"], multiplyValue);
+                setProp(ccComposite, "Composite Original", 2); // Behind
+                setProp(ccComposite, ["RGB Only", "RGB"], false);
+            }
+            refs.ccComposite = ccComposite;
+
+            // Puppet (existing)
+            refs.puppetFx = findPuppetEffect(layer);
+            if (!refs.puppetFx) {
+                 var puppetByName = layer.effect ? layer.effect("Puppet") : null;
+                 if (puppetByName) refs.puppetFx = puppetByName;
+            }
+
+            // Glow
+            var glow = tryAddEffect(layer, ["ADBE Glow2", "ADBE Glo2"]);
+            if (glow) {
+                setFxValue(glow, ["ADBE Glow-0001", "Glow Based On", 1], 2); // Color Channels
+                setFxValue(glow, ["ADBE Glow-0002", "Glow Threshold", 2], 182);
+                setFxValue(glow, ["ADBE Glow-0003", "Glow Radius", 3], 241);
+                setFxValue(glow, ["ADBE Glow-0004", "Glow Intensity", 4], 1);
+                setFxValue(glow, ["ADBE Glow-0005", "Composite Original", 5], 2); // Behind
+                setFxValue(glow, ["ADBE Glow-0006", "Glow Operation", 6], 6); // Screen
+                setFxValue(glow, ["ADBE Glow-0007", "Glow Colors", 7], 2); // A & B Colors
+                setFxValue(glow, ["ADBE Glow-0008", "Color Looping", 8], 3); // Triangle A>B>A
+                setFxValue(glow, ["ADBE Glow-0009", "Color Loops", 9], 1);
+                setFxValue(glow, ["ADBE Glow-0010", "Color Phase", 10], 0);
+                setFxValue(glow, ["ADBE Glow-0011", "A & B Midpoint", 11], 50);
+                setFxValue(glow, ["ADBE Glow-0012", "Color A", 12], [1, 0, 0, 1]); // Red
+                setFxValue(glow, ["ADBE Glow-0013", "Color B", 13], [1, 1, 1, 1]); // White
+                setFxValue(glow, ["ADBE Glow-0014", "Glow Dimensions", 14], 1); // Horizontal and Vertical
+                refs.glow = glow;
+            }
+
+            reorderRimLightEffects(layer, refs);
+            processed++;
+        }
+
+        updateStatus("Rim Light applied to " + processed + " layer(s)");
+        app.endUndoGroup();
+    } catch (error) {
+        app.endUndoGroup();
+        alert("Error adding Rim Light: " + error.message);
+        updateStatus("Error: " + error.message);
+    }
+}
+
 // Show water distortion settings dialog
 function showWaterDistortionDialog() {
     var dialog = new Window("dialog", "Water Distortion Settings");
@@ -5868,6 +6113,206 @@ function flipVertical() {
         
         app.endUndoGroup();
         updateStatus("Flipped " + selectedLayers.length + " layer(s) vertically");
+        
+    } catch (error) {
+        updateStatus("Error: " + error.message);
+    }
+}
+
+// Show Kick Out of Frame dialog
+function showKickOutOfFrameDialog() {
+    var comp = app.project.activeItem;
+    if (!comp || !(comp instanceof CompItem)) {
+        updateStatus("No active composition");
+        return;
+    }
+    
+    var selectedLayers = comp.selectedLayers;
+    if (selectedLayers.length === 0) {
+        updateStatus("No layers selected");
+        return;
+    }
+    
+    var dialog = new Window("palette", "Kick Out of Frame", undefined, {closeButton: true});
+    dialog.orientation = "column";
+    dialog.alignChildren = ["fill", "top"];
+    dialog.spacing = 10;
+    dialog.margins = 16;
+    
+    // Keep window always on top
+    if (dialog.show) {
+        dialog.active = true;
+    }
+    
+    // Info text
+    var infoText = dialog.add("statictext", undefined, "Choose direction to kick layer out:");
+    infoText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 11);
+    
+    // Composition info
+    var compInfo = dialog.add("statictext", undefined, "Comp: " + comp.width + " x " + comp.height + " px");
+    compInfo.graphics.font = ScriptUI.newFont("Arial", "ITALIC", 10);
+    
+    // Direction buttons - arranged in cross pattern
+    var topRow = dialog.add("group");
+    topRow.orientation = "row";
+    topRow.alignChildren = ["center", "center"];
+    
+    var kickUpBtn = topRow.add("button", undefined, "^");
+    kickUpBtn.preferredSize.width = 50;
+    kickUpBtn.preferredSize.height = 35;
+    kickUpBtn.helpTip = "Kick Up";
+    
+    var middleRow = dialog.add("group");
+    middleRow.orientation = "row";
+    middleRow.alignChildren = ["center", "center"];
+    middleRow.spacing = 10;
+    
+    var kickLeftBtn = middleRow.add("button", undefined, "<");
+    kickLeftBtn.preferredSize.width = 50;
+    kickLeftBtn.preferredSize.height = 35;
+    kickLeftBtn.helpTip = "Kick Left";
+    
+    var kickRightBtn = middleRow.add("button", undefined, ">");
+    kickRightBtn.preferredSize.width = 50;
+    kickRightBtn.preferredSize.height = 35;
+    kickRightBtn.helpTip = "Kick Right";
+    
+    var bottomRow = dialog.add("group");
+    bottomRow.orientation = "row";
+    bottomRow.alignChildren = ["center", "center"];
+    
+    var kickDownBtn = bottomRow.add("button", undefined, "v");
+    kickDownBtn.preferredSize.width = 50;
+    kickDownBtn.preferredSize.height = 35;
+    kickDownBtn.helpTip = "Kick Down";
+    
+    // Additional options
+    var optionsPanel = dialog.add("panel", undefined, "Options");
+    optionsPanel.alignChildren = ["fill", "top"];
+    optionsPanel.spacing = 5;
+    optionsPanel.margins = 10;
+    
+    // Margin input
+    var marginGroup = optionsPanel.add("group");
+    marginGroup.orientation = "row";
+    marginGroup.alignChildren = ["left", "center"];
+    
+    marginGroup.add("statictext", undefined, "Extra margin (px):");
+    var marginInput = marginGroup.add("edittext", undefined, "50");
+    marginInput.preferredSize.width = 60;
+    marginInput.helpTip = "Extra distance beyond the frame edge";
+    
+    // Close button
+    var closeBtn = dialog.add("button", undefined, "Close");
+    closeBtn.onClick = function() {
+        dialog.close();
+    };
+    
+    // Button handlers - window stays open after clicking
+    kickUpBtn.onClick = function() {
+        var margin = parseInt(marginInput.text) || 50;
+        kickLayersOutOfFrame("up", margin);
+    };
+    
+    kickRightBtn.onClick = function() {
+        var margin = parseInt(marginInput.text) || 50;
+        kickLayersOutOfFrame("right", margin);
+    };
+    
+    kickDownBtn.onClick = function() {
+        var margin = parseInt(marginInput.text) || 50;
+        kickLayersOutOfFrame("down", margin);
+    };
+    
+    kickLeftBtn.onClick = function() {
+        var margin = parseInt(marginInput.text) || 50;
+        kickLayersOutOfFrame("left", margin);
+    };
+    
+    // Show window and keep it on top
+    dialog.show();
+}
+
+// Kick layers out of frame
+function kickLayersOutOfFrame(direction, margin) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+        
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+        
+        var compWidth = comp.width;
+        var compHeight = comp.height;
+        var currentTime = comp.time;
+        
+        app.beginUndoGroup("Kick Out of Frame - " + direction);
+        
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+            var positionProp = layer.transform.position;
+            var currentPos = positionProp.value;
+            
+            // Get layer bounds to calculate how far to move
+            var layerRect;
+            try {
+                // Try to get the source rect at current time
+                layerRect = layer.sourceRectAtTime(currentTime, false);
+            } catch (e) {
+                // Fallback: estimate based on layer source dimensions
+                layerRect = {
+                    left: 0,
+                    top: 0,
+                    width: layer.source ? layer.source.width : 100,
+                    height: layer.source ? layer.source.height : 100
+                };
+            }
+            
+            // Get layer scale to account for scaled dimensions
+            var scaleProp = layer.transform.scale.value;
+            var scaleX = Math.abs(scaleProp[0]) / 100;
+            var scaleY = Math.abs(scaleProp[1]) / 100;
+            
+            // Calculate scaled layer dimensions
+            var layerWidth = layerRect.width * scaleX;
+            var layerHeight = layerRect.height * scaleY;
+            
+            var newPos;
+            if (direction === "up") {
+                // Kick up: move Y so the bottom of the layer is above the top of the composition
+                var newY = -(layerHeight / 2) - margin;
+                newPos = [currentPos[0], newY];
+            } else if (direction === "down") {
+                // Kick down: move Y so the top of the layer is below the bottom of the composition
+                var newY = compHeight + (layerHeight / 2) + margin;
+                newPos = [currentPos[0], newY];
+            } else if (direction === "right") {
+                // Kick right: move X so the left edge is past the right edge of the composition
+                var newX = compWidth + (layerWidth / 2) + margin;
+                newPos = [newX, currentPos[1]];
+            } else if (direction === "left") {
+                // Kick left: move X so the right edge is past the left edge of the composition
+                var newX = -(layerWidth / 2) - margin;
+                newPos = [newX, currentPos[1]];
+            }
+            
+            // Handle 3D layers (position has 3 values)
+            if (currentPos.length === 3) {
+                newPos = [newPos[0], newPos[1], currentPos[2]];
+            }
+            
+            // Add keyframe at current playhead position
+            positionProp.setValueAtTime(currentTime, newPos);
+        }
+        
+        app.endUndoGroup();
+        updateStatus("Kicked " + selectedLayers.length + " layer(s) " + direction + " out of frame");
         
     } catch (error) {
         updateStatus("Error: " + error.message);
