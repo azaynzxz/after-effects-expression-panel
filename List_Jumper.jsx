@@ -14,6 +14,7 @@
     var searchForwardOnlyCheckbox;
     var autoMoveCheckbox;
     var exactJumpCheckbox;
+    var calibrationInput; // Calibration input field
     var isProgrammaticSelection = false; // Flag to prevent double execution
     var isJumping = false; // Flag to prevent jumpToTime from executing multiple times
     var isMovingLayer = false; // Flag to prevent moveNextLayerToCurrentTime from executing multiple times
@@ -144,6 +145,50 @@
         exactJumpCheckbox.helpTip = "When enabled, jump to the matched word's time instead of the next word's time";
         exactJumpCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
+        // Calibration row
+        var calibrationRow = searchContainer.add("group");
+        calibrationRow.orientation = "row";
+        calibrationRow.alignChildren = ["left", "center"];
+        calibrationRow.spacing = 5;
+
+        var calLabel = calibrationRow.add("statictext", undefined, "Calibration:");
+        calLabel.preferredSize.width = 65;
+        calLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        calibrationInput = calibrationRow.add("edittext", undefined, "0");
+        calibrationInput.preferredSize.width = 50;
+        calibrationInput.preferredSize.height = 22;
+        calibrationInput.helpTip = "Frame offset (+/-) for all jumps";
+
+        var framesLabel = calibrationRow.add("statictext", undefined, "frames");
+        framesLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        var calPlusBtn = calibrationRow.add("button", undefined, "+1");
+        calPlusBtn.preferredSize.width = 35;
+        calPlusBtn.preferredSize.height = 22;
+        calPlusBtn.helpTip = "Add 1 frame to calibration";
+        calPlusBtn.onClick = function () {
+            var current = parseFloat(calibrationInput.text) || 0;
+            calibrationInput.text = (current + 1).toString();
+        };
+
+        var calMinusBtn = calibrationRow.add("button", undefined, "-1");
+        calMinusBtn.preferredSize.width = 35;
+        calMinusBtn.preferredSize.height = 22;
+        calMinusBtn.helpTip = "Subtract 1 frame from calibration";
+        calMinusBtn.onClick = function () {
+            var current = parseFloat(calibrationInput.text) || 0;
+            calibrationInput.text = (current - 1).toString();
+        };
+
+        var calResetBtn = calibrationRow.add("button", undefined, "Reset");
+        calResetBtn.preferredSize.width = 45;
+        calResetBtn.preferredSize.height = 22;
+        calResetBtn.helpTip = "Reset calibration to 0";
+        calResetBtn.onClick = function () {
+            calibrationInput.text = "0";
+        };
+
         // Results list
         var listLabel = win.add("statictext", undefined, "Results:");
         listLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -173,16 +218,29 @@
 
             if (keyName === "Enter") {
                 event.preventDefault();
-                filterAndDisplayResults(searchInput.text);
-                // After Enter, focus the listbox so shortcuts work immediately
+
+                // Safety check: Don't execute if AE has a modal dialog open
                 try {
-                    if (listbox.items.length > 0) {
-                        // Force UI update first, then set focus
-                        win.update();
-                        listbox.active = true;
+                    // Test if we can access AE API (will fail if modal dialog is active)
+                    var testAccess = app.project.numItems;
+
+                    // If we get here, AE is accessible - proceed with search
+                    filterAndDisplayResults(searchInput.text);
+
+                    // After Enter, focus the listbox so shortcuts work immediately
+                    try {
+                        if (listbox.items.length > 0) {
+                            // Force UI update first, then set focus
+                            win.update();
+                            listbox.active = true;
+                        }
+                    } catch (e) {
+                        // Ignore if focus fails - shortcuts will still work via search input handler
                     }
-                } catch (e) {
-                    // Ignore if focus fails - shortcuts will still work via search input handler
+                } catch (modalError) {
+                    // Modal dialog is active - show message and don't execute
+                    statusText.text = "Please close AE dialog first";
+                    return;
                 }
             } else {
                 // Handle number keys (1-9) for shortcuts even when search input is focused
@@ -380,19 +438,13 @@
     // File selection
     function selectFile() {
         try {
-            var file = File.openDialog("Select XLSX or CSV file", "*.xlsx;*.csv");
+            var file = File.openDialog("Select CSV file", "*.csv");
 
             if (file) {
                 selectedFile = file;
                 filePathText.text = file.name;
                 statusText.text = "Loading file...";
-
-                // Try to read the file
-                if (file.name.toLowerCase().indexOf(".csv") !== -1) {
-                    readCSVFile(file);
-                } else {
-                    readXLSXFile(file);
-                }
+                readCSVFile(file);
             }
         } catch (error) {
             statusText.text = "Error selecting file: " + error.message;
@@ -506,257 +558,7 @@
         return result;
     }
 
-    // Read XLSX file (more complex - ZIP with XML inside)
-    function readXLSXFile(file) {
-        try {
-            statusText.text = "Reading XLSX file...";
 
-            // Show a dialog offering to help user export to CSV
-            var result = confirm(
-                "XLSX parsing in ExtendScript is limited due to compression.\n\n" +
-                "For best results:\n" +
-                "1. Open the XLSX file in Excel\n" +
-                "2. Save As > CSV (Comma delimited)\n" +
-                "3. Load the CSV file here\n\n" +
-                "Click OK to try parsing XLSX anyway, or Cancel to select a CSV file.",
-                false,
-                "XLSX Format Limitation"
-            );
-
-            if (!result) {
-                // User chose to select CSV instead
-                var csvFile = File.openDialog("Select CSV file", "*.csv");
-                if (csvFile) {
-                    selectedFile = csvFile;
-                    filePathText.text = csvFile.name;
-                    readCSVFile(csvFile);
-                }
-                return;
-            }
-
-            // Try to parse XLSX anyway
-            // Open file as binary
-            file.encoding = "BINARY";
-            file.open("r");
-            var fileContent = file.read();
-            file.close();
-
-            // Check if it's a ZIP file (XLSX files start with PK\x03\x04)
-            if (fileContent.length > 4 &&
-                fileContent.charCodeAt(0) === 0x50 && // P
-                fileContent.charCodeAt(1) === 0x4B && // K
-                fileContent.charCodeAt(2) === 0x03 &&
-                fileContent.charCodeAt(3) === 0x04) {
-
-                // It's a real XLSX file - we need to extract and parse XML
-                parseXLSXBinary(fileContent);
-
-            } else {
-                // Maybe it's actually a tab-delimited or CSV file with wrong extension
-                file.encoding = "UTF-8";
-                file.open("r");
-                var content = file.read();
-                file.close();
-
-                parseCSVContent(content);
-            }
-
-            if (searchData.length > 0) {
-                statusText.text = "Loaded " + searchData.length + " entries from XLSX";
-                filterAndDisplayResults("");
-            } else {
-                throw new Error("No valid data found in file");
-            }
-
-        } catch (error) {
-            statusText.text = "Error reading XLSX: " + error.message;
-            alert("Error reading XLSX file: " + error.message +
-                "\n\nPlease export the file as CSV for reliable parsing.");
-        }
-    }
-
-    // Parse XLSX binary data
-    function parseXLSXBinary(binaryData) {
-        // XLSX files are ZIP archives containing XML files
-        // The main data is in xl/worksheets/sheet1.xml
-        // Shared strings are in xl/sharedStrings.xml
-
-        try {
-            // Extract sheet XML and shared strings
-            var sheetXML = extractFileFromZip(binaryData, "xl/worksheets/sheet1.xml");
-            var stringsXML = extractFileFromZip(binaryData, "xl/sharedStrings.xml");
-
-            if (sheetXML) {
-                parseXLSXSheet(sheetXML, stringsXML);
-            } else {
-                throw new Error("Could not find worksheet data in XLSX file");
-            }
-
-        } catch (error) {
-            throw new Error("XLSX parsing failed: " + error.message +
-                "\n\nPlease export as CSV for reliable parsing.");
-        }
-    }
-
-    // Extract a file from ZIP archive
-    function extractFileFromZip(zipData, targetFile) {
-        // This is a simplified ZIP parser
-        // ZIP format: Local file headers followed by central directory
-
-        var pos = 0;
-        while (pos < zipData.length - 30) {
-            // Check for local file header signature (PK\x03\x04)
-            if (zipData.charCodeAt(pos) === 0x50 &&
-                zipData.charCodeAt(pos + 1) === 0x4B &&
-                zipData.charCodeAt(pos + 2) === 0x03 &&
-                zipData.charCodeAt(pos + 3) === 0x04) {
-
-                // Read filename length
-                var filenameLen = readUInt16(zipData, pos + 26);
-                var extraLen = readUInt16(zipData, pos + 28);
-                var compressedSize = readUInt32(zipData, pos + 18);
-
-                // Read filename
-                var filename = "";
-                for (var i = 0; i < filenameLen; i++) {
-                    filename += zipData.charAt(pos + 30 + i);
-                }
-
-                // Check if this is the target file
-                if (filename === targetFile) {
-                    var dataStart = pos + 30 + filenameLen + extraLen;
-                    var data = zipData.substr(dataStart, compressedSize);
-
-                    // Try to decompress (most XLSX files use deflate compression)
-                    // For simplicity, we'll assume no compression or handle it
-                    return data;
-                }
-
-                pos += 30 + filenameLen + extraLen + compressedSize;
-            } else {
-                pos++;
-            }
-        }
-
-        return null;
-    }
-
-    // Helper to read little-endian uint16
-    function readUInt16(data, offset) {
-        return data.charCodeAt(offset) | (data.charCodeAt(offset + 1) << 8);
-    }
-
-    // Helper to read little-endian uint32
-    function readUInt32(data, offset) {
-        return data.charCodeAt(offset) |
-            (data.charCodeAt(offset + 1) << 8) |
-            (data.charCodeAt(offset + 2) << 16) |
-            (data.charCodeAt(offset + 3) << 24);
-    }
-
-    // Parse XLSX sheet XML
-    function parseXLSXSheet(sheetXML, stringsXML) {
-        searchData = [];
-
-        // Parse shared strings first
-        var sharedStrings = [];
-        if (stringsXML) {
-            var siMatches = stringsXML.match(/<si[^>]*>.*?<\/si>/g);
-            if (siMatches) {
-                for (var i = 0; i < siMatches.length; i++) {
-                    var tMatch = siMatches[i].match(/<t[^>]*>(.*?)<\/t>/);
-                    if (tMatch) {
-                        sharedStrings.push(tMatch[1]);
-                    }
-                }
-            }
-        }
-
-        // Parse rows
-        var rowMatches = sheetXML.match(/<row[^>]*>.*?<\/row>/g);
-        if (!rowMatches || rowMatches.length < 2) {
-            throw new Error("No data rows found in worksheet");
-        }
-
-        // Parse header row to find column indices
-        var headerCells = rowMatches[0].match(/<c[^>]*>.*?<\/c>/g);
-        var startCol = -1;
-        var wordCol = -1;
-
-        if (headerCells) {
-            for (var i = 0; i < headerCells.length; i++) {
-                var cellValue = getCellValue(headerCells[i], sharedStrings);
-                var cellCol = getCellColumn(headerCells[i]);
-
-                if (cellValue.toLowerCase() === "start") startCol = cellCol;
-                if (cellValue.toLowerCase() === "word") wordCol = cellCol;
-            }
-        }
-
-        if (startCol === -1 || wordCol === -1) {
-            throw new Error("Could not find 'start' and 'word' columns in header");
-        }
-
-        // Parse data rows
-        for (var i = 1; i < rowMatches.length; i++) {
-            var cells = rowMatches[i].match(/<c[^>]*>.*?<\/c>/g);
-            if (!cells) continue;
-
-            var timeValue = null;
-            var word = null;
-
-            for (var j = 0; j < cells.length; j++) {
-                var cellCol = getCellColumn(cells[j]);
-                var cellValue = getCellValue(cells[j], sharedStrings);
-
-                if (cellCol === startCol) {
-                    timeValue = timecodeToSeconds(cellValue);
-                }
-                if (cellCol === wordCol) {
-                    word = cellValue;
-                }
-            }
-
-            if (timeValue !== null && !isNaN(timeValue) && timeValue >= 0 && word) {
-                searchData.push({
-                    time: timeValue,
-                    word: word
-                });
-            }
-        }
-    }
-
-    // Get cell column from reference (A, B, C, etc.)
-    function getCellColumn(cellXML) {
-        var rMatch = cellXML.match(/r="([A-Z]+)\d+"/);
-        if (rMatch) {
-            var col = rMatch[1];
-            var colNum = 0;
-            for (var i = 0; i < col.length; i++) {
-                colNum = colNum * 26 + (col.charCodeAt(i) - 64);
-            }
-            return colNum - 1;
-        }
-        return -1;
-    }
-
-    // Get cell value from XML
-    function getCellValue(cellXML, sharedStrings) {
-        var tMatch = cellXML.match(/<v[^>]*>(.*?)<\/v>/);
-        if (!tMatch) return "";
-
-        var value = tMatch[1];
-
-        // Check if it's a shared string reference
-        if (cellXML.indexOf('t="s"') !== -1) {
-            var idx = parseInt(value);
-            if (!isNaN(idx) && idx < sharedStrings.length) {
-                return sharedStrings[idx];
-            }
-        }
-
-        return value;
-    }
 
     // Helper function to find main_comp
     function findMainComp() {
@@ -777,7 +579,8 @@
                 return mainComp.time;
             }
         } catch (error) {
-            // Ignore errors
+            // Ignore errors (e.g., when modal dialog is active)
+            // Return -1 to indicate playhead time is unavailable
         }
         return -1;
     }
@@ -810,7 +613,14 @@
         }
 
         // Auto-update playhead position
-        currentPlayheadTime = getCurrentPlayheadTime();
+        // Wrap in try-catch to handle modal dialog conflicts
+        try {
+            currentPlayheadTime = getCurrentPlayheadTime();
+        } catch (error) {
+            // If we can't get playhead time (e.g., modal dialog is active),
+            // use the last known time or -1
+            statusText.text = "AE busy, using cached playhead position";
+        }
 
         var filtered = [];
         searchTerm = searchTerm.toLowerCase();
@@ -972,6 +782,12 @@
                 return;
             }
 
+            // Apply calibration offset (in frames)
+            var calibrationFrames = parseFloat(calibrationInput.text) || 0;
+            var frameRate = mainComp.frameRate || 30; // Get comp frame rate, default to 30fps
+            var calibrationSeconds = calibrationFrames / frameRate;
+            seconds += calibrationSeconds;
+
             // Clamp to composition duration
             seconds = Math.max(0, Math.min(seconds, mainComp.duration));
 
@@ -982,7 +798,8 @@
             if (autoMoveCheckbox.value) {
                 moveNextLayerToCurrentTime(mainComp);
             } else {
-                statusText.text = "Jumped to " + formatTime(seconds) + " in " + mainComp.name;
+                var calMessage = calibrationFrames !== 0 ? " (cal: " + calibrationFrames + "f)" : "";
+                statusText.text = "Jumped to " + formatTime(seconds) + " in " + mainComp.name + calMessage;
             }
 
             isJumping = false; // Reset flag
