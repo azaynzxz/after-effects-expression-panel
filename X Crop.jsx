@@ -556,8 +556,8 @@ function showXCropDialog() {
     dialog.show();
 }
 
-// Create and show the UI panel only if run standalone
-if (typeof module === 'undefined') {
+// Create and show the UI panel only if run standalone (not loaded from Expression Panel)
+if (typeof module === 'undefined' && !$.global.__XCROP_LOADED_AS_MODULE) {
     var xboltCropPanel = createXBoltCropUI(this);
     if (xboltCropPanel instanceof Window) {
         xboltCropPanel.show();

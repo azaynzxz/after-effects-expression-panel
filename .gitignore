@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Unignore specific files
+!Expression_Panel.jsx
+!Flip PSD Layer.jsx
+!List_Jumper.jsx
+!Posterize Layer BG.jsx
+!.gitignore

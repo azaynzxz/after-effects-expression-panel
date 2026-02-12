@@ -1464,6 +1464,22 @@ function createPanel(thisObj) {
         createSmartPrecomp();
     };
 
+    // Add CP Movement button
+    var cpMovementBtn = utilityGroup.add("button", undefined, "CP Movement");
+    cpMovementBtn.preferredSize.height = 16;
+    cpMovementBtn.helpTip = "Copy movement from a layer inside a precomp to this layer's position";
+    cpMovementBtn.onClick = function () {
+        showCPMovementDialog();
+    };
+
+    // Add Auto Zoom button
+    var autoZoomBtn = utilityGroup.add("button", undefined, "Auto Zoom");
+    autoZoomBtn.preferredSize.height = 16;
+    autoZoomBtn.helpTip = "Add zoom in/out keyframes to selected layers with easing";
+    autoZoomBtn.onClick = function () {
+        showAutoZoomDialog();
+    };
+
     // More button (opens popup window)
     var advancedToolsBtn = utilityGroup.add("button", undefined, "More");
     advancedToolsBtn.preferredSize.height = 16;
@@ -4562,6 +4578,620 @@ function getPositionName(position) {
 }
 
 // Update status text
+// ===== AUTO ZOOM =====
+// Show Auto Zoom dialog with presets
+function showAutoZoomDialog() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            alert("Please open a composition first.");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            alert("Please select at least one layer.");
+            return;
+        }
+
+        // Build dialog
+        var dialog = new Window("dialog", "Auto Zoom");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 10;
+        dialog.margins = 16;
+        dialog.preferredSize.width = 300;
+
+        // Info
+        var infoText = dialog.add("statictext", undefined,
+            selectedLayers.length + " layer(s) selected", { multiline: false });
+        infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        infoText.alignment = "center";
+
+        // Description
+        var descPanel = dialog.add("panel", undefined, "How it works");
+        descPanel.orientation = "column";
+        descPanel.alignChildren = ["fill", "top"];
+        descPanel.spacing = 4;
+        descPanel.margins = 10;
+
+        var descText;
+        if (selectedLayers.length === 1) {
+            descText = "Zooms IN from current scale to current + X%\nKeyframes at layer start → layer end.";
+        } else {
+            descText = "Alternates zoom direction (bottom to top):\n" +
+                "Layer 1 (bottom): Zoom IN\n" +
+                "Layer 2: Zoom OUT\n" +
+                "Layer 3: Zoom IN  ...and so on.\n" +
+                "Keyframes at each layer's start → end.";
+        }
+        var desc = descPanel.add("statictext", undefined, descText, { multiline: true });
+        desc.preferredSize.height = selectedLayers.length === 1 ? 40 : 80;
+        desc.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+
+        // Preview current scale
+        var previewPanel = dialog.add("panel", undefined, "Current Scale");
+        previewPanel.orientation = "column";
+        previewPanel.alignChildren = ["fill", "top"];
+        previewPanel.spacing = 3;
+        previewPanel.margins = 10;
+
+        // Sort by index descending (bottom layer first) for display
+        var sortedLayers = [];
+        for (var s = 0; s < selectedLayers.length; s++) {
+            sortedLayers.push(selectedLayers[s]);
+        }
+        sortedLayers.sort(function (a, b) {
+            return b.index - a.index; // descending = bottom first
+        });
+
+        for (var p = 0; p < sortedLayers.length; p++) {
+            var lyr = sortedLayers[p];
+            var curScale = lyr.transform.scale.value;
+            var direction = (p % 2 === 0) ? "↗ Zoom IN" : "↙ Zoom OUT";
+            var scaleStr = Math.round(curScale[0]) + "%, " + Math.round(curScale[1]) + "%";
+            var previewLine = previewPanel.add("statictext", undefined,
+                (p + 1) + ". \"" + lyr.name + "\"  [" + scaleStr + "]  →  " + direction);
+            previewLine.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        }
+
+        // Preset buttons
+        var presetPanel = dialog.add("panel", undefined, "Zoom Amount");
+        presetPanel.orientation = "column";
+        presetPanel.alignChildren = ["fill", "top"];
+        presetPanel.spacing = 6;
+        presetPanel.margins = 10;
+
+        // Custom input row
+        var customRow = presetPanel.add("group");
+        customRow.orientation = "row";
+        customRow.alignChildren = ["left", "center"];
+        customRow.spacing = 6;
+
+        customRow.add("statictext", undefined, "Custom %:");
+        var customInput = customRow.add("edittext", undefined, "10");
+        customInput.preferredSize.width = 50;
+        customInput.helpTip = "Enter a custom zoom percentage";
+
+        // Preset button row
+        var btnRow = presetPanel.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignment = "center";
+        btnRow.spacing = 8;
+
+        var btn5 = btnRow.add("button", undefined, "+5%");
+        btn5.preferredSize.width = 60;
+        var btn10 = btnRow.add("button", undefined, "+10%");
+        btn10.preferredSize.width = 60;
+        var btn20 = btnRow.add("button", undefined, "+20%");
+        btn20.preferredSize.width = 60;
+
+        // Apply custom button
+        var applyRow = presetPanel.add("group");
+        applyRow.orientation = "row";
+        applyRow.alignment = "center";
+        applyRow.spacing = 8;
+
+        var applyCustomBtn = applyRow.add("button", undefined, "Apply Custom");
+        applyCustomBtn.preferredSize.width = 120;
+
+        // Cancel
+        var cancelBtn = dialog.add("button", undefined, "Cancel");
+        cancelBtn.alignment = "center";
+
+        // Button handlers
+        btn5.onClick = function () {
+            applyAutoZoom(comp, sortedLayers, 5);
+            dialog.close();
+        };
+        btn10.onClick = function () {
+            applyAutoZoom(comp, sortedLayers, 10);
+            dialog.close();
+        };
+        btn20.onClick = function () {
+            applyAutoZoom(comp, sortedLayers, 20);
+            dialog.close();
+        };
+        applyCustomBtn.onClick = function () {
+            var val = parseFloat(customInput.text);
+            if (isNaN(val) || val <= 0) {
+                alert("Please enter a valid positive number.");
+                return;
+            }
+            applyAutoZoom(comp, sortedLayers, val);
+            dialog.close();
+        };
+        cancelBtn.onClick = function () {
+            dialog.close();
+        };
+
+        dialog.show();
+
+    } catch (error) {
+        alert("Auto Zoom Error: " + error.toString());
+    }
+}
+
+// Apply auto zoom keyframes to sorted layers
+// sortedLayers: sorted by index descending (bottom layer first)
+// zoomPercent: the % to add to current scale
+function applyAutoZoom(comp, sortedLayers, zoomPercent) {
+    try {
+        app.beginUndoGroup("Auto Zoom +" + zoomPercent + "%");
+
+        var successCount = 0;
+
+        for (var i = 0; i < sortedLayers.length; i++) {
+            var layer = sortedLayers[i];
+            if (layer.locked) continue;
+
+            var scaleProp = layer.transform.scale;
+            var currentScale = scaleProp.value;
+            var scaleX = currentScale[0];
+            var scaleY = currentScale[1];
+
+            // Calculate target scale (add zoomPercent)
+            var targetX = scaleX + zoomPercent;
+            var targetY = scaleY + zoomPercent;
+
+            // Determine direction: even index = zoom IN, odd index = zoom OUT
+            var zoomIn = (i % 2 === 0);
+
+            // Use layer inPoint and outPoint as keyframe times
+            var startTime = layer.inPoint;
+            var endTime = layer.outPoint;
+
+            if (zoomIn) {
+                // Zoom IN: start at current scale, end at bigger scale
+                scaleProp.setValueAtTime(startTime, [scaleX, scaleY]);
+                scaleProp.setValueAtTime(endTime, [targetX, targetY]);
+            } else {
+                // Zoom OUT: start at bigger scale, end at current scale
+                scaleProp.setValueAtTime(startTime, [targetX, targetY]);
+                scaleProp.setValueAtTime(endTime, [scaleX, scaleY]);
+            }
+
+            // Apply smooth ease in/out to the keyframes
+            try {
+                var numKeys = scaleProp.numKeys;
+                if (numKeys >= 2) {
+                    // Find the two keyframes we just added
+                    var key1 = -1, key2 = -1;
+                    for (var k = 1; k <= numKeys; k++) {
+                        if (Math.abs(scaleProp.keyTime(k) - startTime) < 0.001) key1 = k;
+                        if (Math.abs(scaleProp.keyTime(k) - endTime) < 0.001) key2 = k;
+                    }
+
+                    if (key1 > 0 && key2 > 0) {
+                        // Smooth ease: speed 0, influence 33% (classic smooth ease)
+                        var easeIn = new KeyframeEase(0, 33);
+                        var easeOut = new KeyframeEase(0, 33);
+
+                        // Key 1: ease out (leaving this keyframe smoothly)
+                        scaleProp.setTemporalEaseAtKey(key1,
+                            [easeIn, easeIn],   // incoming
+                            [easeOut, easeOut]   // outgoing
+                        );
+
+                        // Key 2: ease in (arriving at this keyframe smoothly)
+                        scaleProp.setTemporalEaseAtKey(key2,
+                            [easeIn, easeIn],   // incoming
+                            [easeOut, easeOut]   // outgoing
+                        );
+                    }
+                }
+            } catch (easeError) {
+                // Keyframes still applied even if easing fails
+            }
+
+            successCount++;
+        }
+
+        app.endUndoGroup();
+
+        var msg = "Auto Zoom +" + zoomPercent + "% applied to " + successCount + " layer(s)";
+        updateStatus(msg);
+
+    } catch (error) {
+        alert("Auto Zoom Error: " + error.toString());
+    }
+}
+
+// ===== CP MOVEMENT DIALOG =====
+// Show CP Movement dialog - copy movement from a layer inside a precomp
+function showCPMovementDialog() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            alert("Please open a composition first.");
+            return;
+        }
+
+        // Collect all compositions in the project
+        var compNames = [];
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem) {
+                compNames.push(item.name);
+            }
+        }
+
+        if (compNames.length === 0) {
+            alert("No compositions found in this project.");
+            return;
+        }
+
+        // ---- Helper: create a searchable dropdown ----
+        // Returns { searchInput, dropdown, allItems, getSelectedName }
+        function createSearchableDropdown(parentGroup, labelText, initialItems) {
+            // Search row
+            var searchGroup = parentGroup.add("group");
+            searchGroup.orientation = "row";
+            searchGroup.alignChildren = ["left", "center"];
+            var searchLabel = searchGroup.add("statictext", undefined, "Search:");
+            searchLabel.preferredSize.width = 50;
+            var searchInput = searchGroup.add("edittext", undefined, "");
+            searchInput.preferredSize.width = 250;
+            searchInput.helpTip = "Type to filter the list below (case-insensitive)";
+
+            // Dropdown (listbox for multi-visible items with search)
+            var ddGroup = parentGroup.add("group");
+            ddGroup.orientation = "row";
+            ddGroup.alignChildren = ["left", "center"];
+            var ddLabel = ddGroup.add("statictext", undefined, labelText);
+            ddLabel.preferredSize.width = 50;
+            var dropdown = ddGroup.add("listbox", undefined, initialItems || [],
+                { numberOfColumns: 1, columnWidths: [240] });
+            dropdown.preferredSize = [250, 100];
+
+            // Count label
+            var countLabel = parentGroup.add("statictext", undefined, "");
+            countLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            countLabel.alignment = "right";
+
+            // Store all items for filtering
+            var data = {
+                searchInput: searchInput,
+                dropdown: dropdown,
+                allItems: initialItems ? initialItems.slice() : [],
+                countLabel: countLabel
+            };
+
+            function updateCount() {
+                var total = data.allItems.length;
+                var shown = dropdown.items.length;
+                if (searchInput.text.length > 0) {
+                    countLabel.text = "Showing " + shown + " of " + total;
+                } else {
+                    countLabel.text = total + " items";
+                }
+            }
+
+            // Filter function
+            function filterDropdown() {
+                var query = searchInput.text.toLowerCase();
+                dropdown.removeAll();
+
+                if (query.length === 0) {
+                    // Show all
+                    for (var i = 0; i < data.allItems.length; i++) {
+                        dropdown.add("item", data.allItems[i]);
+                    }
+                } else {
+                    // Filter: show items containing the query
+                    for (var i = 0; i < data.allItems.length; i++) {
+                        if (data.allItems[i].toLowerCase().indexOf(query) !== -1) {
+                            dropdown.add("item", data.allItems[i]);
+                        }
+                    }
+                }
+
+                // Auto-select first match
+                if (dropdown.items.length > 0) {
+                    dropdown.selection = 0;
+                }
+                updateCount();
+            }
+
+            searchInput.onChanging = function () {
+                filterDropdown();
+            };
+
+            // Get the selected name (search text is used as override/manual entry if no selection)
+            data.getSelectedName = function () {
+                if (dropdown.selection) {
+                    return dropdown.selection.text;
+                }
+                // Fallback: use search text as manual entry
+                if (searchInput.text.length > 0) {
+                    return searchInput.text;
+                }
+                return "";
+            };
+
+            // Method to repopulate with new items
+            data.setItems = function (newItems) {
+                data.allItems = newItems.slice();
+                searchInput.text = "";
+                dropdown.removeAll();
+                for (var i = 0; i < newItems.length; i++) {
+                    dropdown.add("item", newItems[i]);
+                }
+                if (dropdown.items.length > 0) {
+                    dropdown.selection = 0;
+                }
+                updateCount();
+            };
+
+            // Initial count
+            updateCount();
+
+            // Auto-select first precomp-like item
+            if (initialItems) {
+                for (var p = 0; p < initialItems.length; p++) {
+                    if (initialItems[p].toLowerCase().indexOf("precomp") !== -1) {
+                        dropdown.selection = p;
+                        break;
+                    }
+                }
+                if (!dropdown.selection && dropdown.items.length > 0) {
+                    dropdown.selection = 0;
+                }
+            }
+
+            return data;
+        }
+
+        // Build dialog
+        var dialog = new Window("dialog", "CP Movement");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 10;
+        dialog.margins = 16;
+        dialog.preferredSize.width = 380;
+
+        // --- Source Precomp ---
+        var precompPanel = dialog.add("panel", undefined, "Source Precomp");
+        precompPanel.orientation = "column";
+        precompPanel.alignChildren = ["fill", "top"];
+        precompPanel.spacing = 6;
+        precompPanel.margins = 10;
+
+        var precompSearch = createSearchableDropdown(precompPanel, "Comp:", compNames);
+
+        // --- Target Layer ---
+        var layerPanel = dialog.add("panel", undefined, "Target Layer (inside the precomp)");
+        layerPanel.orientation = "column";
+        layerPanel.alignChildren = ["fill", "top"];
+        layerPanel.spacing = 6;
+        layerPanel.margins = 10;
+
+        var layerSearch = createSearchableDropdown(layerPanel, "Layer:", []);
+
+        // Function to collect layer names from a comp name
+        function getLayerNames(compName) {
+            var names = [];
+            if (!compName) return names;
+            for (var c = 1; c <= app.project.numItems; c++) {
+                var ci = app.project.item(c);
+                if (ci instanceof CompItem && ci.name === compName) {
+                    for (var l = 1; l <= ci.numLayers; l++) {
+                        names.push(ci.layer(l).name);
+                    }
+                    break;
+                }
+            }
+            return names;
+        }
+
+        // Populate layers when precomp selection changes
+        precompSearch.dropdown.onChange = function () {
+            if (precompSearch.dropdown.selection) {
+                var selectedComp = precompSearch.dropdown.selection.text;
+                layerSearch.setItems(getLayerNames(selectedComp));
+                pcLayerInput.text = selectedComp;
+            }
+        };
+
+        // Initial populate of layers
+        var initialCompName = precompSearch.getSelectedName();
+        if (initialCompName) {
+            layerSearch.setItems(getLayerNames(initialCompName));
+        }
+
+        // --- Precomp Layer Name in main comp ---
+        var precompLayerPanel = dialog.add("panel", undefined, "Precomp Layer Name (in this comp)");
+        precompLayerPanel.orientation = "column";
+        precompLayerPanel.alignChildren = ["fill", "top"];
+        precompLayerPanel.spacing = 6;
+        precompLayerPanel.margins = 10;
+
+        var precompLayerInfo = precompLayerPanel.add("statictext", undefined,
+            "The name of the precomp layer in the current composition.\nUsually the same as the precomp name.",
+            { multiline: true });
+        precompLayerInfo.preferredSize.height = 36;
+        precompLayerInfo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+
+        var pcLayerGroup = precompLayerPanel.add("group");
+        pcLayerGroup.orientation = "row";
+        pcLayerGroup.alignChildren = ["left", "center"];
+        var pcLayerLabel = pcLayerGroup.add("statictext", undefined, "Name:");
+        pcLayerLabel.preferredSize.width = 50;
+        var pcLayerInput = pcLayerGroup.add("edittext", undefined, initialCompName || "");
+        pcLayerInput.preferredSize.width = 250;
+        pcLayerInput.helpTip = "Layer name of the precomp in the current comp (auto-filled from selection above)";
+
+        // --- Buttons ---
+        var btnGroup = dialog.add("group");
+        btnGroup.orientation = "row";
+        btnGroup.alignment = "center";
+        btnGroup.spacing = 10;
+
+        var applyBtn = btnGroup.add("button", undefined, "Apply Expression");
+        var copyBtn = btnGroup.add("button", undefined, "Copy to Clipboard");
+        var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+
+        // --- Build expression helper ---
+        function buildExpression() {
+            var precompName = precompSearch.getSelectedName();
+            if (precompName === "") {
+                alert("Please select or type a precomp name.");
+                return null;
+            }
+
+            var targetLayerName = layerSearch.getSelectedName();
+            if (targetLayerName === "") {
+                alert("Please select or type a target layer name.");
+                return null;
+            }
+
+            var precompLayerName = pcLayerInput.text;
+            if (precompLayerName === "") {
+                precompLayerName = precompName;
+            }
+
+            var expr = '// CP Movement - copy position from layer inside precomp\n';
+            expr += 'var innerComp = comp("' + precompName + '");\n';
+            expr += 'var innerLayer = innerComp.layer("' + targetLayerName + '");\n';
+            expr += 'var innerPos = innerLayer.toWorld(innerLayer.anchorPoint);\n';
+            expr += 'thisComp.layer("' + precompLayerName + '").toWorld(innerPos);';
+            return expr;
+        }
+
+        applyBtn.onClick = function () {
+            var expr = buildExpression();
+            if (!expr) return;
+
+            var activeComp = app.project.activeItem;
+            if (!activeComp || !(activeComp instanceof CompItem)) {
+                alert("No active composition.");
+                return;
+            }
+
+            var selectedLayers = activeComp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("No layer selected. Please select at least one layer.");
+                return;
+            }
+
+            // Determine the precomp name used in the expression
+            var precompName = precompSearch.getSelectedName();
+            var precompLayerName = pcLayerInput.text || precompName;
+
+            app.beginUndoGroup("CP Movement Expression");
+
+            // Check if precomp already exists as a layer in the current comp
+            var precompLayerExists = false;
+            for (var f = 1; f <= activeComp.numLayers; f++) {
+                if (activeComp.layer(f).name === precompLayerName) {
+                    precompLayerExists = true;
+                    break;
+                }
+            }
+
+            // If precomp layer doesn't exist, find and add it
+            if (!precompLayerExists) {
+                var precompSource = null;
+                for (var p = 1; p <= app.project.numItems; p++) {
+                    var projItem = app.project.item(p);
+                    if (projItem instanceof CompItem && projItem.name === precompName) {
+                        precompSource = projItem;
+                        break;
+                    }
+                }
+
+                if (precompSource) {
+                    var newPrecompLayer = activeComp.layers.add(precompSource);
+                    // Rename if the layer name should differ from comp name
+                    if (precompLayerName !== precompName) {
+                        newPrecompLayer.name = precompLayerName;
+                    }
+                    // Disable video so it doesn't render visually on top
+                    newPrecompLayer.enabled = false;
+                    // Lock it to prevent accidental edits
+                    newPrecompLayer.locked = true;
+                    // Deselect it so it doesn't interfere with the expression apply below
+                    newPrecompLayer.locked = false;
+                    newPrecompLayer.selected = false;
+                    newPrecompLayer.locked = true;
+                } else {
+                    alert("Could not find composition '" + precompName + "' in the project.");
+                    app.endUndoGroup();
+                    return;
+                }
+            }
+
+            // Re-select the originally selected layers (adding the precomp may have deselected them)
+            var successCount = 0;
+            for (var s = 0; s < selectedLayers.length; s++) {
+                try {
+                    selectedLayers[s].transform.position.expression = expr;
+                    successCount++;
+                } catch (e) {
+                    // skip layers that can't have expressions
+                }
+            }
+
+            app.endUndoGroup();
+
+            if (successCount > 0) {
+                updateStatus("CP Movement applied to " + successCount + " layer(s)");
+                dialog.close();
+            } else {
+                alert("Failed to apply expression to any selected layer.");
+            }
+        };
+
+        copyBtn.onClick = function () {
+            var expr = buildExpression();
+            if (!expr) return;
+
+            var clipDialog = new Window("dialog", "Expression Copied");
+            clipDialog.orientation = "column";
+            clipDialog.alignChildren = ["fill", "top"];
+            clipDialog.margins = 12;
+
+            clipDialog.add("statictext", undefined, "Expression generated. Select all and copy:");
+            var clipText = clipDialog.add("edittext", undefined, expr, { multiline: true });
+            clipText.preferredSize = [400, 120];
+
+            var okBtn = clipDialog.add("button", undefined, "OK");
+            okBtn.onClick = function () { clipDialog.close(); };
+
+            clipDialog.show();
+        };
+
+        cancelBtn.onClick = function () {
+            dialog.close();
+        };
+
+        dialog.show();
+
+    } catch (error) {
+        alert("CP Movement Error: " + error.toString());
+    }
+}
+
 function updateStatus(message) {
     // This is a simplified version - in a real panel you'd store the panel reference
     // For now, just show an alert for major errors
@@ -7514,6 +8144,9 @@ function openXCropTool() {
             alert("X Crop.jsx not found in the same directory as Expression Panel.");
             return;
         }
+
+        // Set flag so X Crop.jsx won't auto-show its own window
+        $.global.__XCROP_LOADED_AS_MODULE = true;
 
         // Evaluate the X Crop script
         $.evalFile(xCropFile);
