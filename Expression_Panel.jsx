@@ -28,633 +28,6 @@ var EXPRESSIONS = {
     "Walk/Run Arc": "// Settings\nspeed = 100; // pixels per second\narcHeight = 20; // arc height in pixels\nfrequency = 2; // steps per second\ndirection = 1; // 1 for right, -1 for left\n\n// Calculate movement\nx = time * speed * direction;\ny = Math.sin(time * frequency * 2 * Math.PI) * arcHeight;\n\nvalue + [x, y]",
     "Audio Sync": "thisComp.layer(\"Audio Amplitude\").effect(\"Both Channels\")(\"Slider\")/75"
 };
-
-// ===== LIBRARIES SYSTEM =====
-
-// Libraries configuration
-var LIBRARIES_FOLDER = File($.fileName).parent.absoluteURI + "/Libraries/";
-var LIBRARIES_DATA_FILE = LIBRARIES_FOLDER + "library_index.json";
-
-// Default library categories
-var DEFAULT_CATEGORIES = [
-    "Characters",
-    "Transitions",
-    "Effects",
-    "Backgrounds",
-    "Logos",
-    "Text_Animations",
-    "Particles",
-    "Overlays"
-];
-
-// Initialize libraries data structure
-var LIBRARIES_DATA = {
-    categories: {},
-    version: "1.0"
-};
-
-// Initialize libraries system
-function initLibrariesSystem() {
-    try {
-        // Create Libraries folder if it doesn't exist
-        var librariesFolder = new Folder(LIBRARIES_FOLDER);
-        if (!librariesFolder.exists) {
-            librariesFolder.create();
-        }
-
-        // Create default category folders
-        for (var i = 0; i < DEFAULT_CATEGORIES.length; i++) {
-            var categoryPath = LIBRARIES_FOLDER + DEFAULT_CATEGORIES[i];
-            var categoryFolder = new Folder(categoryPath);
-            if (!categoryFolder.exists) {
-                categoryFolder.create();
-            }
-
-            // Create thumbnails subfolder
-            var thumbsPath = categoryPath + "/thumbnails";
-            var thumbsFolder = new Folder(thumbsPath);
-            if (!thumbsFolder.exists) {
-                thumbsFolder.create();
-            }
-        }
-
-        // Load existing library data
-        loadLibrariesData();
-
-    } catch (error) {
-        alert("Error initializing libraries system: " + error.toString());
-    }
-}
-
-// Load libraries data from JSON file
-function loadLibrariesData() {
-    try {
-        var dataFile = new File(LIBRARIES_DATA_FILE);
-        if (dataFile.exists) {
-            dataFile.open("r");
-            var content = dataFile.read();
-            dataFile.close();
-
-            if (content) {
-                LIBRARIES_DATA = JSON.parse(content);
-            }
-        }
-
-        // Ensure all default categories exist in data
-        for (var i = 0; i < DEFAULT_CATEGORIES.length; i++) {
-            var category = DEFAULT_CATEGORIES[i];
-            if (!LIBRARIES_DATA.categories[category]) {
-                LIBRARIES_DATA.categories[category] = [];
-            }
-        }
-
-    } catch (error) {
-        // If loading fails, use default structure
-        LIBRARIES_DATA = { categories: {}, version: "1.0" };
-        for (var i = 0; i < DEFAULT_CATEGORIES.length; i++) {
-            LIBRARIES_DATA.categories[DEFAULT_CATEGORIES[i]] = [];
-        }
-    }
-}
-
-// Save libraries data to JSON file
-function saveLibrariesData() {
-    try {
-        var dataFile = new File(LIBRARIES_DATA_FILE);
-        dataFile.open("w");
-        dataFile.write(JSON.stringify(LIBRARIES_DATA, null, 2));
-        dataFile.close();
-    } catch (error) {
-        alert("Error saving libraries data: " + error.toString());
-    }
-}
-
-// Save composition/precomp to library
-function saveToLibrary(comp, libraryName, category) {
-    try {
-        // Enhanced null checks
-        if (!comp || !(comp instanceof CompItem)) {
-            alert("Invalid composition selected");
-            return false;
-        }
-
-        if (!libraryName || trimString(libraryName) === "") {
-            alert("Please provide a valid library name");
-            return false;
-        }
-
-        if (!category || trimString(category) === "") {
-            alert("Please provide a valid category");
-            return false;
-        }
-
-        app.beginUndoGroup("Save to Library");
-
-        // Store the current project
-        var currentProject = app.project;
-        if (!currentProject) {
-            app.endUndoGroup();
-            alert("No current project found");
-            return false;
-        }
-
-        // Check if current project needs to be saved first
-        if (!currentProject.file) {
-            var shouldSave = confirm("Current project hasn't been saved. Save it first to continue with library save?");
-            if (shouldSave) {
-                var saveDialog = currentProject.save();
-                if (!saveDialog) {
-                    app.endUndoGroup();
-                    alert("Project save cancelled. Cannot save to library without saving project first.");
-                    return false;
-                }
-            } else {
-                app.endUndoGroup();
-                alert("Cannot save to library without saving project first.");
-                return false;
-            }
-        }
-
-        // Simple and safe approach: Save current project as library file
-        // This preserves everything and avoids dependency issues
-
-        // Create filename (sanitize name)
-        var safeName = libraryName.replace(/[^\w\s-_]/g, "").replace(/\s+/g, "_");
-        if (safeName === "") {
-            safeName = "Library_Item_" + Date.now();
-        }
-        var fileName = safeName + ".aep";
-        var filePath = LIBRARIES_FOLDER + category + "/" + fileName;
-
-        // Simply save current project to library location
-        var saveFile = new File(filePath);
-        var saveResult = currentProject.save(saveFile);
-
-        if (!saveResult) {
-            app.endUndoGroup();
-            alert("Could not save library file to: " + filePath);
-            return false;
-        }
-
-        // Determine composition type safely
-        var compType = "composition";
-        try {
-            if (comp.usedIn && comp.usedIn.length > 0) {
-                compType = "precomposition";
-            }
-        } catch (e) {
-            // If usedIn check fails, default to composition
-            compType = "composition";
-        }
-
-        // Create library entry metadata with safe property access
-        var libraryItem = {
-            name: libraryName,
-            fileName: fileName,
-            category: category,
-            type: compType,
-            width: comp.width || 1920,
-            height: comp.height || 1080,
-            duration: comp.duration || 1,
-            frameRate: comp.frameRate || 30,
-            thumbnailPath: null,
-            dateCreated: formatDateISO(new Date()),
-            sourceProject: (currentProject.file && currentProject.file.name) ? currentProject.file.name : "Unsaved Project"
-        };
-
-        // Add to libraries data
-        if (!LIBRARIES_DATA.categories[category]) {
-            LIBRARIES_DATA.categories[category] = [];
-        }
-        LIBRARIES_DATA.categories[category].push(libraryItem);
-
-        // Save libraries data
-        saveLibrariesData();
-
-        // Library file saved successfully
-
-        app.endUndoGroup();
-
-        return true;
-
-    } catch (error) {
-        app.endUndoGroup();
-        alert("Error saving to library: " + error.toString());
-        return false;
-    }
-}
-
-
-
-// Generate thumbnail for library item
-function generateThumbnail(comp, category, safeName) {
-    try {
-        // Set comp to frame 0 or middle frame
-        var thumbnailTime = comp.duration > 0 ? comp.duration / 2 : 0;
-
-        // Create render queue item for thumbnail
-        var renderQueue = app.project.renderQueue;
-        var renderItem = renderQueue.items.add(comp);
-
-        // Set up render settings for thumbnail
-        renderItem.timeSpan = TimeSpan.COMP;
-        renderItem.outputModules[1].applyTemplate("Lossless");
-
-        // Set thumbnail output path
-        var thumbnailFileName = safeName + ".png";
-        var outputPath = LIBRARIES_FOLDER + category + "/thumbnails/" + thumbnailFileName;
-        renderItem.outputModules[1].file = new File(outputPath);
-
-        // Render thumbnail (small size)
-        renderItem.outputModules[1].setSettings({
-            "Output File Info": {
-                "Base Path": LIBRARIES_FOLDER + category + "/thumbnails/",
-                "Subfolder Path": "",
-                "File Name": safeName + "_[#####]"
-            }
-        });
-
-        return "thumbnails/" + thumbnailFileName;
-
-    } catch (error) {
-        // If thumbnail generation fails, return null
-        return null;
-    }
-}
-
-// Load library item into current project
-function loadFromLibrary(libraryItem) {
-    try {
-        if (!libraryItem || !libraryItem.fileName || !libraryItem.category) {
-            return false;
-        }
-
-        var libraryFilePath = LIBRARIES_FOLDER + libraryItem.category + "/" + libraryItem.fileName;
-        var libraryFile = new File(libraryFilePath);
-
-        if (!libraryFile.exists) {
-            alert("Library file not found: " + libraryItem.fileName);
-            return false;
-        }
-
-        app.beginUndoGroup("Load from Library");
-
-        // Import the .aep file directly as project footage
-        // This creates a footage item that references the entire project
-        var importOptions = new ImportOptions(libraryFile);
-        importOptions.importAs = ImportAsType.PROJECT;
-
-        var importedItems = app.project.importFile(importOptions);
-
-        app.endUndoGroup();
-
-        updateStatus("Imported '" + libraryItem.name + "' from library - check Project panel");
-        return true;
-
-    } catch (error) {
-        app.endUndoGroup();
-
-        // If project import fails, try a different approach
-        try {
-            app.beginUndoGroup("Load from Library (Alternative)");
-
-            // Simply import the file as composition footage
-            var importOptions = new ImportOptions(libraryFile);
-            importOptions.importAs = ImportAsType.COMP;
-
-            var importedItem = app.project.importFile(importOptions);
-
-            app.endUndoGroup();
-            updateStatus("Imported '" + libraryItem.name + "' as composition from library");
-            return true;
-
-        } catch (error2) {
-            app.endUndoGroup();
-            alert("Error loading from library: " + error2.toString());
-            return false;
-        }
-    }
-}
-
-// Show Add to Library dialog
-function showAddToLibraryDialog() {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) {
-        alert("Please select a composition or precomposition");
-        return;
-    }
-
-    var dialog = new Window("dialog", "Add to Library");
-    dialog.orientation = "column";
-    dialog.alignChildren = ["fill", "top"];
-    dialog.spacing = 15;
-    dialog.margins = 20;
-    dialog.preferredSize = [400, 300];
-
-    // Library name input
-    var nameGroup = dialog.add("group");
-    nameGroup.orientation = "row";
-    nameGroup.alignChildren = ["left", "center"];
-    nameGroup.add("statictext", undefined, "Library Name:");
-    var nameInput = nameGroup.add("edittext", undefined, comp.name);
-    nameInput.preferredSize.width = 250;
-
-    // Category selection
-    var categoryGroup = dialog.add("group");
-    categoryGroup.orientation = "row";
-    categoryGroup.alignChildren = ["left", "center"];
-    categoryGroup.add("statictext", undefined, "Category:");
-    var categoryList = categoryGroup.add("dropdownlist", undefined, DEFAULT_CATEGORIES);
-    categoryList.preferredSize.width = 150;
-    categoryList.selection = 0; // Default to first category
-
-    // New category option
-    var newCatGroup = dialog.add("group");
-    newCatGroup.orientation = "row";
-    newCatGroup.alignChildren = ["left", "center"];
-    var newCatCheck = newCatGroup.add("checkbox", undefined, "Create new category:");
-    var newCatInput = newCatGroup.add("edittext", undefined, "");
-    newCatInput.preferredSize.width = 150;
-    newCatInput.enabled = false;
-
-    newCatCheck.onClick = function () {
-        newCatInput.enabled = this.value;
-        categoryList.enabled = !this.value;
-        if (this.value) {
-            newCatInput.active = true;
-        }
-    };
-
-    // Composition info display
-    var infoPanel = dialog.add("panel", undefined, "Composition Info");
-    infoPanel.orientation = "column";
-    infoPanel.alignChildren = ["fill", "top"];
-    infoPanel.spacing = 5;
-    infoPanel.margins = 10;
-
-    infoPanel.add("statictext", undefined, "Source: " + comp.name);
-    infoPanel.add("statictext", undefined, "Type: " + (comp.usedIn.length > 0 ? "Precomposition" : "Composition"));
-    infoPanel.add("statictext", undefined, "Size: " + comp.width + " × " + comp.height);
-    infoPanel.add("statictext", undefined, "Duration: " + comp.duration.toFixed(2) + " seconds");
-    infoPanel.add("statictext", undefined, "Frame Rate: " + comp.frameRate + " fps");
-
-    // Buttons
-    var buttonGroup = dialog.add("group");
-    buttonGroup.orientation = "row";
-    buttonGroup.alignment = "center";
-    buttonGroup.spacing = 10;
-
-    var saveBtn = buttonGroup.add("button", undefined, "Save to Library");
-    var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-
-    saveBtn.onClick = function () {
-        var libraryName = trimString(nameInput.text);
-        if (!libraryName) {
-            alert("Please enter a name for the library item");
-            return;
-        }
-
-        var category = newCatCheck.value ? trimString(newCatInput.text) : categoryList.selection.text;
-        if (!category) {
-            alert("Please select or enter a category");
-            return;
-        }
-
-        // Create new category folder if needed
-        if (newCatCheck.value) {
-            var newCategoryPath = LIBRARIES_FOLDER + category;
-            var newCategoryFolder = new Folder(newCategoryPath);
-            if (!newCategoryFolder.exists) {
-                newCategoryFolder.create();
-            }
-
-            // Create thumbnails subfolder
-            var thumbsPath = newCategoryPath + "/thumbnails";
-            var thumbsFolder = new Folder(thumbsPath);
-            if (!thumbsFolder.exists) {
-                thumbsFolder.create();
-            }
-        }
-
-        if (saveToLibrary(comp, libraryName, category)) {
-            updateStatus("Saved '" + libraryName + "' to library");
-            dialog.close();
-        }
-    };
-
-    cancelBtn.onClick = function () {
-        dialog.close();
-    };
-
-    dialog.show();
-}
-
-// Show Library Browser dialog
-function showLibraryBrowserDialog() {
-    loadLibrariesData(); // Refresh data
-
-    var dialog = new Window("dialog", "Library Browser");
-    dialog.orientation = "column";
-    dialog.alignChildren = ["fill", "fill"];
-    dialog.spacing = 10;
-    dialog.margins = 16;
-    dialog.preferredSize = [600, 500];
-
-    // Category tabs
-    var categoryGroup = dialog.add("group");
-    categoryGroup.orientation = "row";
-    categoryGroup.alignChildren = ["center", "center"];
-    categoryGroup.spacing = 5;
-
-    categoryGroup.add("statictext", undefined, "Category:");
-    var categoryDropdown = categoryGroup.add("dropdownlist");
-    categoryDropdown.preferredSize.width = 150;
-
-    // Populate categories
-    var categories = [];
-    for (var cat in LIBRARIES_DATA.categories) {
-        categories.push(cat);
-        categoryDropdown.add("item", cat);
-    }
-
-    if (categories.length > 0) {
-        categoryDropdown.selection = 0;
-    }
-
-    var refreshBtn = categoryGroup.add("button", undefined, "Refresh");
-    var manageBtn = categoryGroup.add("button", undefined, "Manage Categories");
-
-    // Items list panel
-    var listPanel = dialog.add("panel", undefined, "Library Items");
-    listPanel.orientation = "column";
-    listPanel.alignChildren = ["fill", "fill"];
-    listPanel.spacing = 5;
-    listPanel.margins = 10;
-
-    var itemsList = listPanel.add("listbox");
-    itemsList.preferredSize = [560, 250];
-
-    // Item details panel
-    var detailsPanel = dialog.add("panel", undefined, "Item Details");
-    detailsPanel.orientation = "column";
-    detailsPanel.alignChildren = ["fill", "top"];
-    detailsPanel.spacing = 5;
-    detailsPanel.margins = 10;
-    detailsPanel.preferredSize.height = 100;
-
-    var detailsText = detailsPanel.add("statictext", undefined, "Select an item to view details", { multiline: true });
-    detailsText.preferredSize = [560, 80];
-
-    // Buttons
-    var buttonGroup = dialog.add("group");
-    buttonGroup.orientation = "row";
-    buttonGroup.alignment = "center";
-    buttonGroup.spacing = 10;
-
-    var loadBtn = buttonGroup.add("button", undefined, "Load into Project");
-    var deleteBtn = buttonGroup.add("button", undefined, "Delete from Library");
-    var closeBtn = buttonGroup.add("button", undefined, "Close");
-
-    loadBtn.enabled = false;
-    deleteBtn.enabled = false;
-
-    // Populate items list for selected category
-    function populateItemsList() {
-        itemsList.removeAll();
-
-        if (!categoryDropdown.selection) return;
-
-        var selectedCategory = categoryDropdown.selection.text;
-        var items = LIBRARIES_DATA.categories[selectedCategory] || [];
-
-        for (var i = 0; i < items.length; i++) {
-            var item = items[i];
-            var displayName = item.name + " (" + item.type + ")";
-            var listItem = itemsList.add("item", displayName);
-            listItem.libraryData = item;
-            listItem.libraryIndex = i;
-            listItem.categoryName = selectedCategory;
-        }
-    }
-
-    // Show item details
-    function showItemDetails(selectedItem) {
-        if (selectedItem && selectedItem.libraryData) {
-            var data = selectedItem.libraryData;
-            var details = "Name: " + data.name + "\n";
-            details += "Type: " + data.type + "\n";
-            details += "Size: " + data.width + " × " + data.height + "\n";
-            details += "Duration: " + data.duration.toFixed(2) + " seconds\n";
-            details += "Frame Rate: " + data.frameRate + " fps\n";
-            details += "Created: " + formatDateISO(new Date(data.dateCreated)).split('T')[0] + "\n";
-            details += "Source: " + (data.sourceProject || "Unknown");
-
-            detailsText.text = details;
-            loadBtn.enabled = true;
-            deleteBtn.enabled = true;
-        } else {
-            detailsText.text = "Select an item to view details";
-            loadBtn.enabled = false;
-            deleteBtn.enabled = false;
-        }
-    }
-
-    // Event handlers
-    categoryDropdown.onChange = function () {
-        populateItemsList();
-        showItemDetails(null);
-    };
-
-    itemsList.onChange = function () {
-        showItemDetails(this.selection);
-    };
-
-    refreshBtn.onClick = function () {
-        loadLibrariesData();
-        populateItemsList();
-        showItemDetails(null);
-    };
-
-    loadBtn.onClick = function () {
-        var selectedItem = itemsList.selection;
-        if (selectedItem && selectedItem.libraryData) {
-            if (loadFromLibrary(selectedItem.libraryData)) {
-                dialog.close();
-            }
-        }
-    };
-
-    deleteBtn.onClick = function () {
-        var selectedItem = itemsList.selection;
-        if (selectedItem && selectedItem.libraryData) {
-            var result = confirm("Are you sure you want to delete '" + selectedItem.libraryData.name + "' from the library?");
-            if (result) {
-                // Remove from data
-                var category = selectedItem.categoryName;
-                var index = selectedItem.libraryIndex;
-                LIBRARIES_DATA.categories[category].splice(index, 1);
-
-                // Delete files
-                try {
-                    var filePath = LIBRARIES_FOLDER + category + "/" + selectedItem.libraryData.fileName;
-                    var file = new File(filePath);
-                    if (file.exists) {
-                        file.remove();
-                    }
-
-                    // Delete thumbnail if exists
-                    if (selectedItem.libraryData.thumbnailPath) {
-                        var thumbPath = LIBRARIES_FOLDER + category + "/" + selectedItem.libraryData.thumbnailPath;
-                        var thumbFile = new File(thumbPath);
-                        if (thumbFile.exists) {
-                            thumbFile.remove();
-                        }
-                    }
-                } catch (e) {
-                    // Continue even if file deletion fails
-                }
-
-                saveLibrariesData();
-                populateItemsList();
-                showItemDetails(null);
-                updateStatus("Deleted '" + selectedItem.libraryData.name + "' from library");
-            }
-        }
-    };
-
-    closeBtn.onClick = function () {
-        dialog.close();
-    };
-
-    // Initialize
-    populateItemsList();
-
-    dialog.show();
-}
-
-// Helper function for trimming strings (ExtendScript doesn't have native trim)
-function trimString(str) {
-    if (!str) return "";
-    return str.replace(/^\s+|\s+$/g, '');
-}
-
-// Helper function for date formatting (ExtendScript doesn't have toISOString)
-function formatDateISO(date) {
-    if (!date) date = new Date();
-
-    var year = date.getFullYear();
-    var month = ("0" + (date.getMonth() + 1)).slice(-2);
-    var day = ("0" + date.getDate()).slice(-2);
-    var hours = ("0" + date.getHours()).slice(-2);
-    var minutes = ("0" + date.getMinutes()).slice(-2);
-    var seconds = ("0" + date.getSeconds()).slice(-2);
-
-    return year + "-" + month + "-" + day + "T" + hours + ":" + minutes + ":" + seconds + "Z";
-}
-
-// Initialize libraries system on startup
-initLibrariesSystem();
-
 // Create the main panel function
 function createPanel(thisObj) {
     // Determine if this is a dockable panel or standalone window
@@ -1130,9 +503,55 @@ function createPanel(thisObj) {
     basicGroup.alignChildren = ["fill", "top"];
     basicGroup.spacing = 1;
 
-    // Basic animation buttons
-    var basicButtons = ["Fast Wiggle", "Posterize Time", "Stop Motion", "Time Rotation", "Up Down", "Left Right", "Rotation PingPong", "Thunder Flicker", "Horror Light", "Scale Pulse"];
-    addButtonsToGroup(basicGroup, basicButtons);
+    // Basic animation buttons - paired in 2-column rows
+    var basicPairs = [
+        ["Fast Wiggle", "Posterize Time"],
+        ["Stop Motion", "Time Rotation"],
+        ["Up Down", "Left Right"],
+        ["Rot PingPong", "Thunder Flicker"],
+        ["Horror Light", "Scale Pulse"]
+    ];
+    // Map short labels to expression keys
+    var labelToKey = { "Rot PingPong": "Rotation PingPong" };
+
+    for (var bp = 0; bp < basicPairs.length; bp++) {
+        var bRow = basicGroup.add("group");
+        bRow.orientation = "row";
+        bRow.alignChildren = ["fill", "center"];
+        bRow.spacing = 2;
+
+        for (var bc = 0; bc < basicPairs[bp].length; bc++) {
+            var label = basicPairs[bp][bc];
+            var key = labelToKey[label] || label;
+            (function (lbl, expressionKey) {
+                var btn = bRow.add("button", undefined, lbl);
+                btn.alignment = ["fill", "center"];
+                btn.preferredSize.height = 16;
+                btn.helpTip = EXPRESSIONS[expressionKey] || expressionKey;
+                btn.onClick = function () {
+                    if (expressionKey === "Time Rotation") {
+                        showTimeRotationDialog();
+                    } else if (expressionKey === "Up Down") {
+                        showUpDownDialog();
+                    } else if (expressionKey === "Left Right") {
+                        showLeftRightDialog();
+                    } else if (expressionKey === "Fast Wiggle") {
+                        showWigglePresetsDialog();
+                    } else if (expressionKey === "Posterize Time") {
+                        showPosterizeTimeDialog();
+                    } else if (expressionKey === "Rotation PingPong") {
+                        showRotationPingPongDialog();
+                    } else if (expressionKey === "Thunder Flicker") {
+                        showThunderFlickerDialog();
+                    } else if (expressionKey === "Scale Pulse") {
+                        showScalePulseDialog();
+                    } else {
+                        handleExpressionClick(expressionKey, EXPRESSIONS[expressionKey]);
+                    }
+                };
+            })(label, key);
+        }
+    }
 
     // Loops (Left Column)
     leftCol.add("panel");
@@ -1149,166 +568,101 @@ function createPanel(thisObj) {
     var loopButtons = ["Loop Cycle", "Loop Continue", "Loop PingPong"];
     addButtonsToGroup(loopGroup, loopButtons);
 
-    // Add separator before shape scaling section
-    leftCol.add("panel");
 
-    // Scale & Center Section (below Loop)
-    var scaleTitle = leftCol.add("statictext", undefined, "Scale & Center");
-    scaleTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-    scaleTitle.alignment = "center";
+    // Looper & Create Null row (below Loops)
+    var looperNullRow = leftCol.add("group");
+    looperNullRow.orientation = "row";
+    looperNullRow.alignChildren = ["fill", "center"];
+    looperNullRow.spacing = 2;
 
-    var scaleCenterGroup = leftCol.add("group");
-    scaleCenterGroup.orientation = "column";
-    scaleCenterGroup.alignChildren = ["fill", "top"];
-    scaleCenterGroup.spacing = 2;
-
-    // Dropdown for shape layer selection (first line)
-    var shapeLayerDropdown = scaleCenterGroup.add("dropdownlist");
-    shapeLayerDropdown.alignment = ["fill", "center"];
-    shapeLayerDropdown.helpTip = "Select a shape layer to scale and center";
-
-    // Button row (second line)
-    var scaleButtonRow = scaleCenterGroup.add("group");
-    scaleButtonRow.orientation = "row";
-    scaleButtonRow.alignChildren = ["fill", "center"];
-    scaleButtonRow.spacing = 2;
-
-    // Scale & Center button
-    var scaleAndCenterBtn = scaleButtonRow.add("button", undefined, "Scale & Center");
-    scaleAndCenterBtn.alignment = ["fill", "center"];
-    scaleAndCenterBtn.preferredSize.height = 16;
-    scaleAndCenterBtn.helpTip = "Zoom selected layer based on shape layer area (like a crop/zoom window)";
-
-    // Refresh button
-    var refreshBtn = scaleButtonRow.add("button", undefined, "↻");
-    refreshBtn.preferredSize.width = 20;
-    refreshBtn.preferredSize.height = 16;
-    refreshBtn.helpTip = "Refresh shape layer list";
-
-    // Function to update shape layer list
-    function updateShapeLayerList() {
-        try {
-            shapeLayerDropdown.removeAll();
-
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                for (var i = 1; i <= comp.numLayers; i++) {
-                    var layer = comp.layer(i);
-                    if (layer instanceof ShapeLayer) {
-                        shapeLayerDropdown.add("item", layer.name);
-                    }
-                }
-
-                if (shapeLayerDropdown.items.length > 0) {
-                    shapeLayerDropdown.selection = 0;
-                }
-            }
-        } catch (error) {
-            // Silently handle errors during refresh
-        }
-    }
-
-    // Refresh on dropdown click/focus
-    shapeLayerDropdown.onActivate = function () {
-        updateShapeLayerList();
+    var looperBtn = looperNullRow.add("button", undefined, "Looper");
+    looperBtn.alignment = ["fill", "center"];
+    looperBtn.preferredSize.height = 16;
+    looperBtn.helpTip = "Enable time remap loop on selected precomp layer";
+    looperBtn.onClick = function () {
+        looperTool();
     };
 
-    // Function to zoom target layer based on shape layer area
-    function scaleAndCenterShapeLayer() {
-        try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                updateStatus("No active composition");
-                return;
-            }
-
-            // Check if we have a selected layer to zoom
-            if (comp.selectedLayers.length === 0) {
-                updateStatus("No layer selected");
-                return;
-            }
-
-            if (!shapeLayerDropdown.selection) {
-                updateStatus("No shape layer selected");
-                return;
-            }
-
-            var shapeLayerName = shapeLayerDropdown.selection.text;
-            var shapeLayer = comp.layer(shapeLayerName);
-
-            if (!shapeLayer) {
-                updateStatus("Shape layer not found");
-                return;
-            }
-
-            var targetLayer = comp.selectedLayers[0];
-
-            app.beginUndoGroup("Scale & Center Layer");
-
-            // Get shape layer bounds
-            var shapeRect = shapeLayer.sourceRectAtTime(comp.time, false);
-            var shapeWidth = shapeRect.width;
-            var shapeHeight = shapeRect.height;
-
-            // Calculate zoom factor based on composition size
-            var compWidth = comp.width;
-            var compHeight = comp.height;
-            var zoomFactorX = compWidth / shapeWidth;
-            var zoomFactorY = compHeight / shapeHeight;
-            var zoomFactor = Math.min(zoomFactorX, zoomFactorY);
-
-            // Get current scale and calculate new scale
-            var currentScale = targetLayer.transform.scale.value;
-            var newScale = [currentScale[0] * zoomFactor, currentScale[1] * zoomFactor];
-
-            // Add scale keyframe at current time
-            targetLayer.transform.scale.setValueAtTime(comp.time, newScale);
-
-            // Get shape position in comp space (center of the rectangle)
-            var shapeCenterX = shapeLayer.transform.position.value[0] + shapeRect.left + shapeWidth / 2;
-            var shapeCenterY = shapeLayer.transform.position.value[1] + shapeRect.top + shapeHeight / 2;
-
-            // Get target layer's current position and bounds
-            var targetPos = targetLayer.transform.position.value;
-            var targetRect = targetLayer.sourceRectAtTime(comp.time, false);
-
-            // Calculate the rectangle center relative to the target layer's coordinate space
-            // This is where the anchor point should be set
-            var anchorX = shapeCenterX - (targetPos[0] - targetRect.width / 2);
-            var anchorY = shapeCenterY - (targetPos[1] - targetRect.height / 2);
-
-            // Move the anchor point of the target layer to the rectangle center
-            // This way, scaling will happen from the rectangle center
-            targetLayer.transform.anchorPoint.setValueAtTime(comp.time, [anchorX, anchorY]);
-
-            // Now position the layer so the rectangle area becomes centered in the composition
-            var compCenterX = compWidth / 2;
-            var compCenterY = compHeight / 2;
-
-            // Apply new position to target layer (the rectangle center will now be at comp center)
-            targetLayer.transform.position.setValueAtTime(comp.time, [compCenterX, compCenterY]);
-
-            // Delete the shape layer after using it as reference
-            shapeLayer.remove();
-
-            app.endUndoGroup();
-
-            updateStatus("Zoomed '" + targetLayer.name + "' based on '" + shapeLayerName + "' area");
-
-        } catch (error) {
-            updateStatus("Error: " + error.toString());
-        }
-    }
-
-    scaleAndCenterBtn.onClick = function () {
-        scaleAndCenterShapeLayer();
-        // Refresh the dropdown after operation (in case shape layers were deleted)
-        updateShapeLayerList();
+    var createNullBtnMain = looperNullRow.add("button", undefined, "Create Null");
+    createNullBtnMain.alignment = ["fill", "center"];
+    createNullBtnMain.preferredSize.height = 16;
+    createNullBtnMain.helpTip = "Creates a null object for the selected layer";
+    createNullBtnMain.onClick = function () {
+        createNullObject();
     };
 
-    refreshBtn.onClick = function () {
-        updateShapeLayerList();
-        updateStatus("Shape layer list refreshed");
+    // Extra tools row 1: Reverse KF | Batch Scale
+    var extraRow1 = leftCol.add("group");
+    extraRow1.orientation = "row";
+    extraRow1.alignChildren = ["fill", "center"];
+    extraRow1.spacing = 2;
+
+    var reverseKFBtn2 = extraRow1.add("button", undefined, "Reverse KF");
+    reverseKFBtn2.alignment = ["fill", "center"];
+    reverseKFBtn2.preferredSize.height = 16;
+    reverseKFBtn2.helpTip = "Reverse selected keyframes (select keyframes in timeline first)";
+    reverseKFBtn2.onClick = function () {
+        reverseAllKeyframes();
+    };
+
+    var batchScaleBtn2 = extraRow1.add("button", undefined, "Batch Scale");
+    batchScaleBtn2.alignment = ["fill", "center"];
+    batchScaleBtn2.preferredSize.height = 16;
+    batchScaleBtn2.helpTip = "Batch scale layers with presets (34%, 50%, 100%)";
+    batchScaleBtn2.onClick = function () {
+        showBatchScaleDialog();
+    };
+
+    // Extra tools row 2: Smart Precomp | CP Movement
+    var extraRow2 = leftCol.add("group");
+    extraRow2.orientation = "row";
+    extraRow2.alignChildren = ["fill", "center"];
+    extraRow2.spacing = 2;
+
+    var smartPrecompBtn2 = extraRow2.add("button", undefined, "Smart Precomp");
+    smartPrecompBtn2.alignment = ["fill", "center"];
+    smartPrecompBtn2.preferredSize.height = 16;
+    smartPrecompBtn2.helpTip = "Create precomp from selected layers while retaining size, scale and position";
+    smartPrecompBtn2.onClick = function () {
+        createSmartPrecomp();
+    };
+
+    var cpMovementBtn2 = extraRow2.add("button", undefined, "CP Movement");
+    cpMovementBtn2.alignment = ["fill", "center"];
+    cpMovementBtn2.preferredSize.height = 16;
+    cpMovementBtn2.helpTip = "Copy movement from a layer inside a precomp to this layer's position";
+    cpMovementBtn2.onClick = function () {
+        showCPMovementDialog();
+    };
+
+    // Extra tools row 3: Auto Zoom | Walk/Run Arc
+    var extraRow3 = leftCol.add("group");
+    extraRow3.orientation = "row";
+    extraRow3.alignChildren = ["fill", "center"];
+    extraRow3.spacing = 2;
+
+    var autoZoomBtn2 = extraRow3.add("button", undefined, "Auto Zoom");
+    autoZoomBtn2.alignment = ["fill", "center"];
+    autoZoomBtn2.preferredSize.height = 16;
+    autoZoomBtn2.helpTip = "Add zoom in/out keyframes to selected layers with easing";
+    autoZoomBtn2.onClick = function () {
+        showAutoZoomDialog();
+    };
+
+    var walkRunBtn2 = extraRow3.add("button", undefined, "Walk/Run");
+    walkRunBtn2.alignment = ["fill", "center"];
+    walkRunBtn2.preferredSize.height = 16;
+    walkRunBtn2.helpTip = "Add walking/running arc movement to selected layers";
+    walkRunBtn2.onClick = function () {
+        showWalkRunDialog();
+    };
+
+    // Extra tools row 4: Fish-like (single)
+    var fishLikeBtn2 = leftCol.add("button", undefined, "Fish-like");
+    fishLikeBtn2.preferredSize.height = 16;
+    fishLikeBtn2.helpTip = "Swimming fish animation";
+    fishLikeBtn2.onClick = function () {
+        showFishDialog();
     };
 
     // Right Column
@@ -1440,53 +794,7 @@ function createPanel(thisObj) {
         showKickOutOfFrameDialog();
     };
 
-    // Add Reverse KF button
-    var reverseKeyframesBtn = utilityGroup.add("button", undefined, "Reverse KF");
-    reverseKeyframesBtn.preferredSize.height = 16;
-    reverseKeyframesBtn.helpTip = "Reverse selected keyframes (select keyframes in timeline first)";
-    reverseKeyframesBtn.onClick = function () {
-        reverseAllKeyframes();
-    };
 
-    // Add Batch Scale button
-    var batchScaleBtn = utilityGroup.add("button", undefined, "Batch Scale");
-    batchScaleBtn.preferredSize.height = 16;
-    batchScaleBtn.helpTip = "Batch scale layers with presets (34%, 50%, 100%)";
-    batchScaleBtn.onClick = function () {
-        showBatchScaleDialog();
-    };
-
-    // Add Smart Precomp button
-    var smartPrecompBtn = utilityGroup.add("button", undefined, "Smart Precomp");
-    smartPrecompBtn.preferredSize.height = 16;
-    smartPrecompBtn.helpTip = "Create precomp from selected layers while retaining size, scale and position";
-    smartPrecompBtn.onClick = function () {
-        createSmartPrecomp();
-    };
-
-    // Add CP Movement button
-    var cpMovementBtn = utilityGroup.add("button", undefined, "CP Movement");
-    cpMovementBtn.preferredSize.height = 16;
-    cpMovementBtn.helpTip = "Copy movement from a layer inside a precomp to this layer's position";
-    cpMovementBtn.onClick = function () {
-        showCPMovementDialog();
-    };
-
-    // Add Auto Zoom button
-    var autoZoomBtn = utilityGroup.add("button", undefined, "Auto Zoom");
-    autoZoomBtn.preferredSize.height = 16;
-    autoZoomBtn.helpTip = "Add zoom in/out keyframes to selected layers with easing";
-    autoZoomBtn.onClick = function () {
-        showAutoZoomDialog();
-    };
-
-    // More button (opens popup window)
-    var advancedToolsBtn = utilityGroup.add("button", undefined, "More");
-    advancedToolsBtn.preferredSize.height = 16;
-    advancedToolsBtn.helpTip = "Open advanced tools window";
-    advancedToolsBtn.onClick = function () {
-        showAdvancedToolsWindow();
-    };
 
     // Layer Navigation Section (below More button)
     rightCol.add("panel");
@@ -1594,48 +902,6 @@ function createPanel(thisObj) {
     return myPanel;
 }
 
-// Time Remap Expression function (Sync Audio)
-function applyTimeRemapExpression() {
-    try {
-        var comp = app.project.activeItem;
-        if (!comp || !(comp instanceof CompItem)) {
-            updateStatus("No active composition");
-            return;
-        }
-
-        var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0) {
-            updateStatus("No layers selected");
-            return;
-        }
-
-        app.beginUndoGroup("Sync Audio with Main Comp");
-
-        for (var i = 0; i < selectedLayers.length; i++) {
-            var layer = selectedLayers[i];
-
-            // Enable time remapping if not already enabled
-            if (!layer.timeRemapEnabled) {
-                layer.timeRemapEnabled = true;
-            }
-
-            // Apply the expression
-            var expression = 'MasterC = "main_comp";\n' +
-                'PreC = thisComp.name;\n\n' +
-                'C = comp(MasterC);\n' +
-                'L = C.layer(PreC);\n' +
-                'Main_T = time + L.startTime;';
-
-            layer.timeRemap.expression = expression;
-        }
-
-        app.endUndoGroup();
-        updateStatus("Synced " + selectedLayers.length + " layer(s) with main_comp");
-
-    } catch (error) {
-        updateStatus("Error: " + error.toString());
-    }
-}
 
 // Audio Sync Expression function (Audio Amplitude)
 function applyAudioSyncExpression() {
@@ -1813,80 +1079,6 @@ function createNullObject() {
     }
 }
 
-// Mask to Crop Layer function - trims selected layers to work area
-function maskToCropLayer() {
-    try {
-        var comp = app.project.activeItem;
-
-        if (!comp || !(comp instanceof CompItem)) {
-            alert("No active composition found");
-            return;
-        }
-
-        // Check if any layers are selected
-        if (comp.selectedLayers.length === 0) {
-            alert("Please select one or more layers to crop");
-            return;
-        }
-
-        app.beginUndoGroup("Mask to Crop Selected Layers");
-
-        // Get the work area start and end times
-        var workAreaStart = comp.workAreaStart;
-        var workAreaDuration = comp.workAreaDuration;
-        var workAreaEnd = workAreaStart + workAreaDuration;
-
-        var croppedLayers = 0;
-        var skippedLayers = 0;
-
-        // Process only selected layers
-        for (var i = 0; i < comp.selectedLayers.length; i++) {
-            var layer = comp.selectedLayers[i];
-
-            try {
-                // Check if layer is locked
-                if (layer.locked) {
-                    skippedLayers++;
-                    continue;
-                }
-
-                var currentInPoint = layer.inPoint;
-                var currentOutPoint = layer.outPoint;
-
-                // Calculate the new in and out points relative to work area start
-                var newInPoint = currentInPoint - workAreaStart;
-                var newOutPoint = currentOutPoint - workAreaStart;
-
-                // Set the new in and out points
-                layer.inPoint = newInPoint;
-                layer.outPoint = newOutPoint;
-
-                croppedLayers++;
-
-            } catch (layerError) {
-                // Skip this layer if there's an error (e.g., locked layer)
-                skippedLayers++;
-                continue;
-            }
-        }
-
-        app.endUndoGroup();
-
-        if (croppedLayers > 0) {
-            var message = "Cropped " + croppedLayers + " layer(s) to work area";
-            if (skippedLayers > 0) {
-                message += " (" + skippedLayers + " locked layers skipped)";
-            }
-            updateStatus(message);
-        } else {
-            updateStatus("No layers could be cropped (all selected layers are locked)");
-        }
-
-    } catch (error) {
-        app.endUndoGroup();
-        alert("Error cropping layers: " + error.message);
-    }
-}
 
 // Show time rotation dialog with custom value
 function showTimeRotationDialog() {
@@ -3794,141 +2986,6 @@ function showExpressionDialog(expression) {
     dialog.show();
 }
 
-// Show Advanced Tools popup window
-function showAdvancedToolsWindow() {
-    var dialog = new Window("dialog", "More Tools");
-    dialog.orientation = "column";
-    dialog.alignChildren = ["fill", "top"];
-    dialog.spacing = 1; // Minimal spacing
-    dialog.margins = 4; // Minimal margins
-
-    // Title
-    var titleGroup = dialog.add("group");
-    titleGroup.orientation = "row";
-    titleGroup.alignChildren = ["center", "center"];
-    titleGroup.spacing = 0;
-    titleGroup.margins = 0;
-    var title = titleGroup.add("statictext", undefined, "More Tools");
-    title.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10); // Smaller font
-
-    // Buttons container with 3 columns
-    var buttonsContainer = dialog.add("group");
-    buttonsContainer.orientation = "row";
-    buttonsContainer.alignChildren = ["fill", "top"];
-    buttonsContainer.spacing = 2; // Minimal spacing between columns
-    buttonsContainer.margins = 0;
-
-    // Column 1
-    var col1 = buttonsContainer.add("group");
-    col1.orientation = "column";
-    col1.alignChildren = ["fill", "top"];
-    col1.spacing = 1; // Minimal spacing
-    col1.margins = 0;
-    col1.preferredSize.width = 130; // Compact width
-
-    var libraryBrowserBtn = col1.add("button", undefined, "Browse Lib");
-    libraryBrowserBtn.preferredSize.height = 20; // Reduced from 24
-    libraryBrowserBtn.helpTip = "Browse and load compositions from library";
-    libraryBrowserBtn.onClick = function () {
-        dialog.close();
-        showLibraryBrowserDialog();
-    };
-
-    var maskToCropBtn = col1.add("button", undefined, "Mask to Crop");
-    maskToCropBtn.preferredSize.height = 20;
-    maskToCropBtn.helpTip = "Trim selected layers to work area (replaces Ctrl+Shift+X)";
-    maskToCropBtn.onClick = function () {
-        dialog.close();
-        maskToCropLayer();
-    };
-
-    var layerNavBtn = col1.add("button", undefined, "Layer Nav");
-    layerNavBtn.preferredSize.height = 20;
-    layerNavBtn.helpTip = "Open layer navigation window to jump between layers";
-    layerNavBtn.onClick = function () {
-        dialog.close();
-        showLayerNavigationWindow();
-    };
-
-    var walkRunBtn = col1.add("button", undefined, "Walk/Run Arc");
-    walkRunBtn.preferredSize.height = 20;
-    walkRunBtn.helpTip = "Add walking/running arc movement to selected layers";
-    walkRunBtn.onClick = function () {
-        dialog.close();
-        showWalkRunDialog();
-    };
-
-    // Column 2
-    var col2 = buttonsContainer.add("group");
-    col2.orientation = "column";
-    col2.alignChildren = ["fill", "top"];
-    col2.spacing = 1; // Minimal spacing
-    col2.margins = 0;
-    col2.preferredSize.width = 130; // Compact width
-
-    var addToLibraryBtn = col2.add("button", undefined, "Add to Lib");
-    addToLibraryBtn.preferredSize.height = 20;
-    addToLibraryBtn.helpTip = "Save selected composition or precomposition to library";
-    addToLibraryBtn.onClick = function () {
-        dialog.close();
-        showAddToLibraryDialog();
-    };
-
-    var anchorGridBtn = col2.add("button", undefined, "3x3 Anchor");
-    anchorGridBtn.preferredSize.height = 20;
-    anchorGridBtn.helpTip = "Move anchor point using 3x3 grid controller";
-    anchorGridBtn.onClick = function () {
-        dialog.close();
-        show3x3AnchorDialog();
-    };
-
-    var createNullBtn = col2.add("button", undefined, "Create Null");
-    createNullBtn.preferredSize.height = 20;
-    createNullBtn.helpTip = "Creates a null object for the selected layer";
-    createNullBtn.onClick = function () {
-        dialog.close();
-        createNullObject();
-    };
-
-    var loopWiggleBtn = col2.add("button", undefined, "Loop Wiggle");
-    loopWiggleBtn.preferredSize.height = 20;
-    loopWiggleBtn.helpTip = EXPRESSIONS["Loop Wiggle"];
-    loopWiggleBtn.onClick = function () {
-        dialog.close();
-        handleExpressionClick("Loop Wiggle", EXPRESSIONS["Loop Wiggle"]);
-    };
-
-    // Column 3
-    var col3 = buttonsContainer.add("group");
-    col3.orientation = "column";
-    col3.alignChildren = ["fill", "top"];
-    col3.spacing = 1; // Minimal spacing
-    col3.margins = 0;
-    col3.preferredSize.width = 130; // Compact width
-
-    var syncAudioBtn = col3.add("button", undefined, "Sync Audio");
-    syncAudioBtn.preferredSize.height = 20;
-    syncAudioBtn.helpTip = "Apply time remapping expression to sync audio with main_comp";
-    syncAudioBtn.onClick = function () {
-        dialog.close();
-        applyTimeRemapExpression();
-    };
-
-    var fishLikeBtn = col3.add("button", undefined, "Fish-like");
-    fishLikeBtn.preferredSize.height = 20;
-    fishLikeBtn.helpTip = "Swimming fish animation";
-    fishLikeBtn.onClick = function () {
-        dialog.close();
-        showFishDialog();
-    };
-
-    // Calculate exact size: 3 columns × 130px + 2 gaps × 2px + 2 margins × 4px = 390 + 4 + 8 = 402px width
-    // Height: title (~18px) + spacing (1px) + 4 buttons × 20px + 3 gaps × 1px + 2 margins × 4px = 18 + 1 + 80 + 3 + 8 = 110px
-    dialog.preferredSize = [402, 110];
-
-    dialog.center();
-    dialog.show();
-}
 
 // Show batch scale dialog with presets
 function showBatchScaleDialog() {
@@ -4275,307 +3332,6 @@ function calculateLayerBounds(layers) {
     }
 }
 
-// Show 3x3 anchor point controller dialog
-function show3x3AnchorDialog() {
-    try {
-        var comp = app.project.activeItem;
-        if (!comp || !(comp instanceof CompItem)) {
-            alert("No active composition found");
-            return;
-        }
-
-        var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0) {
-            alert("Please select at least one layer");
-            return;
-        }
-
-        var dialog = new Window("palette", "3x3 Anchor Point Controller");
-        dialog.orientation = "column";
-        dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
-
-        // Title
-        var titleText = dialog.add("statictext", undefined, "Click to set anchor point position:");
-        titleText.alignment = "center";
-
-        // 3x3 Grid
-        var gridGroup = dialog.add("group");
-        gridGroup.orientation = "column";
-        gridGroup.alignChildren = ["fill", "top"];
-        gridGroup.spacing = 2;
-
-        // Row 1 (Top)
-        var row1 = gridGroup.add("group");
-        row1.orientation = "row";
-        row1.alignChildren = ["fill", "center"];
-        row1.spacing = 2;
-
-        var tlBtn = row1.add("button", undefined, "↖");
-        tlBtn.preferredSize = [40, 30];
-        tlBtn.helpTip = "Top Left";
-        tlBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("TL", comp.selectedLayers);
-            }
-        };
-
-        var tcBtn = row1.add("button", undefined, "↑");
-        tcBtn.preferredSize = [40, 30];
-        tcBtn.helpTip = "Top Center";
-        tcBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("TC", comp.selectedLayers);
-            }
-        };
-
-        var trBtn = row1.add("button", undefined, "↗");
-        trBtn.preferredSize = [40, 30];
-        trBtn.helpTip = "Top Right";
-        trBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("TR", comp.selectedLayers);
-            }
-        };
-
-        // Row 2 (Middle)
-        var row2 = gridGroup.add("group");
-        row2.orientation = "row";
-        row2.alignChildren = ["fill", "center"];
-        row2.spacing = 2;
-
-        var mlBtn = row2.add("button", undefined, "←");
-        mlBtn.preferredSize = [40, 30];
-        mlBtn.helpTip = "Middle Left";
-        mlBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("ML", comp.selectedLayers);
-            }
-        };
-
-        var mcBtn = row2.add("button", undefined, "●");
-        mcBtn.preferredSize = [40, 30];
-        mcBtn.helpTip = "Middle Center";
-        mcBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("MC", comp.selectedLayers);
-            }
-        };
-
-        var mrBtn = row2.add("button", undefined, "→");
-        mrBtn.preferredSize = [40, 30];
-        mrBtn.helpTip = "Middle Right";
-        mrBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("MR", comp.selectedLayers);
-            }
-        };
-
-        // Row 3 (Bottom)
-        var row3 = gridGroup.add("group");
-        row3.orientation = "row";
-        row3.alignChildren = ["fill", "center"];
-        row3.spacing = 2;
-
-        var blBtn = row3.add("button", undefined, "↙");
-        blBtn.preferredSize = [40, 30];
-        blBtn.helpTip = "Bottom Left";
-        blBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("BL", comp.selectedLayers);
-            }
-        };
-
-        var bcBtn = row3.add("button", undefined, "↓");
-        bcBtn.preferredSize = [40, 30];
-        bcBtn.helpTip = "Bottom Center";
-        bcBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("BC", comp.selectedLayers);
-            }
-        };
-
-        var brBtn = row3.add("button", undefined, "↘");
-        brBtn.preferredSize = [40, 30];
-        brBtn.helpTip = "Bottom Right";
-        brBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                setAnchorPoint("BR", comp.selectedLayers);
-            }
-        };
-
-        // Separator
-        dialog.add("panel");
-
-        // Info text and refresh functionality
-        var infoGroup = dialog.add("group");
-        infoGroup.orientation = "row";
-        infoGroup.alignChildren = ["fill", "center"];
-
-        var infoText = infoGroup.add("statictext", undefined, "Selected layers: " + selectedLayers.length);
-        infoText.alignment = ["fill", "center"];
-
-        var refreshBtn = infoGroup.add("button", undefined, "↻");
-        refreshBtn.preferredSize = [25, 20];
-        refreshBtn.helpTip = "Refresh selected layers";
-        refreshBtn.onClick = function () {
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) {
-                selectedLayers = comp.selectedLayers;
-                infoText.text = "Selected layers: " + selectedLayers.length;
-            }
-        };
-
-        // Buttons
-        var buttonGroup = dialog.add("group");
-        buttonGroup.orientation = "row";
-        buttonGroup.alignChildren = ["fill", "center"];
-
-        var closeBtn = buttonGroup.add("button", undefined, "Close");
-        closeBtn.onClick = function () {
-            dialog.close();
-        };
-
-        // Make window stay on top and non-modal
-        dialog.show();
-
-    } catch (error) {
-        alert("Error opening 3x3 anchor dialog: " + error.message);
-    }
-}
-
-// Set anchor point to specified position
-function setAnchorPoint(position, layers) {
-    try {
-        app.beginUndoGroup("Set Anchor Point " + position);
-
-        for (var i = 0; i < layers.length; i++) {
-            var layer = layers[i];
-
-            // Get layer dimensions based on layer type
-            var layerWidth, layerHeight;
-
-            try {
-                // Try different methods to get layer dimensions
-                if (layer.source && layer.source.width && layer.source.height) {
-                    // For footage layers, precomps, etc.
-                    layerWidth = layer.source.width;
-                    layerHeight = layer.source.height;
-                } else if (layer.width && layer.height) {
-                    // For solid layers
-                    layerWidth = layer.width;
-                    layerHeight = layer.height;
-                } else {
-                    // Fallback: use sourceRect (works for shape layers, text layers)
-                    var sourceRect = layer.sourceRectAtTime(layer.containingComp.time, false);
-                    layerWidth = sourceRect.width;
-                    layerHeight = sourceRect.height;
-                }
-            } catch (e) {
-                // Final fallback
-                layerWidth = 100;
-                layerHeight = 100;
-            }
-
-            var anchorX, anchorY;
-
-            // Calculate anchor point based on position
-            switch (position) {
-                case "TL": // Top Left
-                    anchorX = 0;
-                    anchorY = 0;
-                    break;
-                case "TC": // Top Center
-                    anchorX = layerWidth / 2;
-                    anchorY = 0;
-                    break;
-                case "TR": // Top Right
-                    anchorX = layerWidth;
-                    anchorY = 0;
-                    break;
-                case "ML": // Middle Left
-                    anchorX = 0;
-                    anchorY = layerHeight / 2;
-                    break;
-                case "MC": // Middle Center
-                    anchorX = layerWidth / 2;
-                    anchorY = layerHeight / 2;
-                    break;
-                case "MR": // Middle Right
-                    anchorX = layerWidth;
-                    anchorY = layerHeight / 2;
-                    break;
-                case "BL": // Bottom Left
-                    anchorX = 0;
-                    anchorY = layerHeight;
-                    break;
-                case "BC": // Bottom Center
-                    anchorX = layerWidth / 2;
-                    anchorY = layerHeight;
-                    break;
-                case "BR": // Bottom Right
-                    anchorX = layerWidth;
-                    anchorY = layerHeight;
-                    break;
-                default:
-                    anchorX = layerWidth / 2;
-                    anchorY = layerHeight / 2;
-            }
-
-            // Get current position to maintain visual position
-            var currentPos = layer.transform.position.value;
-            var currentAnchor = layer.transform.anchorPoint.value;
-
-            // Calculate offset
-            var offsetX = anchorX - currentAnchor[0];
-            var offsetY = anchorY - currentAnchor[1];
-
-            // Set new anchor point
-            layer.transform.anchorPoint.setValue([anchorX, anchorY]);
-
-            // Adjust position to maintain visual location
-            layer.transform.position.setValue([
-                currentPos[0] + offsetX,
-                currentPos[1] + offsetY
-            ]);
-        }
-
-        app.endUndoGroup();
-
-        var positionName = getPositionName(position);
-        updateStatus("Anchor point set to " + positionName + " for " + layers.length + " layer(s)");
-
-    } catch (error) {
-        app.endUndoGroup();
-        alert("Error setting anchor point: " + error.message);
-    }
-}
-
-// Get readable position name
-function getPositionName(position) {
-    switch (position) {
-        case "TL": return "Top Left";
-        case "TC": return "Top Center";
-        case "TR": return "Top Right";
-        case "ML": return "Middle Left";
-        case "MC": return "Middle Center";
-        case "MR": return "Middle Right";
-        case "BL": return "Bottom Left";
-        case "BC": return "Bottom Center";
-        case "BR": return "Bottom Right";
-        default: return "Center";
-    }
-}
 
 // Update status text
 // ===== AUTO ZOOM =====
@@ -5126,14 +3882,9 @@ function showCPMovementDialog() {
                     if (precompLayerName !== precompName) {
                         newPrecompLayer.name = precompLayerName;
                     }
-                    // Disable video so it doesn't render visually on top
-                    newPrecompLayer.enabled = false;
-                    // Lock it to prevent accidental edits
-                    newPrecompLayer.locked = true;
+
                     // Deselect it so it doesn't interfere with the expression apply below
-                    newPrecompLayer.locked = false;
                     newPrecompLayer.selected = false;
-                    newPrecompLayer.locked = true;
                 } else {
                     alert("Could not find composition '" + precompName + "' in the project.");
                     app.endUndoGroup();
@@ -7863,201 +6614,6 @@ function createSeparateJumpWindow() {
 }
 
 // Show layer navigation window
-function showLayerNavigationWindow() {
-    var layerNavWindow = new Window("window", "Layer Navigation");
-    layerNavWindow.orientation = "column";
-    layerNavWindow.alignChildren = ["fill", "top"];
-    layerNavWindow.spacing = 10;
-    layerNavWindow.margins = 16;
-    layerNavWindow.preferredSize.width = 250;
-    layerNavWindow.preferredSize.height = 120;
-
-    // Current layer info
-    var infoGroup = layerNavWindow.add("group");
-    infoGroup.orientation = "column";
-    infoGroup.alignChildren = ["fill", "top"];
-    infoGroup.spacing = 5;
-
-    var currentTimeLabel = infoGroup.add("statictext", undefined, "Current Time:");
-    currentTimeLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-    var currentTimeText = infoGroup.add("statictext", undefined, "00:00:00:00");
-    currentTimeText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 12);
-    currentTimeText.alignment = ["fill", "center"];
-
-    var currentLayerLabel = infoGroup.add("statictext", undefined, "Current Layer:");
-    currentLayerLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-    var currentLayerText = infoGroup.add("statictext", undefined, "None");
-    currentLayerText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-    currentLayerText.alignment = ["fill", "center"];
-
-    // Navigation buttons
-    var buttonGroup = layerNavWindow.add("group");
-    buttonGroup.orientation = "row";
-    buttonGroup.alignChildren = ["fill", "center"];
-    buttonGroup.spacing = 10;
-
-    var prevLayerBtn = buttonGroup.add("button", undefined, "← Previous Layer");
-    prevLayerBtn.preferredSize.width = 100;
-    prevLayerBtn.preferredSize.height = 30;
-    prevLayerBtn.helpTip = "Jump to the start of the previous layer";
-    prevLayerBtn.onClick = function () {
-        jumpToPreviousLayer(currentTimeText, currentLayerText);
-    };
-
-    var nextLayerBtn = buttonGroup.add("button", undefined, "Next Layer →");
-    nextLayerBtn.preferredSize.width = 100;
-    nextLayerBtn.preferredSize.height = 30;
-    nextLayerBtn.helpTip = "Jump to the start of the next layer";
-    nextLayerBtn.onClick = function () {
-        jumpToNextLayer(currentTimeText, currentLayerText);
-    };
-
-    // Update display function
-    function updateDisplay() {
-        try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                currentTimeText.text = "No composition";
-                currentLayerText.text = "None";
-                return;
-            }
-
-            var currentTime = comp.time;
-            var fps = comp.frameRate;
-
-            // Format current time
-            var hours = Math.floor(currentTime / 3600);
-            var minutes = Math.floor((currentTime % 3600) / 60);
-            var seconds = Math.floor(currentTime % 60);
-            var frames = Math.floor((currentTime % 1) * fps);
-
-            function padNumber(num, width) {
-                var str = num.toString();
-                while (str.length < width) {
-                    str = '0' + str;
-                }
-                return str;
-            }
-
-            var timeString = padNumber(hours, 2) + ':' +
-                padNumber(minutes, 2) + ':' +
-                padNumber(seconds, 2) + ':' +
-                padNumber(frames, 2);
-
-            currentTimeText.text = timeString;
-
-            // Find current layer
-            var currentLayer = null;
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                if (currentTime >= layer.inPoint && currentTime <= layer.outPoint) {
-                    currentLayer = layer;
-                    break;
-                }
-            }
-
-            if (currentLayer) {
-                currentLayerText.text = currentLayer.name;
-            } else {
-                currentLayerText.text = "No layer at current time";
-            }
-
-        } catch (error) {
-            currentTimeText.text = "Error";
-            currentLayerText.text = "Error";
-        }
-    }
-
-    // Function to jump to next layer
-    function jumpToNextLayer(timeText, layerText) {
-        try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                alert("Please select a composition first.");
-                return;
-            }
-
-            var currentTime = comp.time;
-            var nextLayer = null;
-            var nextLayerTime = null;
-
-            // Find the next layer (layer that starts after current time)
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                if (layer.inPoint > currentTime) {
-                    if (!nextLayer || layer.inPoint < nextLayerTime) {
-                        nextLayer = layer;
-                        nextLayerTime = layer.inPoint;
-                    }
-                }
-            }
-
-            if (nextLayer) {
-                comp.time = nextLayer.inPoint;
-                updateDisplay();
-                updateStatus("Jumped to layer: " + nextLayer.name);
-            } else {
-                updateStatus("No next layer found");
-            }
-
-        } catch (error) {
-            alert("Error jumping to next layer: " + error.toString());
-        }
-    }
-
-    // Function to jump to previous layer
-    function jumpToPreviousLayer(timeText, layerText) {
-        try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                alert("Please select a composition first.");
-                return;
-            }
-
-            var currentTime = comp.time;
-            var prevLayer = null;
-            var prevLayerTime = null;
-
-            // Find the previous layer (layer that starts before current time)
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                if (layer.inPoint < currentTime) {
-                    if (!prevLayer || layer.inPoint > prevLayerTime) {
-                        prevLayer = layer;
-                        prevLayerTime = layer.inPoint;
-                    }
-                }
-            }
-
-            if (prevLayer) {
-                comp.time = prevLayer.inPoint;
-                updateDisplay();
-                updateStatus("Jumped to layer: " + prevLayer.name);
-            } else {
-                updateStatus("No previous layer found");
-            }
-
-        } catch (error) {
-            alert("Error jumping to previous layer: " + error.toString());
-        }
-    }
-
-    // Initial display update
-    updateDisplay();
-
-    // Update display every 100ms to keep it current
-    var updateInterval = app.setInterval(updateDisplay, 100);
-
-    // Clean up interval when window closes
-    layerNavWindow.onClose = function () {
-        app.clearInterval(updateInterval);
-    };
-
-    layerNavWindow.center();
-    layerNavWindow.show();
-}
 
 // Direct function to jump to next layer
 function jumpToNextLayerDirect() {
@@ -8163,5 +6719,85 @@ function openXCropTool() {
     }
 }
 
+// Looper Tool: Enable time remap loop on selected precomp
+function looperTool() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            alert("Please select a composition first.");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            alert("Please select at least one precomp layer.");
+            return;
+        }
+
+        app.beginUndoGroup("Looper Tool");
+
+        var processedCount = 0;
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            // Check if the layer is a precomp
+            if (!layer.source || !(layer.source instanceof CompItem)) {
+                continue;
+            }
+
+            // 1. Enable time remapping if not already enabled
+            // When enabled, AE auto-creates 2 keyframes: at first frame and last frame
+            if (!layer.timeRemapEnabled) {
+                layer.timeRemapEnabled = true;
+            }
+
+            var timeRemap = layer.property("ADBE Time Remapping");
+            if (!timeRemap) continue;
+
+            // 2. Calculate the total number of frames in the layer's time span
+            var layerDuration = layer.source.duration;
+            var fps = comp.frameRate;
+            var totalFrames = Math.round(layerDuration * fps);
+
+            if (totalFrames < 2) {
+                continue; // Need at least 2 frames to loop
+            }
+
+            // 3. Add a keyframe at the second-to-last frame (totalFrames - 1)
+            // e.g. if totalFrames = 12, add keyframe at frame 11
+            var startTime = layer.inPoint;
+            var secondToLastFrameTime = startTime + (totalFrames - 1) / fps;
+            var secondToLastFrameValue = (totalFrames - 1) / fps;
+            timeRemap.setValueAtTime(secondToLastFrameTime, secondToLastFrameValue);
+
+            // 4. Remove the last keyframe (the auto-generated one at the last frame)
+            // After adding our keyframe, the last keyframe is now at the end
+            // Find and remove any keyframe beyond our second-to-last frame
+            for (var k = timeRemap.numKeys; k >= 1; k--) {
+                if (timeRemap.keyTime(k) > secondToLastFrameTime + 0.001) {
+                    timeRemap.removeKey(k);
+                }
+            }
+
+            // 5. Apply loopOut expression
+            timeRemap.expression = 'loopOut("cycle")';
+
+            processedCount++;
+        }
+
+        app.endUndoGroup();
+
+        if (processedCount > 0) {
+            updateStatus("Looper applied to " + processedCount + " layer(s)");
+        } else {
+            alert("No valid precomp layers found in selection.");
+            updateStatus("No precomps found");
+        }
+
+    } catch (error) {
+        alert("Error in Looper Tool: " + error.toString());
+        updateStatus("Error: " + error.toString());
+    }
+}
 
 
