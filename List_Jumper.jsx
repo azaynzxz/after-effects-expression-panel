@@ -19,6 +19,41 @@
     var isJumping = false; // Flag to prevent jumpToTime from executing multiple times
     var isMovingLayer = false; // Flag to prevent moveNextLayerToCurrentTime from executing multiple times
 
+    // Helper: check if After Effects API is accessible (no modal dialog blocking)
+    // Returns true if AE is ready to accept script commands
+    function canAccessAE() {
+        try {
+            var test = app.project.numItems;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Helper: safely execute a function that requires AE API access
+    // Shows a status message if AE is busy (e.g., Auto Save dialog is open)
+    function safeExecute(fn) {
+        if (!canAccessAE()) {
+            try { statusText.text = "⚠ AE is busy (close any dialog first)"; } catch (e) { }
+            // Reset all state flags to prevent stuck UI
+            isProgrammaticSelection = false;
+            isJumping = false;
+            isMovingLayer = false;
+            return false;
+        }
+        try {
+            fn();
+            return true;
+        } catch (error) {
+            // Reset flags on unexpected error too
+            isProgrammaticSelection = false;
+            isJumping = false;
+            isMovingLayer = false;
+            try { statusText.text = "Error: " + error.message; } catch (e) { }
+            return false;
+        }
+    }
+
     // Helper function for trim (not available in ExtendScript)
     function trim(str) {
         return str.replace(/^\s+|\s+$/g, '');
@@ -208,7 +243,7 @@
 
         // Event handlers
         fileBtn.onClick = function () {
-            selectFile();
+            safeExecute(function () { selectFile(); });
         };
 
         // Search on Enter key instead of real-time to avoid lag
@@ -220,28 +255,20 @@
                 event.preventDefault();
 
                 // Safety check: Don't execute if AE has a modal dialog open
-                try {
-                    // Test if we can access AE API (will fail if modal dialog is active)
-                    var testAccess = app.project.numItems;
-
-                    // If we get here, AE is accessible - proceed with search
+                safeExecute(function () {
                     filterAndDisplayResults(searchInput.text);
 
                     // After Enter, focus the listbox so shortcuts work immediately
                     try {
                         if (listbox.items.length > 0) {
-                            // Force UI update first, then set focus
                             win.update();
                             listbox.active = true;
                         }
                     } catch (e) {
-                        // Ignore if focus fails - shortcuts will still work via search input handler
+                        // Ignore if focus fails
                     }
-                } catch (modalError) {
-                    // Modal dialog is active - show message and don't execute
-                    statusText.text = "Please close AE dialog first";
-                    return;
-                }
+                });
+                return;
             } else {
                 // Handle number keys (1-9) for shortcuts even when search input is focused
                 // Check if results exist
@@ -272,22 +299,23 @@
 
                         // Only jump if the index is valid
                         if (targetIndex >= 0 && targetIndex < listbox.items.length) {
-                            // Set flag to prevent onChange from firing
-                            isProgrammaticSelection = true;
+                            var capturedIndex = targetIndex;
+                            safeExecute(function () {
+                                // Set flag to prevent onChange from firing
+                                isProgrammaticSelection = true;
 
-                            // Select the item in the listbox
-                            listbox.selection = targetIndex;
+                                // Select the item in the listbox
+                                listbox.selection = capturedIndex;
 
-                            // Trigger the jump directly (onChange will be skipped due to flag)
-                            var selectedItem = listbox.items[targetIndex];
-                            if (selectedItem) {
-                                var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                                jumpToTime(timeToJump);
-                                // Reset flag after jump completes
-                                isProgrammaticSelection = false;
-                                // Clear search input to prepare for next search
-                                searchInput.text = "";
-                            }
+                                // Trigger the jump directly (onChange will be skipped due to flag)
+                                var selectedItem = listbox.items[capturedIndex];
+                                if (selectedItem) {
+                                    var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
+                                    jumpToTime(timeToJump);
+                                    isProgrammaticSelection = false;
+                                    searchInput.text = "";
+                                }
+                            });
                         }
                     }
                 }
@@ -295,22 +323,22 @@
         });
 
         searchBtn.onClick = function () {
-            filterAndDisplayResults(searchInput.text);
+            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
         };
 
         showAllBtn.onClick = function () {
             searchInput.text = "";
-            filterAndDisplayResults("");
+            safeExecute(function () { filterAndDisplayResults(""); });
         };
 
         searchForwardOnlyCheckbox.onClick = function () {
             // Re-filter when checkbox state changes
-            filterAndDisplayResults(searchInput.text);
+            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
         };
 
         exactJumpCheckbox.onClick = function () {
             // Re-filter when checkbox state changes to update display format
-            filterAndDisplayResults(searchInput.text);
+            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
         };
 
         listbox.onChange = function () {
@@ -320,10 +348,13 @@
                 return;
             }
 
-            if (this.selection !== null) {
-                // Use exact jump time if checkbox is enabled, otherwise use next word time
-                var timeToJump = exactJumpCheckbox.value ? this.selection.matchTime : this.selection.timeValue;
-                jumpToTime(timeToJump);
+            var sel = this.selection;
+            if (sel !== null) {
+                safeExecute(function () {
+                    // Use exact jump time if checkbox is enabled, otherwise use next word time
+                    var timeToJump = exactJumpCheckbox.value ? sel.matchTime : sel.timeValue;
+                    jumpToTime(timeToJump);
+                });
             }
         };
 
@@ -356,23 +387,25 @@
 
                     // Convert to 0-based index (1 -> 0, 2 -> 1, etc.)
                     var targetIndex = numKey - 1;
+                    var that = this;
 
                     // Only jump if the index is valid
                     if (targetIndex >= 0 && targetIndex < this.items.length) {
-                        // Set flag to prevent onChange from firing
-                        isProgrammaticSelection = true;
+                        safeExecute(function () {
+                            // Set flag to prevent onChange from firing
+                            isProgrammaticSelection = true;
 
-                        // Select the item in the listbox
-                        this.selection = targetIndex;
+                            // Select the item in the listbox
+                            that.selection = targetIndex;
 
-                        // Trigger the jump directly (onChange will be skipped due to flag)
-                        var selectedItem = this.items[targetIndex];
-                        if (selectedItem) {
-                            var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                            jumpToTime(timeToJump);
-                            // Clear search input to prepare for next search
-                            searchInput.text = "";
-                        }
+                            // Trigger the jump directly (onChange will be skipped due to flag)
+                            var selectedItem = that.items[targetIndex];
+                            if (selectedItem) {
+                                var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
+                                jumpToTime(timeToJump);
+                                searchInput.text = "";
+                            }
+                        });
                     }
                 }
             }
@@ -413,20 +446,21 @@
 
                     // Only jump if the index is valid
                     if (targetIndex >= 0 && targetIndex < listbox.items.length) {
-                        // Set flag to prevent onChange from firing
-                        isProgrammaticSelection = true;
+                        safeExecute(function () {
+                            // Set flag to prevent onChange from firing
+                            isProgrammaticSelection = true;
 
-                        // Select the item in the listbox
-                        listbox.selection = targetIndex;
+                            // Select the item in the listbox
+                            listbox.selection = targetIndex;
 
-                        // Trigger the jump directly (onChange will be skipped due to flag)
-                        var selectedItem = listbox.items[targetIndex];
-                        if (selectedItem) {
-                            var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                            jumpToTime(timeToJump);
-                            // Clear search input to prepare for next search
-                            searchInput.text = "";
-                        }
+                            // Trigger the jump directly (onChange will be skipped due to flag)
+                            var selectedItem = listbox.items[targetIndex];
+                            if (selectedItem) {
+                                var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
+                                jumpToTime(timeToJump);
+                                searchInput.text = "";
+                            }
+                        });
                     }
                 }
             }
@@ -806,8 +840,13 @@
 
         } catch (error) {
             isJumping = false; // Reset flag on error
-            statusText.text = "Error jumping to time: " + error.message;
-            alert("Error jumping to time: " + error.message);
+            isProgrammaticSelection = false; // Reset selection flag too
+            // Check if the error is due to a modal dialog
+            if (error.message && error.message.indexOf("modal") !== -1) {
+                statusText.text = "⚠ AE is busy (close any dialog first)";
+            } else {
+                statusText.text = "Error jumping to time: " + error.message;
+            }
         }
     }
 

@@ -568,14 +568,8 @@ function createPanel(thisObj) {
     var loopButtons = ["Loop Cycle", "Loop Continue", "Loop PingPong"];
     addButtonsToGroup(loopGroup, loopButtons);
 
-
-    // Looper & Create Null row (below Loops)
-    var looperNullRow = leftCol.add("group");
-    looperNullRow.orientation = "row";
-    looperNullRow.alignChildren = ["fill", "center"];
-    looperNullRow.spacing = 2;
-
-    var looperBtn = looperNullRow.add("button", undefined, "Looper");
+    // Looper button (part of Loops category)
+    var looperBtn = loopGroup.add("button", undefined, "Looper");
     looperBtn.alignment = ["fill", "center"];
     looperBtn.preferredSize.height = 16;
     looperBtn.helpTip = "Enable time remap loop on selected precomp layer";
@@ -583,7 +577,19 @@ function createPanel(thisObj) {
         looperTool();
     };
 
-    var createNullBtnMain = looperNullRow.add("button", undefined, "Create Null");
+    // Tools section (separated from Loops)
+    leftCol.add("panel");
+    var toolsTitle = leftCol.add("statictext", undefined, "Tools");
+    toolsTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+    toolsTitle.alignment = "center";
+
+    // Tools row 1: Create Null | Reverse KF
+    var toolsRow1 = leftCol.add("group");
+    toolsRow1.orientation = "row";
+    toolsRow1.alignChildren = ["fill", "center"];
+    toolsRow1.spacing = 2;
+
+    var createNullBtnMain = toolsRow1.add("button", undefined, "Create Null");
     createNullBtnMain.alignment = ["fill", "center"];
     createNullBtnMain.preferredSize.height = 16;
     createNullBtnMain.helpTip = "Creates a null object for the selected layer";
@@ -591,13 +597,7 @@ function createPanel(thisObj) {
         createNullObject();
     };
 
-    // Extra tools row 1: Reverse KF | Batch Scale
-    var extraRow1 = leftCol.add("group");
-    extraRow1.orientation = "row";
-    extraRow1.alignChildren = ["fill", "center"];
-    extraRow1.spacing = 2;
-
-    var reverseKFBtn2 = extraRow1.add("button", undefined, "Reverse KF");
+    var reverseKFBtn2 = toolsRow1.add("button", undefined, "Reverse KF");
     reverseKFBtn2.alignment = ["fill", "center"];
     reverseKFBtn2.preferredSize.height = 16;
     reverseKFBtn2.helpTip = "Reverse selected keyframes (select keyframes in timeline first)";
@@ -605,7 +605,13 @@ function createPanel(thisObj) {
         reverseAllKeyframes();
     };
 
-    var batchScaleBtn2 = extraRow1.add("button", undefined, "Batch Scale");
+    // Tools row 2: Batch Scale | Smart Precomp
+    var toolsRow2 = leftCol.add("group");
+    toolsRow2.orientation = "row";
+    toolsRow2.alignChildren = ["fill", "center"];
+    toolsRow2.spacing = 2;
+
+    var batchScaleBtn2 = toolsRow2.add("button", undefined, "Batch Scale");
     batchScaleBtn2.alignment = ["fill", "center"];
     batchScaleBtn2.preferredSize.height = 16;
     batchScaleBtn2.helpTip = "Batch scale layers with presets (34%, 50%, 100%)";
@@ -613,13 +619,7 @@ function createPanel(thisObj) {
         showBatchScaleDialog();
     };
 
-    // Extra tools row 2: Smart Precomp | CP Movement
-    var extraRow2 = leftCol.add("group");
-    extraRow2.orientation = "row";
-    extraRow2.alignChildren = ["fill", "center"];
-    extraRow2.spacing = 2;
-
-    var smartPrecompBtn2 = extraRow2.add("button", undefined, "Smart Precomp");
+    var smartPrecompBtn2 = toolsRow2.add("button", undefined, "Smart Precomp");
     smartPrecompBtn2.alignment = ["fill", "center"];
     smartPrecompBtn2.preferredSize.height = 16;
     smartPrecompBtn2.helpTip = "Create precomp from selected layers while retaining size, scale and position";
@@ -627,7 +627,13 @@ function createPanel(thisObj) {
         createSmartPrecomp();
     };
 
-    var cpMovementBtn2 = extraRow2.add("button", undefined, "CP Movement");
+    // Tools row 3: CP Movement | Auto Zoom
+    var toolsRow3 = leftCol.add("group");
+    toolsRow3.orientation = "row";
+    toolsRow3.alignChildren = ["fill", "center"];
+    toolsRow3.spacing = 2;
+
+    var cpMovementBtn2 = toolsRow3.add("button", undefined, "CP Movement");
     cpMovementBtn2.alignment = ["fill", "center"];
     cpMovementBtn2.preferredSize.height = 16;
     cpMovementBtn2.helpTip = "Copy movement from a layer inside a precomp to this layer's position";
@@ -635,13 +641,7 @@ function createPanel(thisObj) {
         showCPMovementDialog();
     };
 
-    // Extra tools row 3: Auto Zoom | Walk/Run Arc
-    var extraRow3 = leftCol.add("group");
-    extraRow3.orientation = "row";
-    extraRow3.alignChildren = ["fill", "center"];
-    extraRow3.spacing = 2;
-
-    var autoZoomBtn2 = extraRow3.add("button", undefined, "Auto Zoom");
+    var autoZoomBtn2 = toolsRow3.add("button", undefined, "Auto Zoom");
     autoZoomBtn2.alignment = ["fill", "center"];
     autoZoomBtn2.preferredSize.height = 16;
     autoZoomBtn2.helpTip = "Add zoom in/out keyframes to selected layers with easing";
@@ -649,7 +649,13 @@ function createPanel(thisObj) {
         showAutoZoomDialog();
     };
 
-    var walkRunBtn2 = extraRow3.add("button", undefined, "Walk/Run");
+    // Tools row 4: Walk/Run | Fish-like
+    var toolsRow4 = leftCol.add("group");
+    toolsRow4.orientation = "row";
+    toolsRow4.alignChildren = ["fill", "center"];
+    toolsRow4.spacing = 2;
+
+    var walkRunBtn2 = toolsRow4.add("button", undefined, "Walk/Run");
     walkRunBtn2.alignment = ["fill", "center"];
     walkRunBtn2.preferredSize.height = 16;
     walkRunBtn2.helpTip = "Add walking/running arc movement to selected layers";
@@ -657,8 +663,8 @@ function createPanel(thisObj) {
         showWalkRunDialog();
     };
 
-    // Extra tools row 4: Fish-like (single)
-    var fishLikeBtn2 = leftCol.add("button", undefined, "Fish-like");
+    var fishLikeBtn2 = toolsRow4.add("button", undefined, "Fish-like");
+    fishLikeBtn2.alignment = ["fill", "center"];
     fishLikeBtn2.preferredSize.height = 16;
     fishLikeBtn2.helpTip = "Swimming fish animation";
     fishLikeBtn2.onClick = function () {
@@ -6247,23 +6253,90 @@ function changeBatchDuration() {
             return;
         }
 
-        var input = prompt("Enter new duration in seconds:", "10");
-        if (!input || isNaN(input)) {
-            alert("Invalid duration.");
+        // Create dialog instead of prompt
+        var dialog = new Window("dialog", "Batch Duration Settings");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 10;
+        dialog.margins = 16;
+
+        // Duration input
+        var durGroup = dialog.add("group");
+        durGroup.orientation = "row";
+        durGroup.alignChildren = ["left", "center"];
+        durGroup.spacing = 5;
+
+        durGroup.add("statictext", undefined, "Duration (seconds):");
+        var durInput = durGroup.add("edittext", undefined, "10");
+        durInput.preferredSize.width = 60;
+
+        // Separator
+        dialog.add("panel");
+
+        // Batch Scale checkbox + input
+        var scaleGroup = dialog.add("group");
+        scaleGroup.orientation = "row";
+        scaleGroup.alignChildren = ["left", "center"];
+        scaleGroup.spacing = 5;
+
+        var scaleCheck = scaleGroup.add("checkbox", undefined, "Batch Scale:");
+        scaleCheck.value = false;
+        scaleCheck.helpTip = "Also scale selected layers to this percentage";
+
+        var scaleInput = scaleGroup.add("edittext", undefined, "100");
+        scaleInput.preferredSize.width = 50;
+        scaleInput.enabled = false;
+
+        scaleGroup.add("statictext", undefined, "%");
+
+        // Toggle scale input enabled state
+        scaleCheck.onClick = function () {
+            scaleInput.enabled = scaleCheck.value;
+        };
+
+        // Buttons
+        var btnGroup = dialog.add("group");
+        btnGroup.orientation = "row";
+        btnGroup.alignment = "center";
+        btnGroup.spacing = 10;
+
+        var okBtn = btnGroup.add("button", undefined, "Apply");
+        var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+
+        cancelBtn.onClick = function () {
+            dialog.close(0);
+        };
+
+        okBtn.onClick = function () {
+            dialog.close(1);
+        };
+
+        dialog.center();
+        var result = dialog.show();
+
+        if (result !== 1) {
+            return;
+        }
+
+        var newDuration = parseFloat(durInput.text);
+        if (isNaN(newDuration) || newDuration <= 0) {
+            alert("Duration must be a positive number.");
             updateStatus("Invalid duration input");
             return;
         }
 
-        var newDuration = parseFloat(input);
-        if (newDuration <= 0) {
-            alert("Duration must be greater than 0.");
-            updateStatus("Duration must be positive");
+        var shouldScale = scaleCheck.value;
+        var scalePercentage = parseFloat(scaleInput.text);
+        if (shouldScale && (isNaN(scalePercentage) || scalePercentage <= 0)) {
+            alert("Scale percentage must be a positive number.");
+            updateStatus("Invalid scale input");
             return;
         }
 
         app.beginUndoGroup("Change Precomp Durations and Stretch Layers");
 
         var changedCount = 0;
+        var scaledCount = 0;
         for (var i = 0; i < selectedLayers.length; i++) {
             var layer = selectedLayers[i];
             var source = layer.source;
@@ -6324,12 +6397,22 @@ function changeBatchDuration() {
 
                 changedCount++;
             }
+
+            // Apply batch scale if checkbox was checked
+            if (shouldScale && layer.transform.scale) {
+                layer.transform.scale.setValue([scalePercentage, scalePercentage]);
+                scaledCount++;
+            }
         }
 
         app.endUndoGroup();
 
         if (changedCount > 0) {
-            updateStatus("Duration updated and layers stretched for " + changedCount + " precomp(s)");
+            var statusMsg = "Duration updated for " + changedCount + " precomp(s)";
+            if (shouldScale && scaledCount > 0) {
+                statusMsg += ", scaled " + scaledCount + " layer(s) to " + scalePercentage + "%";
+            }
+            updateStatus(statusMsg);
         } else {
             alert("No precomp layers found in selection.");
             updateStatus("No precomps found");
