@@ -2556,8 +2556,8 @@ function showScalePulseDialog() {
     var speedInput = speedGroup.add("edittext", undefined, "2");
     speedInput.preferredSize.width = 40;
 
-    var randomSpeedCheck = speedGroup.add("checkbox", undefined, "Cycle (1-4)");
-    randomSpeedCheck.helpTip = "If checked, speed cycles 1, 2, 3, 4 based on layer index";
+    var randomSpeedCheck = speedGroup.add("checkbox", undefined, "Cycle Speed (Index Offset)");
+    randomSpeedCheck.helpTip = "If checked, speed will be offset by layer index (e.g. Speed 12 becomes 12, 13, 14, 15)";
 
     // Constrain checkbox handler
     constrainCheck.onClick = function () {
@@ -2728,7 +2728,7 @@ function showScalePulseDialog() {
             // Constrained - both X and Y use the same values
             var speedLine;
             if (randomSpeedCheck.value) {
-                speedLine = "speed = ((index - 1) % 4) + 1; // cycled 1-4 based on index";
+                speedLine = "speed = " + speed + " + ((index - 1) % 4); // cycled offset by index";
             } else {
                 speedLine = "speed = " + speed + "; // cycles per second";
             }
@@ -2746,7 +2746,7 @@ function showScalePulseDialog() {
             // Unconstrained - separate X and Y values
             var speedLine;
             if (randomSpeedCheck.value) {
-                speedLine = "speed = ((index - 1) % 4) + 1; // cycled 1-4 based on index";
+                speedLine = "speed = " + speed + " + ((index - 1) % 4); // cycled offset by index";
             } else {
                 speedLine = "speed = " + speed + "; // cycles per second";
             }
