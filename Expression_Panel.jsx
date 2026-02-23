@@ -4003,6 +4003,40 @@ function addWaterDistortion() {
     }
 }
 
+// Add fire distortion effect
+function addFireDistortion() {
+    try {
+        app.beginUndoGroup("Add Turbulent Displace (Fire)");
+
+        var comp = app.project.activeItem;
+        if (comp && comp instanceof CompItem && comp.selectedLayers.length > 0) {
+            for (var i = 0; i < comp.selectedLayers.length; i++) {
+                var layer = comp.selectedLayers[i];
+                var effect = layer.Effects.addProperty("ADBE Turbulent Displace");
+
+                if (effect) {
+                    // Set Amount to 90
+                    effect.property("Amount").setValue(90);
+
+                    // Set Size to 35
+                    effect.property("Size").setValue(35);
+
+                    // Set Evolution expression: time * 988
+                    effect.property("Evolution").expression = "time * 988";
+                }
+            }
+            updateStatus("Added fire distortion to " + comp.selectedLayers.length + " layer(s)");
+        } else {
+            alert("Please select at least one layer in a comp.");
+            updateStatus("No layers selected");
+        }
+
+        app.endUndoGroup();
+    } catch (error) {
+        updateStatus("Error: " + error.message);
+    }
+}
+
 // Add Rim Light Effects
 function addRimLightEffects() {
     try {
@@ -4290,6 +4324,13 @@ function showWaterDistortionDialog() {
         amountInput.text = "25";
         sizeInput.text = "75";
         speedInput.text = "780";
+    };
+
+    var fireBtn = presetGroup.add("button", undefined, "Fire");
+    fireBtn.onClick = function () {
+        amountInput.text = "90";
+        sizeInput.text = "35";
+        speedInput.text = "988";
     };
 
     var buttonGroup = dialog.add("group");
