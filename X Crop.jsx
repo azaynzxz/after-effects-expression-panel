@@ -207,12 +207,17 @@ function createXBoltCropUI(thisObj) {
         var precompName = nameInput.text.replace(/^\s+|\s+$/g, "");
         if (precompName === "") precompName = "Precomp";
         app.beginUndoGroup("Xpert Crop - " + precompName);
+        var success = false;
         try {
             processBoltCrop(true, precompName);
+            success = true;
         } catch (e) {
             alert("Error: " + e.toString());
         } finally {
             app.endUndoGroup();
+        }
+        if (success && panel instanceof Window && panel.type === "dialog") {
+            panel.close();
         }
     };
 

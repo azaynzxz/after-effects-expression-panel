@@ -14,7 +14,10 @@
     var searchForwardOnlyCheckbox;
     var autoMoveCheckbox;
     var exactJumpCheckbox;
+    var addMarkerCheckbox;
+    var markerCountLabel;
     var calibrationInput; // Calibration input field
+    var markerCount = 0; // Counter for marker comments (1, 2, 3...)
     var isProgrammaticSelection = false; // Flag to prevent double execution
     var isJumping = false; // Flag to prevent jumpToTime from executing multiple times
     var isMovingLayer = false; // Flag to prevent moveNextLayerToCurrentTime from executing multiple times
@@ -180,6 +183,30 @@
         exactJumpCheckbox.helpTip = "When enabled, jump to the matched word's time instead of the next word's time";
         exactJumpCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
+        // Add Marker checkbox + Reset button
+        var markerRow = searchContainer.add("group");
+        markerRow.orientation = "row";
+        markerRow.alignChildren = ["left", "center"];
+        markerRow.spacing = 5;
+
+        addMarkerCheckbox = markerRow.add("checkbox", undefined, "Add Marker");
+        addMarkerCheckbox.value = true; // Default: enabled
+        addMarkerCheckbox.helpTip = "When enabled, adds a composition marker (like pressing *) with incrementing comment (1, 2, 3...) at the jumped time";
+        addMarkerCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        markerCountLabel = markerRow.add("statictext", undefined, "Count: 0");
+        markerCountLabel.preferredSize.width = 55;
+        markerCountLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        var resetMarkerBtn = markerRow.add("button", undefined, "Reset");
+        resetMarkerBtn.preferredSize.width = 45;
+        resetMarkerBtn.preferredSize.height = 22;
+        resetMarkerBtn.helpTip = "Reset marker counter back to 0";
+        resetMarkerBtn.onClick = function () {
+            markerCount = 0;
+            markerCountLabel.text = "Count: 0";
+        };
+
         // Calibration row
         var calibrationRow = searchContainer.add("group");
         calibrationRow.orientation = "row";
@@ -194,6 +221,11 @@
         calibrationInput.preferredSize.width = 50;
         calibrationInput.preferredSize.height = 22;
         calibrationInput.helpTip = "Frame offset (+/-) for all jumps";
+
+        // Prevent win.addEventListener from hijacking numbers typed here
+        calibrationInput.addEventListener('keydown', function (event) {
+            event.stopPropagation();
+        });
 
         var framesLabel = calibrationRow.add("statictext", undefined, "frames");
         framesLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -247,12 +279,12 @@
         };
 
         // Search on Enter key instead of real-time to avoid lag
-        // Also handle number keys (1-9) for shortcuts after Enter
         searchInput.addEventListener('keydown', function (event) {
             var keyName = event.keyName;
 
             if (keyName === "Enter") {
                 event.preventDefault();
+                event.stopPropagation();
 
                 // Safety check: Don't execute if AE has a modal dialog open
                 safeExecute(function () {
@@ -261,64 +293,16 @@
                     // After Enter, focus the listbox so shortcuts work immediately
                     try {
                         if (listbox.items.length > 0) {
-                            win.update();
                             listbox.active = true;
                         }
                     } catch (e) {
                         // Ignore if focus fails
                     }
                 });
-                return;
             } else {
-                // Handle number keys (1-9) for shortcuts even when search input is focused
-                // Check if results exist
-                if (listbox.items.length > 0) {
-                    var numKey = null;
-
-                    // Check if it's a number key (1-9) from main keyboard
-                    if (keyName && keyName.length === 1) {
-                        var charCode = keyName.charCodeAt(0);
-                        if (charCode >= 49 && charCode <= 57) { // '1' to '9'
-                            numKey = charCode - 48; // Convert to 1-9
-                        }
-                    }
-
-                    // If it's a number key, jump to that item
-                    if (numKey !== null) {
-                        // Prevent default behavior and stop event propagation IMMEDIATELY
-                        event.preventDefault();
-                        event.stopPropagation();
-
-                        // Prevent multiple handlers from executing the same shortcut
-                        if (isJumping) {
-                            return;
-                        }
-
-                        // Convert to 0-based index (1 -> 0, 2 -> 1, etc.)
-                        var targetIndex = numKey - 1;
-
-                        // Only jump if the index is valid
-                        if (targetIndex >= 0 && targetIndex < listbox.items.length) {
-                            var capturedIndex = targetIndex;
-                            safeExecute(function () {
-                                // Set flag to prevent onChange from firing
-                                isProgrammaticSelection = true;
-
-                                // Select the item in the listbox
-                                listbox.selection = capturedIndex;
-
-                                // Trigger the jump directly (onChange will be skipped due to flag)
-                                var selectedItem = listbox.items[capturedIndex];
-                                if (selectedItem) {
-                                    var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                                    jumpToTime(timeToJump);
-                                    isProgrammaticSelection = false;
-                                    searchInput.text = "";
-                                }
-                            });
-                        }
-                    }
-                }
+                // IMPORTANT: Stop propagation so that win.addEventListener doesn't 
+                // hijack number keys (1-9) while we are actively typing in the search box.
+                event.stopPropagation();
             }
         });
 
@@ -354,6 +338,8 @@
                     // Use exact jump time if checkbox is enabled, otherwise use next word time
                     var timeToJump = exactJumpCheckbox.value ? sel.matchTime : sel.timeValue;
                     jumpToTime(timeToJump);
+                    searchInput.text = "";
+                    searchInput.active = true;
                 });
             }
         };
@@ -404,6 +390,7 @@
                                 var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
                                 jumpToTime(timeToJump);
                                 searchInput.text = "";
+                                searchInput.active = true;
                             }
                         });
                     }
@@ -459,6 +446,7 @@
                                 var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
                                 jumpToTime(timeToJump);
                                 searchInput.text = "";
+                                searchInput.active = true;
                             }
                         });
                     }
@@ -828,12 +816,26 @@
             // Jump to time in main_comp (without opening it - keeps current viewer active)
             mainComp.time = seconds;
 
+            // Add composition marker if enabled
+            if (addMarkerCheckbox.value) {
+                try {
+                    markerCount++;
+                    var markerValue = new MarkerValue(markerCount.toString());
+                    mainComp.markerProperty.setValueAtTime(seconds, markerValue);
+                    // Update the counter label in the UI
+                    try { markerCountLabel.text = "Count: " + markerCount; } catch (e) { }
+                } catch (markerError) {
+                    // If marker already exists at this exact time, skip silently
+                }
+            }
+
             // Auto-move layer if enabled
             if (autoMoveCheckbox.value) {
                 moveNextLayerToCurrentTime(mainComp);
             } else {
                 var calMessage = calibrationFrames !== 0 ? " (cal: " + calibrationFrames + "f)" : "";
-                statusText.text = "Jumped to " + formatTime(seconds) + " in " + mainComp.name + calMessage;
+                var markerMessage = addMarkerCheckbox.value ? " | Marker #" + markerCount : "";
+                statusText.text = "Jumped to " + formatTime(seconds) + " in " + mainComp.name + calMessage + markerMessage;
             }
 
             isJumping = false; // Reset flag
