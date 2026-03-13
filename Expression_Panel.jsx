@@ -775,6 +775,14 @@ function createPanel(thisObj) {
         addBounceKeyframes();
     };
 
+    // Add Squash button
+    var squashBtn = utilityGroup.add("button", undefined, "Squash");
+    squashBtn.preferredSize.height = 16;
+    squashBtn.helpTip = "Squash animation with keyframes on scale";
+    squashBtn.onClick = function () {
+        applySquashAnimation();
+    };
+
     // Add Puppet→Null button
     var puppetToNullBtn = utilityGroup.add("button", undefined, "Puppet→Null");
     puppetToNullBtn.preferredSize.height = 16;
@@ -4475,25 +4483,20 @@ function addBounceKeyframes() {
 
                 // Add scale keyframes with bounce (0% to 100%)
                 if (layer.transform.scale.canSetExpression) {
+                    var scaleProp = layer.transform.scale;
+
                     // Create first keyframe at 0%
-                    layer.transform.scale.setValueAtTime(currentTime, [0, 0]);
+                    var k1 = scaleProp.addKey(currentTime);
+                    scaleProp.setValueAtKey(k1, [0, 0]);
+
                     // Create second keyframe at 100%
-                    layer.transform.scale.setValueAtTime(secondKeyframeTime, [100, 100]);
+                    var k2 = scaleProp.addKey(secondKeyframeTime);
+                    scaleProp.setValueAtKey(k2, [100, 100]);
 
-                    // Apply bounce easing (0.68, -0.55, 0.27, 1.55)
-                    // Convert to After Effects temporal ease values
                     try {
-                        // For bounce effect: strong ease out from first keyframe, strong ease in to second keyframe
-                        var strongEaseOut = new KeyframeEase(68, 83);  // Fast out from 0%
-                        var bounceEaseIn = new KeyframeEase(27, 100);  // Slow in to 100% with overshoot
-
-                        var numKeys = layer.transform.scale.numKeys;
-                        if (numKeys >= 2) {
-                            // Apply to first keyframe (0% scale) - strong ease out
-                            layer.transform.scale.setTemporalEaseAtKey(numKeys - 1, [strongEaseOut, strongEaseOut], [strongEaseOut, strongEaseOut]);
-                            // Apply to second keyframe (100% scale) - bounce ease in  
-                            layer.transform.scale.setTemporalEaseAtKey(numKeys, [bounceEaseIn, bounceEaseIn], [bounceEaseIn, bounceEaseIn]);
-                        }
+                        // Apply cubic bezier easing (0.17, 0.89, 0.32, 1.27)
+                        var bezierData = [0.17, 0.89, 0.32, 1.27];
+                        applyCubicBezierToKeyframes(scaleProp, k1, k2, bezierData);
                     } catch (easeError) {
                         updateStatus("Applied keyframes (easing error: " + easeError.toString() + ")");
                     }
@@ -7109,5 +7112,170 @@ function linkerLayers() {
 
     } catch (error) {
         updateStatus("Error: " + error.toString());
+    }
+}
+
+// Function to apply Squash animation
+function applySquashAnimation() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition found");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("Please select at least 1 layer");
+            return;
+        }
+
+        app.beginUndoGroup("Squash Animation");
+
+        var frameDur = comp.frameDuration;
+        var currentTime = comp.time;
+        var time1 = currentTime;
+        var time2 = currentTime + (3 * frameDur);
+        var time3 = currentTime + (7 * frameDur); // +4 frames from previous keyframe
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            // 1. Move anchor point to bottom center (keeping visual position)
+            if (layer.transform && layer.transform.anchorPoint && layer.sourceRectAtTime && !layer.locked) {
+                var rect = layer.sourceRectAtTime(comp.time, false);
+                var newAnchorX = rect.left + rect.width / 2;
+                var newAnchorY = rect.top + rect.height;
+                var oldAnchor = layer.transform.anchorPoint.value;
+
+                var newAnchorZ = (oldAnchor.length > 2) ? oldAnchor[2] : 0;
+                var newAnchor = [newAnchorX, newAnchorY, newAnchorZ];
+
+                var newPos = layer.transform.position.value;
+                var compensationSuccess = false;
+
+                try {
+                    var vec = [newAnchorX, newAnchorY, newAnchorZ];
+                    var worldPos = layer.toComp(vec);
+                    if (layer.parent) {
+                        newPos = layer.parent.fromComp(worldPos);
+                    } else {
+                        newPos = worldPos;
+                    }
+                    compensationSuccess = true;
+                } catch (compErr) {
+                    // toComp failed, try manual math
+                }
+
+                if (!compensationSuccess) {
+                    try {
+                        var scale = layer.transform.scale.value;
+                        var sx = scale[0] / 100;
+                        var sy = scale[1] / 100;
+
+                        var dx = (newAnchor[0] - oldAnchor[0]) * sx;
+                        var dy = (newAnchor[1] - oldAnchor[1]) * sy;
+
+                        var oldPos = layer.transform.position.value;
+                        if (oldPos.length === 2) {
+                            newPos = [oldPos[0] + dx, oldPos[1] + dy];
+                        } else {
+                            newPos = [oldPos[0] + dx, oldPos[1] + dy, oldPos[2]];
+                        }
+                        compensationSuccess = true;
+                    } catch (mathErr) {
+                        // Skip compensation
+                    }
+                }
+
+                layer.transform.anchorPoint.setValue(newAnchor);
+                layer.transform.position.setValue(newPos);
+            }
+
+            // 2. Make new keyframes on Scale
+            if (layer.transform && layer.transform.scale) {
+                var scaleProp = layer.transform.scale;
+
+                // Keep original Z if 3D
+                var currentScale = scaleProp.value;
+                var is3D = currentScale.length > 2;
+
+                var scale1 = is3D ? [100, 100, currentScale[2]] : [100, 100];
+                var scale2 = is3D ? [100, 94, currentScale[2]] : [100, 94];
+                var scale3 = is3D ? [100, 100, currentScale[2]] : [100, 100];
+
+                var k1 = scaleProp.addKey(time1);
+                scaleProp.setValueAtKey(k1, scale1);
+
+                var k2 = scaleProp.addKey(time2);
+                scaleProp.setValueAtKey(k2, scale2);
+
+                var k3 = scaleProp.addKey(time3);
+                scaleProp.setValueAtKey(k3, scale3);
+
+                // 3. Apply easing using cubic-bezier
+                var bezierData = [0.17, 0.89, 0.32, 1.27];
+                applyCubicBezierToKeyframes(scaleProp, k1, k2, bezierData);
+                applyCubicBezierToKeyframes(scaleProp, k2, k3, bezierData);
+            }
+        }
+
+        app.endUndoGroup();
+        updateStatus("Applied Squash to " + selectedLayers.length + " layer(s)");
+
+    } catch (error) {
+        updateStatus("Error: " + error.toString());
+    }
+}
+
+// Helper function to apply CSS cubic-bezier values to After Effects keyframes
+function applyCubicBezierToKeyframes(prop, keyIndex1, keyIndex2, cubicBezier) {
+    if (!prop.isTimeVarying) return;
+    try {
+        var x1 = cubicBezier[0];
+        var y1 = cubicBezier[1];
+        var x2 = cubicBezier[2];
+        var y2 = cubicBezier[3];
+
+        var t1 = prop.keyTime(keyIndex1);
+        var t2 = prop.keyTime(keyIndex2);
+        var v1 = prop.keyValue(keyIndex1);
+        var v2 = prop.keyValue(keyIndex2);
+        var dx = t2 - t1;
+        if (dx <= 0) return;
+
+        // Ensure interpolation is bezier
+        prop.setInterpolationTypeAtKey(keyIndex1, prop.keyInInterpolationType(keyIndex1), KeyframeInterpolationType.BEZIER);
+        prop.setInterpolationTypeAtKey(keyIndex2, KeyframeInterpolationType.BEZIER, prop.keyOutInterpolationType(keyIndex2));
+
+        var isMulti = (prop.propertyValueType == PropertyValueType.TwoD_SPATIAL ||
+            prop.propertyValueType == PropertyValueType.ThreeD_SPATIAL ||
+            prop.propertyValueType == PropertyValueType.TwoD ||
+            prop.propertyValueType == PropertyValueType.ThreeD ||
+            prop.propertyValueType == PropertyValueType.COLOR);
+
+        var dimension = isMulti ? v1.length : 1;
+        var outEase = [];
+        var inEase = [];
+
+        for (var i = 0; i < dimension; i++) {
+            var startVal = isMulti ? v1[i] : v1;
+            var endVal = isMulti ? v2[i] : v2;
+            var dy = endVal - startVal;
+
+            var sOut = (x1 === 0) ? 0 : (dy * (y1 / x1) / dx);
+            var sIn = (x2 === 1) ? 0 : (dy * ((1 - y2) / (1 - x2)) / dx);
+
+            var infOut = Math.min(Math.max(x1 * 100, 0.1), 100);
+            var infIn = Math.min(Math.max((1 - x2) * 100, 0.1), 100);
+
+            outEase.push(new KeyframeEase(sOut, infOut));
+            inEase.push(new KeyframeEase(sIn, infIn));
+        }
+
+        prop.setTemporalEaseAtKey(keyIndex1, prop.keyInTemporalEase(keyIndex1), outEase);
+        prop.setTemporalEaseAtKey(keyIndex2, inEase, prop.keyOutTemporalEase(keyIndex2));
+    } catch (e) {
+        // Fallback or ignore if properties conflict
     }
 }
