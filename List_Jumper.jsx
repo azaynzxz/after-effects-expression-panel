@@ -582,8 +582,12 @@
 
 
 
-    // Helper function to find main_comp
-    function findMainComp() {
+    // Helper function to get active composition (fallback to main_comp)
+    function getTargetComp() {
+        var activeComp = app.project.activeItem;
+        if (activeComp && activeComp instanceof CompItem) {
+            return activeComp;
+        }
         for (var i = 1; i <= app.project.numItems; i++) {
             var item = app.project.item(i);
             if (item instanceof CompItem && item.name === "main_comp") {
@@ -593,12 +597,12 @@
         return null;
     }
 
-    // Get current playhead time from main_comp (always use main_comp, not active comp)
+    // Get current playhead time from target comp
     function getCurrentPlayheadTime() {
         try {
-            var mainComp = findMainComp();
-            if (mainComp) {
-                return mainComp.time;
+            var comp = getTargetComp();
+            if (comp) {
+                return comp.time;
             }
         } catch (error) {
             // Ignore errors (e.g., when modal dialog is active)
@@ -776,7 +780,7 @@
         return pad(hours, 2) + ":" + pad(minutes, 2) + ":" + pad(secs, 2) + "." + pad(ms, 3);
     }
 
-    // Jump to time in main_comp (always use main_comp, not active comp)
+    // Jump to time in target comp
     function jumpToTime(seconds) {
         // Prevent double execution
         if (isJumping) {
@@ -794,34 +798,32 @@
                 return;
             }
 
-            // Always find and use main_comp (like Expression_Panel does)
-            // But don't open it - keep current active composition open
-            var mainComp = findMainComp();
+            var comp = getTargetComp();
 
-            if (!mainComp) {
-                statusText.text = "Could not find 'main_comp'";
+            if (!comp) {
+                statusText.text = "Could not find active composition or 'main_comp'";
                 isJumping = false;
                 return;
             }
 
             // Apply calibration offset (in frames)
             var calibrationFrames = parseFloat(calibrationInput.text) || 0;
-            var frameRate = mainComp.frameRate || 30; // Get comp frame rate, default to 30fps
+            var frameRate = comp.frameRate || 30; // Get comp frame rate, default to 30fps
             var calibrationSeconds = calibrationFrames / frameRate;
             seconds += calibrationSeconds;
 
             // Clamp to composition duration
-            seconds = Math.max(0, Math.min(seconds, mainComp.duration));
+            seconds = Math.max(0, Math.min(seconds, comp.duration));
 
-            // Jump to time in main_comp (without opening it - keeps current viewer active)
-            mainComp.time = seconds;
+            // Jump to time in target comp (without opening it - keeps current viewer active)
+            comp.time = seconds;
 
             // Add composition marker if enabled
             if (addMarkerCheckbox.value) {
                 try {
                     markerCount++;
                     var markerValue = new MarkerValue(markerCount.toString());
-                    mainComp.markerProperty.setValueAtTime(seconds, markerValue);
+                    comp.markerProperty.setValueAtTime(seconds, markerValue);
                     // Update the counter label in the UI
                     try { markerCountLabel.text = "Count: " + markerCount; } catch (e) { }
                 } catch (markerError) {
@@ -831,11 +833,11 @@
 
             // Auto-move layer if enabled
             if (autoMoveCheckbox.value) {
-                moveNextLayerToCurrentTime(mainComp);
+                moveNextLayerToCurrentTime(comp);
             } else {
                 var calMessage = calibrationFrames !== 0 ? " (cal: " + calibrationFrames + "f)" : "";
                 var markerMessage = addMarkerCheckbox.value ? " | Marker #" + markerCount : "";
-                statusText.text = "Jumped to " + formatTime(seconds) + " in " + mainComp.name + calMessage + markerMessage;
+                statusText.text = "Jumped to " + formatTime(seconds) + " in " + comp.name + calMessage + markerMessage;
             }
 
             isJumping = false; // Reset flag

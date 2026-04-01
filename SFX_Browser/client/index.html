@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>SFX Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #232323;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 12px;
+            padding: 8px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .header h1 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #00bfff;
+            white-space: nowrap;
+        }
+
+        /* Search */
+        .search-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+
+        #searchInput {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        #searchInput:focus {
+            border-color: #00bfff;
+        }
+
+        #searchInput::placeholder {
+            color: #777;
+        }
+
+        .btn {
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: #444;
+            border-color: #00bfff;
+        }
+
+        .btn:active {
+            background: #00bfff;
+            color: #000;
+        }
+
+        /* Options */
+        .options-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .options-row label {
+            font-size: 11px;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+        }
+
+        .options-row select {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        /* List */
+        #audioList {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .list-item {
+            padding: 6px 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.1s;
+        }
+
+        .list-item:hover {
+            background: #2d2d2d;
+        }
+
+        .list-item:active {
+            background: #00bfff;
+            color: #000;
+        }
+
+        .list-item .icon {
+            color: #00bfff;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .list-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .list-item .path {
+            color: #666;
+            font-size: 10px;
+            flex-shrink: 0;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .empty-msg {
+            padding: 20px;
+            text-align: center;
+            color: #555;
+            font-style: italic;
+        }
+
+        /* Gain row */
+        .gain-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+
+        .gain-row span {
+            font-size: 10px;
+            color: #888;
+            margin-right: 2px;
+        }
+
+        .gain-btn {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .gain-btn:hover {
+            background: #444;
+            border-color: #ff9800;
+        }
+
+        .gain-btn:active {
+            background: #ff9800;
+            color: #000;
+        }
+
+        .gain-btn.positive {
+            color: #4caf50;
+        }
+
+        .gain-btn.negative {
+            color: #ff9800;
+        }
+
+        /* Status */
+        #statusBar {
+            margin-top: 6px;
+            padding: 4px 6px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #888;
+            min-height: 20px;
+        }
+
+        #statusBar.success {
+            color: #4caf50;
+        }
+
+        #statusBar.error {
+            color: #f44336;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🔊 SFX Browser</h1>
+    </div>
+
+    <div class="search-row">
+        <input type="text" id="searchInput" placeholder="Search audio files..." />
+        <button class="btn" id="refreshBtn" title="Refresh audio list from project">⟳</button>
+    </div>
+
+    <div class="options-row">
+        <label>
+            <input type="checkbox" id="autoTrimCheck" checked />
+            Auto-trim silence
+        </label>
+        <label>
+            Track:
+            <select id="trackSelect">
+                <option value="1">A2</option>
+                <option value="2">A3</option>
+                <option value="3">A4</option>
+                <option value="0">A1</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="gain-row">
+        <span>Gain:</span>
+        <button class="gain-btn positive" data-gain="6">+6 dB</button>
+        <button class="gain-btn negative" data-gain="-9">-9 dB</button>
+        <button class="gain-btn negative" data-gain="-12">-12 dB</button>
+        <button class="gain-btn negative" data-gain="-26">-26 dB</button>
+    </div>
+
+    <div id="audioList">
+        <div class="empty-msg">Click ⟳ to scan project for audio files</div>
+    </div>
+
+    <div id="statusBar">Ready</div>
+
+    <script src="CSInterface.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>

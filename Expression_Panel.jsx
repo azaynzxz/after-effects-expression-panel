@@ -678,6 +678,64 @@ function createPanel(thisObj) {
         showFishDialog();
     };
 
+    // Anchor & Stagger Section
+    leftCol.add("panel");
+    var layUtilTitle = leftCol.add("statictext", undefined, "Layer Utils");
+    layUtilTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+    layUtilTitle.alignment = "center";
+
+    // Stagger UI Section
+    var staggerRow = leftCol.add("group");
+    staggerRow.orientation = "row";
+    staggerRow.alignChildren = ["center", "center"];
+    staggerRow.spacing = 1;
+
+    var staggerLeftBtn = staggerRow.add("button", undefined, "<");
+    staggerLeftBtn.preferredSize.width = 24;
+    staggerLeftBtn.preferredSize.height = 16;
+    staggerLeftBtn.helpTip = "Stagger Ascending";
+    staggerLeftBtn.onClick = function () {
+        staggerLayers(parseFloat(staggerInput.text) || 1, "Ascending");
+    };
+
+    var staggerInput = staggerRow.add("edittext", undefined, "1");
+    staggerInput.preferredSize.width = 32;
+    staggerInput.preferredSize.height = 18;
+    staggerInput.helpTip = "Offset frames";
+    staggerInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+    staggerInput.justify = "center";
+
+    var staggerRightBtn = staggerRow.add("button", undefined, ">");
+    staggerRightBtn.preferredSize.width = 24;
+    staggerRightBtn.preferredSize.height = 16;
+    staggerRightBtn.helpTip = "Stagger Descending";
+    staggerRightBtn.onClick = function () {
+        staggerLayers(parseFloat(staggerInput.text) || 1, "Descending");
+    };
+
+    // Anchor Point Section
+    var anchorGroup = leftCol.add("group");
+    anchorGroup.orientation = "column";
+    anchorGroup.alignChildren = ["center", "center"];
+    anchorGroup.spacing = 1;
+
+    var symbols = [["\\", "^", "/"], ["<", "o", ">"], ["/", "v", "\\"]];
+    for (var r = 0; r < 3; r++) {
+        var row = anchorGroup.add("group");
+        row.orientation = "row";
+        row.spacing = 1;
+        for (var c = 0; c < 3; c++) {
+            (function (rr, cc, sym) {
+                var btn = row.add("button", undefined, sym);
+                btn.preferredSize = [24, 18];
+                btn.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+                btn.onClick = function () {
+                    moveAnchorPoint(cc, rr);
+                };
+            })(r, c, symbols[r][c]);
+        }
+    }
+
     // Right Column
     var rightCol = mainGroup.add("group");
     rightCol.orientation = "column";
@@ -791,6 +849,14 @@ function createPanel(thisObj) {
         createPuppetNulls();
     };
 
+    // Add Mask Fit button
+    var maskFitBtn = utilityGroup.add("button", undefined, "Mask Fit");
+    maskFitBtn.preferredSize.height = 16;
+    maskFitBtn.helpTip = "Use selected or first mask to auto-position and scale layer to fit comp";
+    maskFitBtn.onClick = function () {
+        applyMaskAutoFit();
+    };
+
     // Add Flip H button
     var flipHorizontalBtn = utilityGroup.add("button", undefined, "Flip H");
     flipHorizontalBtn.preferredSize.height = 16;
@@ -815,6 +881,14 @@ function createPanel(thisObj) {
         showKickOutOfFrameDialog();
     };
 
+    // Add Put Here button
+    var putHereBtn = utilityGroup.add("button", undefined, "Put Here");
+    putHereBtn.preferredSize.height = 16;
+    putHereBtn.helpTip = "Auto animate layer entering the frame";
+    putHereBtn.onClick = function () {
+        showPutHereDialog();
+    };
+
     // Add Linker button
     var linkerBtn = utilityGroup.add("button", undefined, "Linker");
     linkerBtn.preferredSize.height = 16;
@@ -823,7 +897,13 @@ function createPanel(thisObj) {
         linkerLayers();
     };
 
-
+    // Add Bellow button
+    var bellowBtn = utilityGroup.add("button", undefined, "Bellow");
+    bellowBtn.preferredSize.height = 16;
+    bellowBtn.helpTip = "Move selected layers below the last selected layer";
+    bellowBtn.onClick = function () {
+        Bellow();
+    };
 
     // Layer Navigation Section (below More button)
     rightCol.add("panel");
@@ -5029,16 +5109,37 @@ function showRotationPingPongDialog() {
     ampGroup.orientation = "row";
     ampGroup.alignChildren = ["left", "center"];
     ampGroup.add("statictext", undefined, "Amplitude (degrees):");
-    var ampInput = ampGroup.add("edittext", undefined, "10");
+    var ampInput = ampGroup.add("edittext", undefined, "5");
     ampInput.preferredSize.width = 60;
 
-    // Frequency input
-    var freqGroup = dialog.add("group");
-    freqGroup.orientation = "row";
-    freqGroup.alignChildren = ["left", "center"];
-    freqGroup.add("statictext", undefined, "Frequency (cycles/sec):");
-    var freqInput = freqGroup.add("edittext", undefined, "2");
-    freqInput.preferredSize.width = 60;
+    // Speed input
+    var speedGroup = dialog.add("group");
+    speedGroup.orientation = "row";
+    speedGroup.alignChildren = ["left", "center"];
+    speedGroup.add("statictext", undefined, "Speed (cycles/sec):");
+    var speedInput = speedGroup.add("edittext", undefined, "1");
+    speedInput.preferredSize.width = 60;
+
+    // Stop time input
+    var stopTimeGroup = dialog.add("group");
+    stopTimeGroup.orientation = "row";
+    stopTimeGroup.alignChildren = ["left", "center"];
+    stopTimeGroup.add("statictext", undefined, "Stop Time:");
+    var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
+    stopTimeInput.preferredSize.width = 80;
+    stopTimeInput.helpTip = "Leave empty for no stop time. Format H:MM:SS:FF";
+
+    var stopHereCheck = stopTimeGroup.add("checkbox", undefined, "Stop Here");
+    stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
+    stopHereCheck.onClick = function () {
+        if (stopHereCheck.value) {
+            var currentTime = getCurrentTimeFormatted();
+            if (currentTime) {
+                stopTimeInput.text = currentTime;
+                if (typeof updatePreview === 'function') updatePreview();
+            }
+        }
+    };
 
     // Preset buttons
     var presetGroup = dialog.add("group");
@@ -5048,10 +5149,10 @@ function showRotationPingPongDialog() {
     presetGroup.add("statictext", undefined, "Presets:");
 
     var presets = [
-        { name: "Gentle", amp: 5, freq: 1 },
-        { name: "Normal", amp: 10, freq: 2 },
-        { name: "Quick", amp: 15, freq: 3 },
-        { name: "Intense", amp: 20, freq: 4 }
+        { name: "Gentle", amp: 2, speed: 1 },
+        { name: "Normal", amp: 5, speed: 2 },
+        { name: "Quick", amp: 10, speed: 3 },
+        { name: "Intense", amp: 20, speed: 4 }
     ];
 
     for (var i = 0; i < presets.length; i++) {
@@ -5059,7 +5160,7 @@ function showRotationPingPongDialog() {
         btn.preset = presets[i];
         btn.onClick = function () {
             ampInput.text = this.preset.amp.toString();
-            freqInput.text = this.preset.freq.toString();
+            speedInput.text = this.preset.speed.toString();
             updatePreview();
         };
     }
@@ -5072,23 +5173,26 @@ function showRotationPingPongDialog() {
     var previewLabel = previewGroup.add("statictext", undefined, "Expression Preview:");
     previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
 
-    var previewText = previewGroup.add("statictext", undefined, "let amp = 10; let rotateFreq = 2;\n// Complex rotation with random pauses\n// 0.5s rotation + 0.3-0.8s pause cycles\n// (Full expression applied on OK)");
+    var previewText = previewGroup.add("statictext", undefined, "var amp = 5;\nvar speed = 1;\n\namp * Math.sin(2 * Math.PI * speed * time);");
     previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
 
     // Update preview when values change
     function updatePreview() {
         var amp = parseFloat(ampInput.text);
-        var freq = parseFloat(freqInput.text);
-        if (!isNaN(amp) && !isNaN(freq)) {
-            previewText.text = "let amp = " + amp + "; let rotateFreq = " + freq + ";\n" +
-                "// Complex rotation with random pauses\n" +
-                "// 0.5s rotation + 0.3-0.8s pause cycles\n" +
-                "// (Full expression applied on OK)";
+        var speed = parseFloat(speedInput.text);
+        var hasStopTime = stopTimeInput.text !== "";
+        if (!isNaN(amp) && !isNaN(speed)) {
+            if (hasStopTime) {
+                previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\nvar stopTime = [...];\nvar t = time >= stopTime ? stopTime : time;\namp * Math.sin(2 * Math.PI * speed * t);";
+            } else {
+                previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\n\namp * Math.sin(2 * Math.PI * speed * time);";
+            }
         }
     }
 
     ampInput.onChanging = updatePreview;
-    freqInput.onChanging = updatePreview;
+    speedInput.onChanging = updatePreview;
+    stopTimeInput.onChanging = updatePreview;
 
     // Buttons
     var buttonGroup = dialog.add("group");
@@ -5098,33 +5202,43 @@ function showRotationPingPongDialog() {
     var okBtn = buttonGroup.add("button", undefined, "Apply");
     okBtn.onClick = function () {
         var amp = parseFloat(ampInput.text);
-        var freq = parseFloat(freqInput.text);
+        var speed = parseFloat(speedInput.text);
+        var stopTimeStr = stopTimeInput.text;
 
-        if (!isNaN(amp) && !isNaN(freq)) {
-            // Use the complex Rotation PingPong expression with custom amp and freq values
-            var expression = "let amp = " + amp + ";\n" +
-                "let rotateFreq = " + freq + ";\n\n" +
-                "// Get a stable cycle index based on time\n" +
-                "let cycleIndex = Math.floor(time);\n\n" +
-                "// Generate a pseudo-random value per cycle (0...1)\n" +
-                "function random(seed) {\n" +
-                "  return fract(Math.sin(seed * 91.345) * 47453.321);\n" +
-                "}\n" +
-                "function fract(x) {\n" +
-                "  return x - Math.floor(x);\n" +
-                "}\n\n" +
-                "// Get a random pause duration between 0.3 and 0.8 seconds\n" +
-                "let rand = random(cycleIndex);\n" +
-                "let pauseDuration = 0.3 + rand * (0.8 - 0.3);\n\n" +
-                "// Total cycle time: rotateDuration + pauseDuration\n" +
-                "let rotateDuration = 0.5; // how long it rotates each cycle\n" +
-                "let cycleTime = rotateDuration + pauseDuration;\n\n" +
-                "// Where we are in the current cycle\n" +
-                "let t = time % cycleTime;\n\n" +
-                "let output = (t < rotateDuration)\n" +
-                "  ? Math.sin(time * rotateFreq * 2 * Math.PI) * amp\n" +
-                "  : 0;\n\n" +
-                "output;";
+        if (!isNaN(amp) && !isNaN(speed)) {
+            var stopTimeComponents = null;
+            if (stopTimeStr !== "") {
+                var parts = stopTimeStr.split(':');
+                if (parts.length === 4 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1])) && !isNaN(parseInt(parts[2])) && !isNaN(parseInt(parts[3]))) {
+                    stopTimeComponents = {
+                        h: parseInt(parts[0]),
+                        m: parseInt(parts[1]),
+                        s: parseInt(parts[2]),
+                        f: parseInt(parts[3])
+                    };
+                } else {
+                    alert("Invalid time format. Please use H:MM:SS:FF or leave it empty.");
+                    return;
+                }
+            }
+
+            var expression;
+            if (stopTimeComponents) {
+                var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
+                expression = "var amp   = " + amp + ";   // degrees each direction\n" +
+                    "var speed = " + speed + ";    // cycles per second\n" +
+                    "var stopTime = " + stopTimeCalculation + "\n" +
+                    "var t = time;\n" +
+                    "if (time >= stopTime) {\n" +
+                    "  t = stopTime;\n" +
+                    "}\n" +
+                    "amp * Math.sin(2 * Math.PI * speed * t);";
+            } else {
+                expression = "var amp   = " + amp + ";   // degrees each direction\n" +
+                    "var speed = " + speed + ";    // cycles per second\n\n" +
+                    "amp * Math.sin(2 * Math.PI * speed * time);";
+            }
+
             handleExpressionClick("Rotation PingPong", expression);
             dialog.close();
         } else {
@@ -5967,25 +6081,29 @@ function showKickOutOfFrameDialog() {
         dialog.close();
     };
 
-    // Button handlers - window stays open after clicking
+    // Button handlers - auto close window after clicking
     kickUpBtn.onClick = function () {
         var margin = parseInt(marginInput.text) || 50;
         kickLayersOutOfFrame("up", margin);
+        dialog.close();
     };
 
     kickRightBtn.onClick = function () {
         var margin = parseInt(marginInput.text) || 50;
         kickLayersOutOfFrame("right", margin);
+        dialog.close();
     };
 
     kickDownBtn.onClick = function () {
         var margin = parseInt(marginInput.text) || 50;
         kickLayersOutOfFrame("down", margin);
+        dialog.close();
     };
 
     kickLeftBtn.onClick = function () {
         var margin = parseInt(marginInput.text) || 50;
         kickLayersOutOfFrame("left", margin);
+        dialog.close();
     };
 
     // Show window and keep it on top
@@ -6072,6 +6190,268 @@ function kickLayersOutOfFrame(direction, margin) {
 
         app.endUndoGroup();
         updateStatus("Kicked " + selectedLayers.length + " layer(s) " + direction + " out of frame");
+
+    } catch (error) {
+        updateStatus("Error: " + error.message);
+    }
+}
+
+// Show Put Here dialog
+function showPutHereDialog() {
+    var comp = app.project.activeItem;
+    if (!comp || !(comp instanceof CompItem)) {
+        updateStatus("No active composition");
+        return;
+    }
+
+    var selectedLayers = comp.selectedLayers;
+    if (selectedLayers.length === 0) {
+        updateStatus("No layers selected");
+        return;
+    }
+
+    var dialog = new Window("palette", "Put Here", undefined, { closeButton: true });
+    dialog.orientation = "column";
+    dialog.alignChildren = ["fill", "top"];
+    dialog.spacing = 10;
+    dialog.margins = 16;
+
+    if (dialog.show) {
+        dialog.active = true;
+    }
+
+    var infoText = dialog.add("statictext", undefined, "Choose start origin direction:");
+    infoText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 11);
+
+    var compInfo = dialog.add("statictext", undefined, "Comp: " + comp.width + " x " + comp.height + " px");
+    compInfo.graphics.font = ScriptUI.newFont("Arial", "ITALIC", 10);
+
+    var topRow = dialog.add("group");
+    topRow.orientation = "row";
+    topRow.alignChildren = ["center", "center"];
+
+    var upBtn = topRow.add("button", undefined, "^");
+    upBtn.preferredSize.width = 50;
+    upBtn.preferredSize.height = 35;
+    upBtn.helpTip = "Start from Up";
+
+    var middleRow = dialog.add("group");
+    middleRow.orientation = "row";
+    middleRow.alignChildren = ["center", "center"];
+    middleRow.spacing = 10;
+
+    var leftBtn = middleRow.add("button", undefined, "<");
+    leftBtn.preferredSize.width = 50;
+    leftBtn.preferredSize.height = 35;
+    leftBtn.helpTip = "Start from Left";
+
+    var rightBtn = middleRow.add("button", undefined, ">");
+    rightBtn.preferredSize.width = 50;
+    rightBtn.preferredSize.height = 35;
+    rightBtn.helpTip = "Start from Right";
+
+    var bottomRow = dialog.add("group");
+    bottomRow.orientation = "row";
+    bottomRow.alignChildren = ["center", "center"];
+
+    var downBtn = bottomRow.add("button", undefined, "v");
+    downBtn.preferredSize.width = 50;
+    downBtn.preferredSize.height = 35;
+    downBtn.helpTip = "Start from Down";
+
+    // Margin input
+    var optionsPanel = dialog.add("panel", undefined, "Options");
+    optionsPanel.alignChildren = ["fill", "top"];
+    optionsPanel.spacing = 5;
+    optionsPanel.margins = 10;
+
+    var marginGroup = optionsPanel.add("group");
+    marginGroup.orientation = "row";
+    marginGroup.alignChildren = ["left", "center"];
+
+    marginGroup.add("statictext", undefined, "Extra margin (px):");
+    var marginInput = marginGroup.add("edittext", undefined, "50");
+    marginInput.preferredSize.width = 60;
+    marginInput.helpTip = "Extra distance beyond the frame edge";
+
+    // Walk option
+    var walkGroup = optionsPanel.add("group");
+    walkGroup.orientation = "row";
+    walkGroup.alignChildren = ["left", "center"];
+    var walkCheckbox = walkGroup.add("checkbox", undefined, "Walk");
+    walkCheckbox.value = false;
+    walkCheckbox.helpTip = "Add walking oscillation before stopping";
+
+    var closeBtn = dialog.add("button", undefined, "Close");
+    closeBtn.onClick = function () {
+        dialog.close();
+    };
+
+    upBtn.onClick = function () {
+        var margin = parseInt(marginInput.text) || 50;
+        putLayersHere("up", margin, walkCheckbox.value);
+        dialog.close();
+    };
+
+    rightBtn.onClick = function () {
+        var margin = parseInt(marginInput.text) || 50;
+        putLayersHere("right", margin, walkCheckbox.value);
+        dialog.close();
+    };
+
+    downBtn.onClick = function () {
+        var margin = parseInt(marginInput.text) || 50;
+        putLayersHere("down", margin, walkCheckbox.value);
+        dialog.close();
+    };
+
+    leftBtn.onClick = function () {
+        var margin = parseInt(marginInput.text) || 50;
+        putLayersHere("left", margin, walkCheckbox.value);
+        dialog.close();
+    };
+
+    dialog.show();
+}
+
+// Put layers here from outside frame
+function putLayersHere(direction, margin, isWalk) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+
+        var compWidth = comp.width;
+        var compHeight = comp.height;
+        var currentTime = comp.time;
+        var fps = comp.frameRate;
+
+        app.beginUndoGroup("Put Here - " + direction + (isWalk ? " (Walk)" : ""));
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            var posProp = layer.transform.position;
+            var scaleProp = layer.transform.scale;
+            var rotProp = layer.transform.rotation;
+
+            if (layer.threeDLayer && layer.transform.zRotation) {
+                rotProp = layer.transform.zRotation;
+            }
+
+            var startPos = posProp.valueAtTime(currentTime, false);
+            var startScale = scaleProp.valueAtTime(currentTime, false);
+            var startRot = rotProp.valueAtTime(currentTime, false);
+
+            if (!posProp.numKeys && posProp.canSetExpression) posProp.setValue(startPos);
+            if (!scaleProp.numKeys && scaleProp.canSetExpression) scaleProp.setValue(startScale);
+            if (!rotProp.numKeys && rotProp.canSetExpression) rotProp.setValue(startRot);
+
+            // 1. Create keyframes at current playhead (Destination)
+            posProp.setValueAtTime(currentTime, startPos);
+            scaleProp.setValueAtTime(currentTime, startScale);
+            rotProp.setValueAtTime(currentTime, startRot);
+
+            var destPosKeyIdx = posProp.nearestKeyIndex(currentTime);
+            var destScaleKeyIdx = scaleProp.nearestKeyIndex(currentTime);
+            var destRotKeyIdx = rotProp.nearestKeyIndex(currentTime);
+
+            // Apply easing to the destination keyframes
+            var easeIn = new KeyframeEase(0, 33);
+            var easeOut = new KeyframeEase(0, 33);
+
+            // For spatial paths, provide only 1 value
+            if (posProp.propertyValueType === PropertyValueType.TwoD_SPATIAL || posProp.propertyValueType === PropertyValueType.ThreeD_SPATIAL) {
+                posProp.setTemporalEaseAtKey(destPosKeyIdx, [easeIn], [easeOut]);
+            } else {
+                var pDim = posProp.propertyValueType === PropertyValueType.OneD ? 1 : (posProp.propertyValueType === PropertyValueType.TwoD ? 2 : 3);
+                var pIn = [], pOut = [];
+                for (var d = 0; d < pDim; d++) { pIn.push(easeIn); pOut.push(easeOut); }
+                posProp.setTemporalEaseAtKey(destPosKeyIdx, pIn, pOut);
+            }
+
+            var sDim = scaleProp.propertyValueType === PropertyValueType.OneD ? 1 : (scaleProp.propertyValueType === PropertyValueType.TwoD ? 2 : 3);
+            var sIn = [], sOut = [];
+            for (var d = 0; d < sDim; d++) { sIn.push(easeIn); sOut.push(easeOut); }
+            scaleProp.setTemporalEaseAtKey(destScaleKeyIdx, sIn, sOut);
+
+            rotProp.setTemporalEaseAtKey(destRotKeyIdx, [easeIn], [easeOut]);
+
+            // 2. Create keyframes at the beginning of the layer (Origin)
+            var layerStart = layer.inPoint;
+
+            scaleProp.setValueAtTime(layerStart, startScale);
+            rotProp.setValueAtTime(layerStart, startRot);
+
+            // Calculate offscreen position
+            var layerRect;
+            try {
+                layerRect = layer.sourceRectAtTime(layerStart, false);
+            } catch (e) {
+                layerRect = {
+                    left: 0,
+                    top: 0,
+                    width: layer.source ? layer.source.width : 100,
+                    height: layer.source ? layer.source.height : 100
+                };
+            }
+
+            var scaleX = Math.abs(startScale[0]) / 100;
+            var scaleY = Math.abs(startScale[1]) / 100;
+
+            var layerWidth = layerRect.width * scaleX;
+            var layerHeight = layerRect.height * scaleY;
+
+            var originPos;
+            if (direction === "up") {
+                var newY = -(layerHeight / 2) - margin;
+                originPos = [startPos[0], newY];
+            } else if (direction === "down") {
+                var newY = compHeight + (layerHeight / 2) + margin;
+                originPos = [startPos[0], newY];
+            } else if (direction === "right") {
+                var newX = compWidth + (layerWidth / 2) + margin;
+                originPos = [newX, startPos[1]];
+            } else if (direction === "left") {
+                var newX = -(layerWidth / 2) - margin;
+                originPos = [newX, startPos[1]];
+            }
+
+            if (startPos.length === 3) {
+                originPos = [originPos[0], originPos[1], startPos[2]];
+            }
+
+            posProp.setValueAtTime(layerStart, originPos);
+
+            // 3. Add Walking movement using expression if enabled
+            if (isWalk) {
+                var expression = "amp = 24;\n" +
+                    "framesPerCycle = 12;\n" +
+                    "stopTime = " + currentTime.toFixed(4) + ";\n" +
+                    "t = time;\n" +
+                    "if (time >= stopTime) {\n" +
+                    "  t = stopTime;\n" +
+                    "}\n" +
+                    "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                    "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
+                    "value + [0, y_movement];";
+
+                if (posProp.canSetExpression) {
+                    posProp.expression = expression;
+                }
+            }
+        }
+
+        app.endUndoGroup();
+        updateStatus("Put Here: " + selectedLayers.length + " layer(s) from " + direction + (isWalk ? " (Walking)" : ""));
 
     } catch (error) {
         updateStatus("Error: " + error.message);
@@ -7115,6 +7495,179 @@ function linkerLayers() {
     }
 }
 
+// Function to move selected layers below the last selected layer
+function Bellow() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition found");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length < 2) {
+            updateStatus("Please select at least 2 layers");
+            return;
+        }
+
+        app.beginUndoGroup("Move Layers Below");
+
+        // The last element in the selectedLayers array is the last one selected
+        var targetLayer = selectedLayers[selectedLayers.length - 1];
+        var movedCount = 0;
+
+        var currentTarget = targetLayer;
+
+        for (var i = 0; i < selectedLayers.length - 1; i++) {
+            var layerToMove = selectedLayers[i];
+
+            if (layerToMove !== targetLayer) {
+                layerToMove.moveAfter(currentTarget);
+                currentTarget = layerToMove;
+                movedCount++;
+            }
+        }
+
+        app.endUndoGroup();
+        updateStatus("Moved " + movedCount + " layer(s) below " + targetLayer.name);
+
+    } catch (error) {
+        updateStatus("Error: " + error.toString());
+    }
+}
+
+// Stagger Layers function
+
+function staggerLayers(frames, type) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition found");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length < 2) {
+            updateStatus("Please select at least 2 layers");
+            return;
+        }
+
+        app.beginUndoGroup("Stagger Layers");
+
+        var fps = comp.frameRate;
+        var offsetSec = frames / fps;
+
+        var layersToStagger = [];
+        for (var i = 0; i < selectedLayers.length; i++) {
+            layersToStagger.push(selectedLayers[i]);
+        }
+
+        if (type === "Descending") {
+            layersToStagger.reverse();
+        } else if (type === "Random") {
+            // Random shuffle
+            for (var i = layersToStagger.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = layersToStagger[i];
+                layersToStagger[i] = layersToStagger[j];
+                layersToStagger[j] = temp;
+            }
+        }
+
+        for (var i = 1; i < layersToStagger.length; i++) {
+            layersToStagger[i].startTime += (i * offsetSec);
+        }
+
+        app.endUndoGroup();
+        updateStatus("Staggered " + layersToStagger.length + " layers");
+    } catch (error) {
+        updateStatus("Error: " + error.toString());
+    }
+}
+
+// Add Anchor Point 3x3 function
+function moveAnchorPoint(horizontal, vertical) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition found");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("Please select at least 1 layer");
+            return;
+        }
+
+        app.beginUndoGroup("Adjust Anchor Point");
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+            if (!layer.transform || !layer.transform.anchorPoint || !layer.sourceRectAtTime || layer.locked) {
+                continue;
+            }
+
+            var rect = layer.sourceRectAtTime(comp.time, false);
+            var oldAnchor = layer.transform.anchorPoint.value;
+
+            var newAnchorX = rect.left;
+            if (horizontal === 1) newAnchorX = rect.left + rect.width / 2;
+            else if (horizontal === 2) newAnchorX = rect.left + rect.width;
+
+            var newAnchorY = rect.top;
+            if (vertical === 1) newAnchorY = rect.top + rect.height / 2;
+            else if (vertical === 2) newAnchorY = rect.top + rect.height;
+
+            var newAnchorZ = (oldAnchor.length > 2) ? oldAnchor[2] : 0;
+            var newAnchor = [newAnchorX, newAnchorY, newAnchorZ];
+
+            var newPos = layer.transform.position.value;
+            var compensationSuccess = false;
+
+            try {
+                var vec = [newAnchorX, newAnchorY, newAnchorZ];
+                var worldPos = layer.toComp(vec);
+                if (layer.parent) {
+                    newPos = layer.parent.fromComp(worldPos);
+                } else {
+                    newPos = worldPos;
+                }
+                compensationSuccess = true;
+            } catch (compErr) {
+            }
+
+            if (!compensationSuccess) {
+                try {
+                    var scale = layer.transform.scale.value;
+                    var sx = scale[0] / 100;
+                    var sy = scale[1] / 100;
+
+                    var dx = (newAnchor[0] - oldAnchor[0]) * sx;
+                    var dy = (newAnchor[1] - oldAnchor[1]) * sy;
+
+                    var oldPos = layer.transform.position.value;
+                    if (oldPos.length === 2) {
+                        newPos = [oldPos[0] + dx, oldPos[1] + dy];
+                    } else {
+                        newPos = [oldPos[0] + dx, oldPos[1] + dy, oldPos[2]];
+                    }
+                } catch (mathErr) {
+                }
+            }
+
+            layer.transform.anchorPoint.setValue(newAnchor);
+            layer.transform.position.setValue(newPos);
+        }
+
+        app.endUndoGroup();
+        var posNames = ["Top-Left", "Top-Center", "Top-Right", "Center-Left", "Center", "Center-Right", "Bottom-Left", "Bottom-Center", "Bottom-Right"];
+        updateStatus("Anchor set to " + posNames[vertical * 3 + horizontal]);
+    } catch (error) {
+        updateStatus("Error: " + error.toString());
+    }
+}
+
 // Function to apply Squash animation
 function applySquashAnimation() {
     try {
@@ -7277,5 +7830,134 @@ function applyCubicBezierToKeyframes(prop, keyIndex1, keyIndex2, cubicBezier) {
         prop.setTemporalEaseAtKey(keyIndex2, inEase, prop.keyOutTemporalEase(keyIndex2));
     } catch (e) {
         // Fallback or ignore if properties conflict
+    }
+}
+
+// Apply Mask Auto Fit
+function applyMaskAutoFit() {
+    try {
+        if (!app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var comp = app.project.activeItem;
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+
+        var time = comp.time; // Current time for keyframing
+        app.beginUndoGroup("Mask Auto Fit");
+        var successCount = 0;
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            // Mask must exist on layer
+            var maskPropGroup = layer.property("ADBE Mask Parade");
+            if (!maskPropGroup || maskPropGroup.numProperties === 0) continue;
+
+            var targetMask = null;
+            // First check if any mask is selected
+            var props = layer.selectedProperties;
+            for (var j = 0; j < props.length; j++) {
+                if (props[j].matchName === "ADBE Mask Atom") {
+                    targetMask = props[j];
+                    break;
+                }
+            }
+
+            // If not, use the first mask
+            if (!targetMask) {
+                targetMask = maskPropGroup.property(1);
+            }
+
+            var maskShape = targetMask.property("ADBE Mask Shape");
+            if (maskShape && maskShape.value) {
+                // Get mask value at the current time!
+                var shape = maskShape.valueAtTime(time, true);
+                var vertices = shape.vertices;
+
+                if (vertices && vertices.length > 0) {
+                    var minX = vertices[0][0];
+                    var maxX = vertices[0][0];
+                    var minY = vertices[0][1];
+                    var maxY = vertices[0][1];
+
+                    for (var v = 1; v < vertices.length; v++) {
+                        if (vertices[v][0] < minX) minX = vertices[v][0];
+                        if (vertices[v][0] > maxX) maxX = vertices[v][0];
+                        if (vertices[v][1] < minY) minY = vertices[v][1];
+                        if (vertices[v][1] > maxY) maxY = vertices[v][1];
+                    }
+
+                    var maskW = Math.max(maxX - minX, 1);
+                    var maskH = Math.max(maxY - minY, 1);
+                    var cx = minX + maskW / 2;
+                    var cy = minY + maskH / 2;
+
+                    var transformGroup = layer.property("ADBE Transform Group");
+                    var anchorProp = transformGroup.property("ADBE Anchor Point");
+                    var posProp = transformGroup.property("ADBE Position");
+                    var scaleProp = transformGroup.property("ADBE Scale");
+
+                    if (maskW > 0 && maskH > 0 && anchorProp && posProp && scaleProp) {
+                        // DO NOT change anchor point. Retrieve original anchor.
+                        var a = anchorProp.valueAtTime(time, true);
+
+                        // 1. Calculate Scale to fill the composition
+                        var scaleX = comp.width / maskW;
+                        var scaleY = comp.height / maskH;
+
+                        // Maximize scale so the mask covers the whole canvas (Fill)
+                        var scaleFactor = Math.max(scaleX, scaleY);
+                        var newScale = scaleFactor * 100;
+
+                        // 2. Calculate New Position to center the mask accurately
+                        // Math: p_new = comp_center - (mask_center - anchor) * scaleFactor
+                        var newX = (comp.width / 2) - (cx - a[0]) * scaleFactor;
+                        var newY = (comp.height / 2) - (cy - a[1]) * scaleFactor;
+
+                        var oldPos = posProp.valueAtTime(time, true);
+                        var posValue = [newX, newY, oldPos.length > 2 ? oldPos[2] : 0];
+
+                        var currentScale = scaleProp.valueAtTime(time, true);
+                        var scaleValue = currentScale.length > 2 ? [newScale, newScale, currentScale[2]] : [newScale, newScale];
+
+                        // Ensure properties can record keyframes
+                        if (posProp.canVaryOverTime) {
+                            posProp.setValueAtTime(time, posValue);
+                        } else {
+                            posProp.setValue(posValue);
+                        }
+
+                        if (scaleProp.canVaryOverTime) {
+                            scaleProp.setValueAtTime(time, scaleValue);
+                        } else {
+                            scaleProp.setValue(scaleValue);
+                        }
+
+                        // Delete the mask as it's no longer needed
+                        targetMask.remove();
+
+                        successCount++;
+                    }
+                }
+            }
+        }
+
+        app.endUndoGroup();
+
+        if (successCount > 0) {
+            updateStatus("Mask Fit keyframed on " + successCount + " layer(s)");
+        } else {
+            updateStatus("No masks found for selected layer(s)");
+        }
+
+    } catch (error) {
+        updateStatus("Error: " + error.toString());
     }
 }
