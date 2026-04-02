@@ -804,8 +804,9 @@ function createPanel(thisObj) {
     // Add Audio Marker button
     var audioMarkersBtn = utilityGroup.add("button", undefined, "Audio Marker");
     audioMarkersBtn.preferredSize.height = 16;
-    audioMarkersBtn.helpTip = "Analyze audio spikes and add markers inside selected precomp";
+    audioMarkersBtn.helpTip = "Copy Audio, analyze spikes, and add markers";
     audioMarkersBtn.onClick = function () {
+        copyAndSyncAudio();
         showAudioMarkersDialog();
     };
 
@@ -4102,9 +4103,9 @@ function showAudioMarkersDialog() {
     var targetGroup = win.add("panel", undefined, "Target");
     targetGroup.orientation = "column";
     targetGroup.alignChildren = ["left", "top"];
-    var radioInside = targetGroup.add("radiobutton", undefined, "Inside Selected Precomps");
+    var radioComp = targetGroup.add("radiobutton", undefined, "On Current Composition");
     var radioLayer = targetGroup.add("radiobutton", undefined, "On Selected Layers");
-    radioInside.value = true;
+    radioComp.value = true;
 
     // Buttons
     var btnGroup = win.add("group");
@@ -4115,17 +4116,17 @@ function showAudioMarkersDialog() {
     btnCancel.onClick = function () { win.close(); };
 
     btnGenerate.onClick = function () {
-        var threshold = parseFloat(threshInput.text) || 15;
-        var minFrames = parseInt(distInput.text) || 5;
+        var threshold = parseFloat(threshInput.text) || 6;
+        var minFrames = parseInt(distInput.text) || 8;
         win.close();
-        generateAudioSpikeMarkers(threshold, minFrames, radioInside.value);
+        generateAudioSpikeMarkers(threshold, minFrames, radioComp.value);
     };
 
     win.center();
     win.show();
 }
 
-function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
+function generateAudioSpikeMarkers(threshold, minFrames, targetComp) {
     try {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
@@ -4134,8 +4135,8 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
         }
 
         var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0 && insidePrecomp) {
-            updateStatus("Error: Please select at least one precomp layer");
+        if (selectedLayers.length === 0 && !targetComp) {
+            alert("Error: Please select at least one layer to attach markers to.");
             return;
         }
 
@@ -4158,6 +4159,9 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
             var generatedAudio = false;
             for (var i = 1; i <= comp.numLayers; i++) {
                 if (comp.layer(i).hasAudio && comp.layer(i).audioEnabled) {
+                    var wasLocked = comp.layer(i).locked;
+                    if (wasLocked) comp.layer(i).locked = false;
+
                     // Deselect all
                     for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
                     comp.layer(i).selected = true;
@@ -4166,6 +4170,8 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
                         app.executeCommand(app.findMenuCommandId("Convert Audio to Keyframes"));
                         generatedAudio = true;
                     } catch (e) { }
+
+                    if (wasLocked) comp.layer(i).locked = true;
                     break;
                 }
             }
@@ -4186,7 +4192,7 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
         }
 
         if (!audioLayer) {
-            alert("Error: Could not find or automatically generate 'Audio Amplitude' layer.\nPlease insert an audio layer with sound enabled, or create the Audio Amplitude manually by right-clicking your audio layer -> Keyframe Assistant -> Convert Audio to Keyframes.");
+            updateStatus("Error: Could not find or automatically generate 'Audio Amplitude' layer.\nPlease insert an audio layer with sound enabled, or create the Audio Amplitude manually by right-clicking your audio layer -> Keyframe Assistant -> Convert Audio to Keyframes.");
             return;
         }
 
@@ -4257,42 +4263,18 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
 
         if (spikes.length === 0) {
             app.endUndoGroup();
-            alert("No spikes found above threshold " + threshold);
+            updateStatus("No spikes found above threshold " + threshold);
             return;
         }
 
-        if (insidePrecomp) {
-            var precompsAffected = 0;
-            for (var l = 0; l < selectedLayers.length; l++) {
-                var layer = selectedLayers[l];
-                if (layer.source && layer.source instanceof CompItem) {
-                    var precomp = layer.source;
-                    var offset = layer.startTime - layer.inPoint;
-
-                    var markerLayer = null;
-                    for (var m = 1; m <= precomp.numLayers; m++) {
-                        if (precomp.layer(m).name === "Audio Spikes") {
-                            markerLayer = precomp.layer(m);
-                            break;
-                        }
-                    }
-                    if (!markerLayer) {
-                        markerLayer = precomp.layers.addNull();
-                        markerLayer.name = "Audio Spikes";
-                        markerLayer.enabled = false;
-                    }
-
-                    for (var s = 0; s < spikes.length; s++) {
-                        var markerTime = spikes[s].time - offset;
-                        if (markerTime >= 0 && markerTime <= precomp.duration) {
-                            var mv = new MarkerValue("");
-                            markerLayer.property("Marker").setValueAtTime(markerTime, mv);
-                        }
-                    }
-                    precompsAffected++;
-                }
+        if (targetComp) {
+            for (var s = 0; s < spikes.length; s++) {
+                try {
+                    var mv = new MarkerValue("");
+                    comp.markerProperty.setValueAtTime(spikes[s].time, mv);
+                } catch (e) { }
             }
-            alert("Added " + spikes.length + " markers inside " + precompsAffected + " precomp(s)");
+            updateStatus("Added " + spikes.length + " markers to current composition");
         } else {
             for (var l = 0; l < selectedLayers.length; l++) {
                 var layer = selectedLayers[l];
@@ -4301,14 +4283,15 @@ function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
                     layer.property("Marker").setValueAtTime(spikes[s].time, mv);
                 }
             }
-            alert("Added " + spikes.length + " markers to " + selectedLayers.length + " layer(s)");
+            updateStatus("Added " + spikes.length + " markers to " + selectedLayers.length + " layer(s)");
         }
+
 
         app.endUndoGroup();
 
     } catch (error) {
         if (app.project) app.endUndoGroup();
-        alert("Error: " + error.toString());
+        updateStatus("Error: " + error.toString());
     }
 }
 
