@@ -801,6 +801,14 @@ function createPanel(thisObj) {
         applyAudioSyncExpression();
     };
 
+    // Add Audio Marker button
+    var audioMarkersBtn = utilityGroup.add("button", undefined, "Audio Marker");
+    audioMarkersBtn.preferredSize.height = 16;
+    audioMarkersBtn.helpTip = "Analyze audio spikes and add markers inside selected precomp";
+    audioMarkersBtn.onClick = function () {
+        showAudioMarkersDialog();
+    };
+
     // Add Choppy Flip button
     var choppyFlipBtn = utilityGroup.add("button", undefined, "Choppy Flip");
     choppyFlipBtn.preferredSize.height = 16;
@@ -4068,6 +4076,242 @@ function showCPMovementDialog() {
     }
 }
 
+// ===== AUDIO MARKERS =====
+function showAudioMarkersDialog() {
+    var win = new Window("palette", "Audio Markers", undefined, { resizeable: false });
+    win.orientation = "column";
+    win.alignChildren = ["fill", "top"];
+    win.spacing = 5;
+    win.margins = 10;
+
+    // Threshold
+    var threshGroup = win.add("group");
+    threshGroup.orientation = "row";
+    threshGroup.add("statictext", undefined, "Threshold (0-100):");
+    var threshInput = threshGroup.add("edittext", undefined, "6");
+    threshInput.preferredSize.width = 40;
+
+    // Min Distance
+    var distGroup = win.add("group");
+    distGroup.orientation = "row";
+    distGroup.add("statictext", undefined, "Min Frames Gap:");
+    var distInput = distGroup.add("edittext", undefined, "8");
+    distInput.preferredSize.width = 40;
+
+    // Target Selection
+    var targetGroup = win.add("panel", undefined, "Target");
+    targetGroup.orientation = "column";
+    targetGroup.alignChildren = ["left", "top"];
+    var radioInside = targetGroup.add("radiobutton", undefined, "Inside Selected Precomps");
+    var radioLayer = targetGroup.add("radiobutton", undefined, "On Selected Layers");
+    radioInside.value = true;
+
+    // Buttons
+    var btnGroup = win.add("group");
+    btnGroup.alignment = ["center", "bottom"];
+    var btnGenerate = btnGroup.add("button", undefined, "Generate", { name: "ok" });
+    var btnCancel = btnGroup.add("button", undefined, "Cancel", { name: "cancel" });
+
+    btnCancel.onClick = function () { win.close(); };
+
+    btnGenerate.onClick = function () {
+        var threshold = parseFloat(threshInput.text) || 15;
+        var minFrames = parseInt(distInput.text) || 5;
+        win.close();
+        generateAudioSpikeMarkers(threshold, minFrames, radioInside.value);
+    };
+
+    win.center();
+    win.show();
+}
+
+function generateAudioSpikeMarkers(threshold, minFrames, insidePrecomp) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("Error: No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0 && insidePrecomp) {
+            updateStatus("Error: Please select at least one precomp layer");
+            return;
+        }
+
+        // Find Audio Amplitude layer
+        var audioLayer = null;
+        for (var i = 1; i <= comp.numLayers; i++) {
+            if (comp.layer(i).name === "Audio Amplitude") {
+                audioLayer = comp.layer(i);
+                break;
+            }
+        }
+
+        if (!audioLayer) {
+            // Attempt to auto-generate from the first available audio layer
+            var originalSelection = [];
+            for (var s = 0; s < selectedLayers.length; s++) {
+                originalSelection.push(selectedLayers[s]);
+            }
+
+            var generatedAudio = false;
+            for (var i = 1; i <= comp.numLayers; i++) {
+                if (comp.layer(i).hasAudio && comp.layer(i).audioEnabled) {
+                    // Deselect all
+                    for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                    comp.layer(i).selected = true;
+
+                    try {
+                        app.executeCommand(app.findMenuCommandId("Convert Audio to Keyframes"));
+                        generatedAudio = true;
+                    } catch (e) { }
+                    break;
+                }
+            }
+
+            if (generatedAudio) {
+                // Find the newly generated Audio Amplitude layer
+                for (var i = 1; i <= comp.numLayers; i++) {
+                    if (comp.layer(i).name === "Audio Amplitude") {
+                        audioLayer = comp.layer(i);
+                        break;
+                    }
+                }
+                // Restore original selection
+                for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                for (var j = 0; j < originalSelection.length; j++) originalSelection[j].selected = true;
+                selectedLayers = originalSelection; // Make sure we use the restored selection
+            }
+        }
+
+        if (!audioLayer) {
+            alert("Error: Could not find or automatically generate 'Audio Amplitude' layer.\nPlease insert an audio layer with sound enabled, or create the Audio Amplitude manually by right-clicking your audio layer -> Keyframe Assistant -> Convert Audio to Keyframes.");
+            return;
+        }
+
+        var effectGroup = audioLayer.property("ADBE Effect Parade");
+        if (!effectGroup) return;
+        var bothChannels = effectGroup.property("Both Channels") || effectGroup.property("ADBE Audio Amplitude Both");
+        if (!bothChannels) return;
+        var slider = bothChannels.property("ADBE Slider Control-0001") || bothChannels.property("Slider");
+
+        if (!slider || slider.numKeys === 0) {
+            updateStatus("Error: Audio Amplitude has no keyframes");
+            return;
+        }
+
+        app.beginUndoGroup("Generate Audio Markers");
+
+        var valThreshold = threshold;
+        var minTime = minFrames * comp.frameDuration;
+
+        var tempSpikes = [];
+        var inSpike = false;
+        var currentPeakVal = 0;
+        var currentPeakTime = 0;
+
+        for (var i = 1; i <= slider.numKeys; i++) {
+            var val = slider.keyValue(i);
+            var t = slider.keyTime(i);
+
+            if (val > valThreshold) {
+                if (!inSpike) {
+                    inSpike = true;
+                    currentPeakVal = val;
+                    currentPeakTime = t;
+                } else {
+                    if (val > currentPeakVal) {
+                        currentPeakVal = val;
+                        currentPeakTime = t;
+                    }
+                }
+            } else {
+                if (inSpike) {
+                    tempSpikes.push({ time: currentPeakTime, value: currentPeakVal });
+                    inSpike = false;
+                }
+            }
+        }
+        if (inSpike) {
+            tempSpikes.push({ time: currentPeakTime, value: currentPeakVal });
+        }
+
+        var spikes = [];
+        if (tempSpikes.length > 0) {
+            var lastSpikeTime = tempSpikes[0].time;
+            spikes.push(tempSpikes[0]);
+
+            for (var j = 1; j < tempSpikes.length; j++) {
+                if (tempSpikes[j].time - lastSpikeTime >= minTime) {
+                    spikes.push(tempSpikes[j]);
+                    lastSpikeTime = tempSpikes[j].time;
+                } else {
+                    if (tempSpikes[j].value > spikes[spikes.length - 1].value) {
+                        spikes[spikes.length - 1] = tempSpikes[j];
+                        lastSpikeTime = tempSpikes[j].time;
+                    }
+                }
+            }
+        }
+
+        if (spikes.length === 0) {
+            app.endUndoGroup();
+            alert("No spikes found above threshold " + threshold);
+            return;
+        }
+
+        if (insidePrecomp) {
+            var precompsAffected = 0;
+            for (var l = 0; l < selectedLayers.length; l++) {
+                var layer = selectedLayers[l];
+                if (layer.source && layer.source instanceof CompItem) {
+                    var precomp = layer.source;
+                    var offset = layer.startTime - layer.inPoint;
+
+                    var markerLayer = null;
+                    for (var m = 1; m <= precomp.numLayers; m++) {
+                        if (precomp.layer(m).name === "Audio Spikes") {
+                            markerLayer = precomp.layer(m);
+                            break;
+                        }
+                    }
+                    if (!markerLayer) {
+                        markerLayer = precomp.layers.addNull();
+                        markerLayer.name = "Audio Spikes";
+                        markerLayer.enabled = false;
+                    }
+
+                    for (var s = 0; s < spikes.length; s++) {
+                        var markerTime = spikes[s].time - offset;
+                        if (markerTime >= 0 && markerTime <= precomp.duration) {
+                            var mv = new MarkerValue("");
+                            markerLayer.property("Marker").setValueAtTime(markerTime, mv);
+                        }
+                    }
+                    precompsAffected++;
+                }
+            }
+            alert("Added " + spikes.length + " markers inside " + precompsAffected + " precomp(s)");
+        } else {
+            for (var l = 0; l < selectedLayers.length; l++) {
+                var layer = selectedLayers[l];
+                for (var s = 0; s < spikes.length; s++) {
+                    var mv = new MarkerValue("");
+                    layer.property("Marker").setValueAtTime(spikes[s].time, mv);
+                }
+            }
+            alert("Added " + spikes.length + " markers to " + selectedLayers.length + " layer(s)");
+        }
+
+        app.endUndoGroup();
+
+    } catch (error) {
+        if (app.project) app.endUndoGroup();
+        alert("Error: " + error.toString());
+    }
+}
+
 function updateStatus(message) {
     // This is a simplified version - in a real panel you'd store the panel reference
     // For now, just show an alert for major errors
@@ -6690,9 +6934,9 @@ function toggleXLockLayers() {
                     processComp(layer.source); // Recursive
                 }
 
-                // Check if name is exactly "x" or "X" (case-sensitive for exact match)
-                var layerName = layer.name;
-                if (layerName === "x" || layerName === "X") {
+                // Check if name is "x", "X", or expressions like "X and x"
+                var layerNameStr = layer.name.toString().replace(/^\s+|\s+$/g, '').toLowerCase();
+                if (layerNameStr === "x" || layerNameStr === "x and x" || layerNameStr === "x & x") {
                     layer.locked = !layer.locked; // Toggle lock status
                 }
             }

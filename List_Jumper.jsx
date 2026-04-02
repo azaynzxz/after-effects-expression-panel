@@ -582,6 +582,17 @@
 
 
 
+    // Helper function to find main_comp
+    function findMainComp() {
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem && item.name === "main_comp") {
+                return item;
+            }
+        }
+        return null;
+    }
+
     // Helper function to get active composition (fallback to main_comp)
     function getTargetComp() {
         var activeComp = app.project.activeItem;
@@ -597,10 +608,10 @@
         return null;
     }
 
-    // Get current playhead time from target comp
+    // Get current playhead time from main_comp (always use main_comp for search filtering)
     function getCurrentPlayheadTime() {
         try {
-            var comp = getTargetComp();
+            var comp = findMainComp();
             if (comp) {
                 return comp.time;
             }
@@ -780,6 +791,38 @@
         return pad(hours, 2) + ":" + pad(minutes, 2) + ":" + pad(secs, 2) + "." + pad(ms, 3);
     }
 
+    // Convert a main_comp time to the local time inside a precomp
+    function getPrecompLocalTime(precomp, mainComp, mainTime) {
+        if (!mainComp || precomp === mainComp) return mainTime;
+
+        var fallbackLocalTime = mainTime;
+        var foundAny = false;
+
+        for (var i = 1; i <= mainComp.numLayers; i++) {
+            var layer = mainComp.layer(i);
+            if (layer.source && layer.source === precomp) {
+                var localTime;
+                if (layer.timeRemapEnabled) {
+                    localTime = layer.property("ADBE Time Remapping").valueAtTime(mainTime, false);
+                } else {
+                    localTime = (mainTime - layer.startTime) * (100 / layer.stretch);
+                }
+
+                if (!foundAny) {
+                    fallbackLocalTime = localTime;
+                    foundAny = true;
+                }
+
+                // Focus on the instance of the precomp that actually overlaps the target word
+                if (mainTime >= layer.inPoint && mainTime <= layer.outPoint) {
+                    return localTime;
+                }
+            }
+        }
+
+        return fallbackLocalTime;
+    }
+
     // Jump to time in target comp
     function jumpToTime(seconds) {
         // Prevent double execution
@@ -812,18 +855,32 @@
             var calibrationSeconds = calibrationFrames / frameRate;
             seconds += calibrationSeconds;
 
-            // Clamp to composition duration
-            seconds = Math.max(0, Math.min(seconds, comp.duration));
+            // Update main comp playhead FIRST (using the global time string from CSV)
+            var mainComp = findMainComp();
+            if (mainComp) {
+                var clampedMain = Math.max(0, Math.min(seconds, mainComp.duration));
+                if (mainComp !== comp) {
+                    mainComp.time = clampedMain;
+                } else {
+                    seconds = clampedMain; // Clamp original if working purely in main_comp
+                }
+            }
 
-            // Jump to time in target comp (without opening it - keeps current viewer active)
-            comp.time = seconds;
+            // Convert global CSV time to local precomp time for the viewer and marker
+            var localSeconds = getPrecompLocalTime(comp, mainComp, seconds);
+
+            // Clamp to precomposition duration
+            localSeconds = Math.max(0, Math.min(localSeconds, comp.duration));
+
+            // Jump to time in target comp
+            comp.time = localSeconds;
 
             // Add composition marker if enabled
             if (addMarkerCheckbox.value) {
                 try {
                     markerCount++;
                     var markerValue = new MarkerValue(markerCount.toString());
-                    comp.markerProperty.setValueAtTime(seconds, markerValue);
+                    comp.markerProperty.setValueAtTime(localSeconds, markerValue);
                     // Update the counter label in the UI
                     try { markerCountLabel.text = "Count: " + markerCount; } catch (e) { }
                 } catch (markerError) {

@@ -6,6 +6,7 @@
 
 var cs = new CSInterface();
 var cachedItems = []; // Full list from ExtendScript
+var sortAsc = true;   // Current sort direction
 
 // Node.js modules (available because --enable-nodejs is set)
 var childProcess = require('child_process');
@@ -40,6 +41,12 @@ document.getElementById('searchInput').addEventListener('input', function () {
     applyFilter();
 });
 
+document.getElementById('sortBtn').addEventListener('click', function () {
+    sortAsc = !sortAsc;
+    this.innerText = sortAsc ? 'A-Z' : 'Z-A';
+    applyFilter();
+});
+
 function applyFilter() {
     var q = document.getElementById('searchInput').value.toLowerCase();
     if (!q) {
@@ -52,6 +59,13 @@ function applyFilter() {
             filtered.push(cachedItems[i]);
         }
     }
+
+    // Sort by name
+    filtered.sort(function (a, b) {
+        var diff = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        return sortAsc ? diff : -diff;
+    });
+
     renderList(filtered);
 }
 
@@ -167,7 +181,8 @@ function detectSilence(filePath) {
 
         // Use ffmpeg silencedetect to find where audio starts
         // threshold: -40dB, minimum silence duration: 0.01s, analyze first 5s
-        var detectCmd = ffmpegCmd + ' -i "' + filePath + '" -af silencedetect=noise=-40dB:d=0.01 -t 5 -f null -';
+        // MUST append 2>&1 so stderr is redirected to stdout in childProcess.execSync
+        var detectCmd = ffmpegCmd + ' -i "' + filePath + '" -af silencedetect=noise=-40dB:d=0.01 -t 5 -f null - 2>&1';
 
         var output = '';
         try {

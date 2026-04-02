@@ -54,7 +54,8 @@ function getMediaPath(treePath) {
     var item = findItemByTreePath(treePath);
     if (item) {
         try {
-            return item.getMediaPath();
+            var path = item.getMediaPath();
+            return path ? path.replace(/\\/g, "/") : null;
         } catch (e) {
             return null;
         }

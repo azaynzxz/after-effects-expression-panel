@@ -21,6 +21,11 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            cursor: default;
         }
 
         /* Header */
@@ -54,6 +59,10 @@
             border-radius: 3px;
             font-size: 12px;
             outline: none;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
         }
 
         #searchInput:focus {
@@ -243,6 +252,7 @@
 
     <div class="search-row">
         <input type="text" id="searchInput" placeholder="Search audio files..." />
+        <button class="btn" id="sortBtn" title="Toggle Sort (A-Z / Z-A)">A-Z</button>
         <button class="btn" id="refreshBtn" title="Refresh audio list from project">⟳</button>
     </div>
 
