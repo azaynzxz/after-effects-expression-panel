@@ -567,17 +567,34 @@
         loopTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         loopTitle.alignment = "center";
 
-        var loopGroup = leftCol.add("group");
-        loopGroup.orientation = "column";
-        loopGroup.alignChildren = ["fill", "top"];
-        loopGroup.spacing = 1;
+        var loopsGrid = leftCol.add("group");
+        loopsGrid.orientation = "row";
+        loopsGrid.alignChildren = ["fill", "top"];
+        loopsGrid.spacing = 2;
 
-        // Loop buttons (Loop Wiggle moved to accordion)
-        var loopButtons = ["Loop Cycle", "Loop Continue", "Loop PingPong"];
-        addButtonsToGroup(loopGroup, loopButtons);
+        var loopCol1 = loopsGrid.add("group");
+        loopCol1.orientation = "column";
+        loopCol1.alignChildren = ["fill", "top"];
+        loopCol1.spacing = 1;
+
+        var loopCol2 = loopsGrid.add("group");
+        loopCol2.orientation = "column";
+        loopCol2.alignChildren = ["fill", "top"];
+        loopCol2.spacing = 1;
+
+        addButtonsToGroup(loopCol1, ["Loop Cycle", "Loop Continue"]);
+        addButtonsToGroup(loopCol2, ["Loop PingPong"]);
+
+        var pinchBtn = loopCol1.add("button", undefined, "Pinch");
+        pinchBtn.alignment = ["fill", "center"];
+        pinchBtn.preferredSize.height = 16;
+        pinchBtn.helpTip = "Add a pinch preset animation (+12%, -15%, etc.)";
+        pinchBtn.onClick = function () {
+            showPinchDialog();
+        };
 
         // Looper button (part of Loops category)
-        var looperBtn = loopGroup.add("button", undefined, "Looper");
+        var looperBtn = loopCol2.add("button", undefined, "Looper");
         looperBtn.alignment = ["fill", "center"];
         looperBtn.preferredSize.height = 16;
         looperBtn.helpTip = "Enable time remap loop on selected precomp layer";
@@ -677,6 +694,20 @@
         fishLikeBtn2.helpTip = "Swimming fish animation";
         fishLikeBtn2.onClick = function () {
             showFishDialog();
+        };
+
+        // Tools row 5: Attach Leg
+        var toolsRow5 = leftCol.add("group");
+        toolsRow5.orientation = "row";
+        toolsRow5.alignChildren = ["fill", "center"];
+        toolsRow5.spacing = 2;
+
+        var attachLegBtn = toolsRow5.add("button", undefined, "Attach Leg");
+        attachLegBtn.alignment = ["fill", "center"];
+        attachLegBtn.preferredSize.height = 16;
+        attachLegBtn.helpTip = "Attach a leg comp to the selected layer";
+        attachLegBtn.onClick = function () {
+            showAttachLegDialog();
         };
 
         // Anchor & Stagger Section
@@ -1012,13 +1043,8 @@
             }
         }
 
-        // Layout and show
+        // Layout
         myPanel.layout.layout(true);
-
-        if (myPanel instanceof Window) {
-            myPanel.center();
-            myPanel.show();
-        }
 
         return myPanel;
     }
@@ -3716,6 +3742,127 @@
         }
     }
 
+    // ---- Helper: create a searchable dropdown ----
+    // Returns { searchInput, dropdown, allItems, getSelectedName }
+    function createSearchableDropdown(parentGroup, labelText, initialItems) {
+        // Search row
+        var searchGroup = parentGroup.add("group");
+        searchGroup.orientation = "row";
+        searchGroup.alignChildren = ["left", "center"];
+        var searchLabel = searchGroup.add("statictext", undefined, "Search:");
+        searchLabel.preferredSize.width = 50;
+        var searchInput = searchGroup.add("edittext", undefined, "");
+        searchInput.preferredSize.width = 250;
+        searchInput.helpTip = "Type to filter the list below (case-insensitive)";
+
+        // Dropdown (listbox for multi-visible items with search)
+        var ddGroup = parentGroup.add("group");
+        ddGroup.orientation = "row";
+        ddGroup.alignChildren = ["left", "center"];
+        var ddLabel = ddGroup.add("statictext", undefined, labelText);
+        ddLabel.preferredSize.width = 50;
+        var dropdown = ddGroup.add("listbox", undefined, initialItems || [],
+            { numberOfColumns: 1, columnWidths: [240] });
+        dropdown.preferredSize = [250, 100];
+
+        // Count label
+        var countLabel = parentGroup.add("statictext", undefined, "");
+        countLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        countLabel.alignment = "right";
+
+        // Store all items for filtering
+        var data = {
+            searchInput: searchInput,
+            dropdown: dropdown,
+            allItems: initialItems ? initialItems.slice() : [],
+            countLabel: countLabel
+        };
+
+        function updateCount() {
+            var total = data.allItems.length;
+            var shown = dropdown.items.length;
+            if (searchInput.text.length > 0) {
+                countLabel.text = "Showing " + shown + " of " + total;
+            } else {
+                countLabel.text = total + " items";
+            }
+        }
+
+        // Filter function
+        function filterDropdown() {
+            var query = searchInput.text.toLowerCase();
+            dropdown.removeAll();
+
+            if (query.length === 0) {
+                // Show all
+                for (var i = 0; i < data.allItems.length; i++) {
+                    dropdown.add("item", data.allItems[i]);
+                }
+            } else {
+                // Filter: show items containing the query
+                for (var i = 0; i < data.allItems.length; i++) {
+                    if (data.allItems[i].toLowerCase().indexOf(query) !== -1) {
+                        dropdown.add("item", data.allItems[i]);
+                    }
+                }
+            }
+
+            // Auto-select first match
+            if (dropdown.items.length > 0) {
+                dropdown.selection = 0;
+            }
+            updateCount();
+        }
+
+        searchInput.onChanging = function () {
+            filterDropdown();
+        };
+
+        // Get the selected name (search text is used as override/manual entry if no selection)
+        data.getSelectedName = function () {
+            if (dropdown.selection) {
+                return dropdown.selection.text;
+            }
+            // Fallback: use search text as manual entry
+            if (searchInput.text.length > 0) {
+                return searchInput.text;
+            }
+            return "";
+        };
+
+        // Method to repopulate with new items
+        data.setItems = function (newItems) {
+            data.allItems = newItems.slice();
+            searchInput.text = "";
+            dropdown.removeAll();
+            for (var i = 0; i < newItems.length; i++) {
+                dropdown.add("item", newItems[i]);
+            }
+            if (dropdown.items.length > 0) {
+                dropdown.selection = 0;
+            }
+            updateCount();
+        };
+
+        // Initial count
+        updateCount();
+
+        // Auto-select first precomp-like item
+        if (initialItems) {
+            for (var p = 0; p < initialItems.length; p++) {
+                if (initialItems[p].toLowerCase().indexOf("precomp") !== -1) {
+                    dropdown.selection = p;
+                    break;
+                }
+            }
+            if (!dropdown.selection && dropdown.items.length > 0) {
+                dropdown.selection = 0;
+            }
+        }
+
+        return data;
+    }
+
     // ===== CP MOVEMENT DIALOG =====
     // Show CP Movement dialog - copy movement from a layer inside a precomp
     function showCPMovementDialog() {
@@ -3738,127 +3885,6 @@
             if (compNames.length === 0) {
                 alert("No compositions found in this project.");
                 return;
-            }
-
-            // ---- Helper: create a searchable dropdown ----
-            // Returns { searchInput, dropdown, allItems, getSelectedName }
-            function createSearchableDropdown(parentGroup, labelText, initialItems) {
-                // Search row
-                var searchGroup = parentGroup.add("group");
-                searchGroup.orientation = "row";
-                searchGroup.alignChildren = ["left", "center"];
-                var searchLabel = searchGroup.add("statictext", undefined, "Search:");
-                searchLabel.preferredSize.width = 50;
-                var searchInput = searchGroup.add("edittext", undefined, "");
-                searchInput.preferredSize.width = 250;
-                searchInput.helpTip = "Type to filter the list below (case-insensitive)";
-
-                // Dropdown (listbox for multi-visible items with search)
-                var ddGroup = parentGroup.add("group");
-                ddGroup.orientation = "row";
-                ddGroup.alignChildren = ["left", "center"];
-                var ddLabel = ddGroup.add("statictext", undefined, labelText);
-                ddLabel.preferredSize.width = 50;
-                var dropdown = ddGroup.add("listbox", undefined, initialItems || [],
-                    { numberOfColumns: 1, columnWidths: [240] });
-                dropdown.preferredSize = [250, 100];
-
-                // Count label
-                var countLabel = parentGroup.add("statictext", undefined, "");
-                countLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-                countLabel.alignment = "right";
-
-                // Store all items for filtering
-                var data = {
-                    searchInput: searchInput,
-                    dropdown: dropdown,
-                    allItems: initialItems ? initialItems.slice() : [],
-                    countLabel: countLabel
-                };
-
-                function updateCount() {
-                    var total = data.allItems.length;
-                    var shown = dropdown.items.length;
-                    if (searchInput.text.length > 0) {
-                        countLabel.text = "Showing " + shown + " of " + total;
-                    } else {
-                        countLabel.text = total + " items";
-                    }
-                }
-
-                // Filter function
-                function filterDropdown() {
-                    var query = searchInput.text.toLowerCase();
-                    dropdown.removeAll();
-
-                    if (query.length === 0) {
-                        // Show all
-                        for (var i = 0; i < data.allItems.length; i++) {
-                            dropdown.add("item", data.allItems[i]);
-                        }
-                    } else {
-                        // Filter: show items containing the query
-                        for (var i = 0; i < data.allItems.length; i++) {
-                            if (data.allItems[i].toLowerCase().indexOf(query) !== -1) {
-                                dropdown.add("item", data.allItems[i]);
-                            }
-                        }
-                    }
-
-                    // Auto-select first match
-                    if (dropdown.items.length > 0) {
-                        dropdown.selection = 0;
-                    }
-                    updateCount();
-                }
-
-                searchInput.onChanging = function () {
-                    filterDropdown();
-                };
-
-                // Get the selected name (search text is used as override/manual entry if no selection)
-                data.getSelectedName = function () {
-                    if (dropdown.selection) {
-                        return dropdown.selection.text;
-                    }
-                    // Fallback: use search text as manual entry
-                    if (searchInput.text.length > 0) {
-                        return searchInput.text;
-                    }
-                    return "";
-                };
-
-                // Method to repopulate with new items
-                data.setItems = function (newItems) {
-                    data.allItems = newItems.slice();
-                    searchInput.text = "";
-                    dropdown.removeAll();
-                    for (var i = 0; i < newItems.length; i++) {
-                        dropdown.add("item", newItems[i]);
-                    }
-                    if (dropdown.items.length > 0) {
-                        dropdown.selection = 0;
-                    }
-                    updateCount();
-                };
-
-                // Initial count
-                updateCount();
-
-                // Auto-select first precomp-like item
-                if (initialItems) {
-                    for (var p = 0; p < initialItems.length; p++) {
-                        if (initialItems[p].toLowerCase().indexOf("precomp") !== -1) {
-                            dropdown.selection = p;
-                            break;
-                        }
-                    }
-                    if (!dropdown.selection && dropdown.items.length > 0) {
-                        dropdown.selection = 0;
-                    }
-                }
-
-                return data;
             }
 
             // Build dialog
@@ -4083,6 +4109,154 @@
 
         } catch (error) {
             alert("CP Movement Error: " + error.toString());
+        }
+    }
+
+    // ===== ATTACH LEG =====
+    function showAttachLegDialog() {
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please open a composition first.");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("Please select at least one parent layer first.");
+                return;
+            }
+
+            // Cache selected layers into an array since adding new layers alters selection
+            var parentLayersToAttach = [];
+            for (var i = 0; i < selectedLayers.length; i++) {
+                parentLayersToAttach.push(selectedLayers[i]);
+            }
+
+            // Collect all compositions in the project
+            var compNames = [];
+            var compByName = {};
+            for (var i = 1; i <= app.project.numItems; i++) {
+                var item = app.project.item(i);
+                if (item instanceof CompItem) {
+                    compNames.push(item.name);
+                    compByName[item.name] = item;
+                }
+            }
+
+            if (compNames.length === 0) {
+                alert("No compositions found in this project.");
+                return;
+            }
+
+            // Build dialog
+            var dialog = new Window("dialog", "Attach Leg");
+            dialog.orientation = "column";
+            dialog.alignChildren = ["fill", "top"];
+            dialog.spacing = 10;
+            dialog.margins = 16;
+            dialog.preferredSize.width = 380;
+
+            var panel = dialog.add("panel", undefined, "Select Leg Comp");
+            panel.orientation = "column";
+            panel.alignChildren = ["fill", "top"];
+            panel.spacing = 6;
+            panel.margins = 10;
+
+            var compSearch = createSearchableDropdown(panel, "Leg:", compNames);
+
+            // Try to auto-select "kaki"
+            for (var p = 0; p < compSearch.dropdown.items.length; p++) {
+                if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("kaki") !== -1) {
+                    compSearch.dropdown.selection = p;
+                    break;
+                }
+            }
+
+            var optionsGroup = dialog.add("group");
+            optionsGroup.orientation = "row";
+            optionsGroup.alignment = "left";
+            optionsGroup.margins = [0, 0, 0, 5];
+            var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Leg (Horizontal)");
+
+            var btnGroup = dialog.add("group");
+            btnGroup.orientation = "row";
+            btnGroup.alignment = "center";
+            btnGroup.spacing = 10;
+
+            var applyBtn = btnGroup.add("button", undefined, "Apply");
+            var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+
+            applyBtn.onClick = function () {
+                var legName = compSearch.getSelectedName();
+                if (!legName) {
+                    alert("Please select a leg comp.");
+                    return;
+                }
+
+                var legComp = compByName[legName];
+                if (!legComp) {
+                    alert("Leg comp not found.");
+                    return;
+                }
+
+                app.beginUndoGroup("Attach Leg");
+
+                for (var j = 0; j < parentLayersToAttach.length; j++) {
+                    var parentLyr = parentLayersToAttach[j];
+                    var legLayer = comp.layers.add(legComp);
+
+                    // Perform flip horizontal before attaching the leg
+                    if (flipCheckbox.value) {
+                        var preScale = legLayer.transform.scale.value;
+                        if (preScale.length > 2) {
+                            legLayer.transform.scale.setValueAtTime(comp.time, [-preScale[0], preScale[1], preScale[2]]);
+                        } else {
+                            legLayer.transform.scale.setValueAtTime(comp.time, [-preScale[0], preScale[1]]);
+                        }
+                    }
+
+                    // Parent and place below first so layer space translates to parent space
+                    legLayer.moveAfter(parentLyr);
+                    legLayer.parent = parentLyr;
+
+                    // Now that it is parented, set the position relative to parent's anchor point
+                    legLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
+
+                    // Auto scale to 64% relatively
+                    var targetX = flipCheckbox.value ? -64 : 64;
+                    var currentScale = legLayer.transform.scale.value;
+
+                    if (flipCheckbox.value) {
+                        // Use setValueAtTime to update the keyframe created by the flip
+                        if (currentScale.length > 2) {
+                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, 64, 64]);
+                        } else {
+                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, 64]);
+                        }
+                    } else {
+                        // Use normal setValue
+                        if (currentScale.length > 2) {
+                            legLayer.transform.scale.setValue([targetX, 64, 64]);
+                        } else {
+                            legLayer.transform.scale.setValue([targetX, 64]);
+                        }
+                    }
+                }
+
+                app.endUndoGroup();
+                updateStatus("Leg attached to " + parentLayersToAttach.length + " layer(s)");
+                dialog.close();
+            };
+
+            cancelBtn.onClick = function () {
+                dialog.close();
+            };
+
+            dialog.show();
+
+        } catch (error) {
+            alert("Attach Leg Error: " + error.toString());
         }
     }
 
@@ -4733,6 +4907,145 @@
 
         dialog.center();
         dialog.show();
+    }
+
+    // ===== PINCH DIALOG =====
+    function showPinchDialog() {
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please open a composition first.");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("Please select at least one layer.");
+                return;
+            }
+
+            // Build dialog
+            var dialog = new Window("dialog", "Pinch Scale");
+            dialog.orientation = "column";
+            dialog.alignChildren = ["fill", "top"];
+            dialog.spacing = 10;
+            dialog.margins = 16;
+
+            var infoText = dialog.add("statictext", undefined, selectedLayers.length + " layer(s) selected", { multiline: false });
+            infoText.alignment = "center";
+
+            var presetPanel = dialog.add("panel", undefined, "Pinch Amount");
+            presetPanel.orientation = "column";
+            presetPanel.spacing = 6;
+            presetPanel.margins = 10;
+
+            var customRow = presetPanel.add("group");
+            customRow.orientation = "row";
+            customRow.add("statictext", undefined, "Custom %:");
+            var customInput = customRow.add("edittext", undefined, "12");
+            customInput.preferredSize.width = 50;
+
+            var inBtnRow = presetPanel.add("group");
+            inBtnRow.orientation = "row";
+
+            var btnIn12 = inBtnRow.add("button", undefined, "In +12%");
+            var btnIn15 = inBtnRow.add("button", undefined, "In +15%");
+            var btnIn20 = inBtnRow.add("button", undefined, "In +20%");
+
+            var outBtnRow = presetPanel.add("group");
+            outBtnRow.orientation = "row";
+
+            var btnOut12 = outBtnRow.add("button", undefined, "Out -12%");
+            var btnOut15 = outBtnRow.add("button", undefined, "Out -15%");
+            var btnOut20 = outBtnRow.add("button", undefined, "Out -20%");
+
+            var applyCustomBtn = presetPanel.add("button", undefined, "Apply Custom");
+
+            var cancelBtn = dialog.add("button", undefined, "Cancel");
+
+            btnIn12.onClick = function () { applyPinch(comp, selectedLayers, 12); dialog.close(); };
+            btnIn15.onClick = function () { applyPinch(comp, selectedLayers, 15); dialog.close(); };
+            btnIn20.onClick = function () { applyPinch(comp, selectedLayers, 20); dialog.close(); };
+            btnOut12.onClick = function () { applyPinch(comp, selectedLayers, -12); dialog.close(); };
+            btnOut15.onClick = function () { applyPinch(comp, selectedLayers, -15); dialog.close(); };
+            btnOut20.onClick = function () { applyPinch(comp, selectedLayers, -20); dialog.close(); };
+            applyCustomBtn.onClick = function () {
+                var val = parseFloat(customInput.text);
+                if (!isNaN(val)) applyPinch(comp, selectedLayers, val);
+                dialog.close();
+            };
+            cancelBtn.onClick = function () { dialog.close(); };
+
+            dialog.show();
+
+        } catch (error) {
+            alert("Pinch Error: " + error.toString());
+        }
+    }
+
+    function applyPinch(comp, layers, pinchPercent) {
+        try {
+            app.beginUndoGroup("Pinch +" + pinchPercent + "%");
+            var currentTime = comp.time;
+            var endTime = currentTime + 8 * comp.frameDuration;
+            var successCount = 0;
+
+            for (var i = 0; i < layers.length; i++) {
+                var layer = layers[i];
+                if (layer.locked) continue;
+
+                // Add position keyframe
+                if (layer.transform.position.canSetExpression) {
+                    layer.transform.position.setValueAtTime(currentTime, layer.transform.position.value);
+                }
+
+                // Add rotation keyframe
+                if (layer.transform.rotation.canSetExpression) {
+                    layer.transform.rotation.setValueAtTime(currentTime, layer.transform.rotation.value);
+                }
+
+                // Add scale keyframe + pinch
+                var scaleProp = layer.transform.scale;
+                if (scaleProp.canSetExpression) {
+                    var currentScale = scaleProp.value;
+                    scaleProp.setValueAtTime(currentTime, currentScale);
+
+                    var targetX = currentScale[0] > 0 ? currentScale[0] + pinchPercent : currentScale[0] - pinchPercent;
+                    var targetY = currentScale[1] > 0 ? currentScale[1] + pinchPercent : currentScale[1] - pinchPercent;
+                    var targetZ = (currentScale.length > 2) ? (currentScale[2] > 0 ? currentScale[2] + pinchPercent : currentScale[2] - pinchPercent) : 0;
+
+                    var targetScale = currentScale.length > 2 ? [targetX, targetY, targetZ] : [targetX, targetY];
+                    scaleProp.setValueAtTime(endTime, targetScale);
+
+                    // Easing: 0.90, 0.00, 0.10, 1.00 -> Speed 0, Influence 90
+                    try {
+                        var key1 = -1, key2 = -1;
+                        for (var k = 1; k <= scaleProp.numKeys; k++) {
+                            var kt = scaleProp.keyTime(k);
+                            if (Math.abs(kt - currentTime) < 0.001) key1 = k;
+                            if (Math.abs(kt - endTime) < 0.001) key2 = k;
+                        }
+                        if (key1 > 0 && key2 > 0) {
+                            var easeIn = new KeyframeEase(0, 90);
+                            var easeOut = new KeyframeEase(0, 90);
+                            var inEaseArray = currentScale.length > 2 ? [easeIn, easeIn, easeIn] : [easeIn, easeIn];
+                            var outEaseArray = currentScale.length > 2 ? [easeOut, easeOut, easeOut] : [easeOut, easeOut];
+
+                            scaleProp.setTemporalEaseAtKey(key1, inEaseArray, outEaseArray);
+                            scaleProp.setTemporalEaseAtKey(key2, inEaseArray, outEaseArray);
+                        }
+                    } catch (e) { }
+
+                    successCount++;
+                }
+            }
+
+            app.endUndoGroup();
+            updateStatus("Pinch applied to " + successCount + " layer(s)");
+
+        } catch (error) {
+            alert("Pinch Error: " + error.toString());
+        }
     }
 
     // Add keyframes for current position and scale
