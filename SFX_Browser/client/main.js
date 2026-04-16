@@ -8,6 +8,32 @@ var cs = new CSInterface();
 var cachedItems = []; // Full list from ExtendScript
 var sortAsc = true;   // Current sort direction
 
+var favorites = JSON.parse(localStorage.getItem('sfx_favorites') || '[]');
+var currentAudio = null;
+var currentPlayBtn = null;
+
+function isFavorite(treePath) {
+    return favorites.indexOf(treePath) !== -1;
+}
+
+function toggleFavorite(treePath, btnElement) {
+    var idx = favorites.indexOf(treePath);
+    if (idx !== -1) {
+        favorites.splice(idx, 1);
+        if (btnElement) {
+            btnElement.classList.remove('active');
+            btnElement.innerText = '☆';
+        }
+    } else {
+        favorites.push(treePath);
+        if (btnElement) {
+            btnElement.classList.add('active');
+            btnElement.innerText = '★';
+        }
+    }
+    localStorage.setItem('sfx_favorites', JSON.stringify(favorites));
+}
+
 // Node.js modules (available because --enable-nodejs is set)
 var childProcess = require('child_process');
 var path = require('path');
@@ -60,8 +86,13 @@ function applyFilter() {
         }
     }
 
-    // Sort by name
+    // Sort by favorite, then by name
     filtered.sort(function (a, b) {
+        var aFav = isFavorite(a.treePath);
+        var bFav = isFavorite(b.treePath);
+        if (aFav && !bFav) return -1;
+        if (!aFav && bFav) return 1;
+
         var diff = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
         return sortAsc ? diff : -diff;
     });
@@ -82,12 +113,28 @@ function renderList(items) {
         (function (item) {
             var div = document.createElement('div');
             div.className = 'list-item';
+
+            var favActive = isFavorite(item.treePath);
             div.innerHTML =
                 '<span class="icon">♪</span>' +
                 '<span class="name">' + escapeHtml(item.name) + '</span>' +
-                '<span class="path">' + escapeHtml(item.binPath || '') + '</span>';
+                '<span class="path">' + escapeHtml(item.binPath || '') + '</span>' +
+                '<div class="actions">' +
+                '  <button class="action-btn play" title="Preview">▶</button>' +
+                '  <button class="action-btn star ' + (favActive ? 'active' : '') + '" title="Favorite">' + (favActive ? '★' : '☆') + '</button>' +
+                '</div>';
 
-            div.addEventListener('click', function () {
+            div.addEventListener('click', function (e) {
+                if (e.target.classList.contains('play')) {
+                    e.stopPropagation();
+                    togglePlay(item, e.target);
+                    return;
+                }
+                if (e.target.classList.contains('star')) {
+                    e.stopPropagation();
+                    toggleFavorite(item.treePath, e.target);
+                    return;
+                }
                 insertItem(item);
             });
             container.appendChild(div);
@@ -135,6 +182,75 @@ function doInsert(treePath, trackIndex, silenceOffset) {
             var trackLabel = parts.length > 1 ? parts[1] : 'A' + (parseInt(trackIndex) + 1);
             var trimMsg = silenceOffset > 0 ? ' (trimmed ' + silenceOffset.toFixed(2) + 's)' : '';
             setStatus('Inserted on ' + trackLabel + trimMsg, 'success');
+        }
+    });
+}
+
+// ─── Play / Preview Audio ──────────────────────────────────────────────────────
+
+function togglePlay(item, btn) {
+    if (currentAudio) {
+        currentAudio.pause();
+        if (currentPlayBtn) {
+            currentPlayBtn.innerText = '▶';
+            currentPlayBtn.classList.remove('playing');
+        }
+        var wasPlayingSame = (currentPlayBtn === btn);
+        currentAudio = null;
+        currentPlayBtn = null;
+        if (wasPlayingSame) {
+            return;
+        }
+    }
+
+    setStatus('Loading preview for "' + item.name + '" …');
+    cs.evalScript('getMediaPath("' + escapeForScript(item.treePath) + '")', function (filePath) {
+        if (!filePath || filePath === 'undefined' || filePath === 'null') {
+            setStatus('Cannot preview: file path not found', 'error');
+            return;
+        }
+
+        var cleanPath = filePath.replace(/^"|"$/g, '');
+        cleanPath = cleanPath.replace(/\\/g, '/');
+        if (cleanPath.charAt(0) !== '/') {
+            cleanPath = '/' + cleanPath;
+        }
+        // Properly encode the URI to handle spaces and special chars
+        var fileUrl = 'file://' + encodeURI(cleanPath).replace(/#/g, '%23').replace(/\?/g, '%3F');
+
+        try {
+            currentAudio = new Audio(fileUrl);
+            currentAudio.volume = 0.6;
+
+            var playPromise = currentAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(function () {
+                    setStatus('Playing: ' + item.name, 'success');
+                    btn.innerText = '■';
+                    btn.classList.add('playing');
+                    currentPlayBtn = btn;
+                }).catch(function (e) {
+                    setStatus('Preview error: ' + e.message, 'error');
+                });
+            } else {
+                // For older environments where play() does not return a promise
+                setStatus('Playing: ' + item.name, 'success');
+                btn.innerText = '■';
+                btn.classList.add('playing');
+                currentPlayBtn = btn;
+            }
+
+            currentAudio.addEventListener('ended', function () {
+                if (currentPlayBtn === btn) {
+                    btn.innerText = '▶';
+                    btn.classList.remove('playing');
+                    currentPlayBtn = null;
+                    currentAudio = null;
+                    setStatus('Ready');
+                }
+            });
+        } catch (e) {
+            setStatus('Error playing audio: ' + e.message, 'error');
         }
     });
 }

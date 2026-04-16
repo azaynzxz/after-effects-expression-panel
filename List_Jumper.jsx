@@ -222,11 +222,6 @@
         calibrationInput.preferredSize.height = 22;
         calibrationInput.helpTip = "Frame offset (+/-) for all jumps";
 
-        // Prevent win.addEventListener from hijacking numbers typed here
-        calibrationInput.addEventListener('keydown', function (event) {
-            event.stopPropagation();
-        });
-
         var framesLabel = calibrationRow.add("statictext", undefined, "frames");
         framesLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
@@ -278,7 +273,7 @@
             safeExecute(function () { selectFile(); });
         };
 
-        // Search on Enter key instead of real-time to avoid lag
+        // Re-adding addEventListener but with deferred execution to conquer Line 0 crashes!
         searchInput.addEventListener('keydown', function (event) {
             var keyName = event.keyName;
 
@@ -286,23 +281,20 @@
                 event.preventDefault();
                 event.stopPropagation();
 
-                // Safety check: Don't execute if AE has a modal dialog open
-                safeExecute(function () {
-                    filterAndDisplayResults(searchInput.text);
-
-                    // After Enter, focus the listbox so shortcuts work immediately
-                    try {
-                        if (listbox.items.length > 0) {
-                            listbox.active = true;
-                        }
-                    } catch (e) {
-                        // Ignore if focus fails
-                    }
-                });
+                // By decoupling the execution with a timeout, OS-level key presses won't crash 
+                // the DOM wrapper while a modal dialog like Auto-Save is rendering.
+                app.setTimeout(function () {
+                    safeExecute(function () {
+                        filterAndDisplayResults(searchInput.text);
+                        try {
+                            if (listbox.items.length > 0) {
+                                listbox.active = true;
+                            }
+                        } catch (e) { }
+                    });
+                }, 20);
             } else {
-                // IMPORTANT: Stop propagation so that win.addEventListener doesn't 
-                // hijack number keys (1-9) while we are actively typing in the search box.
-                event.stopPropagation();
+                event.stopPropagation(); // prevent window from hijacking numbers when typing
             }
         });
 
@@ -344,116 +336,55 @@
             }
         };
 
+        // Helper to process 1-9 key presses and safely jump
+        function handleNumberKeyJump(event, listboxRef) {
+            var keyName = event.keyName;
+            if (listboxRef.items.length > 0 && keyName) {
+                var numKey = null;
+                if (keyName.length === 1) {
+                    var charCode = keyName.charCodeAt(0);
+                    if (charCode >= 49 && charCode <= 57) { // '1' to '9'
+                        numKey = charCode - 48;
+                    }
+                }
+
+                if (numKey !== null) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (isJumping) return;
+
+                    var targetIndex = numKey - 1;
+                    if (targetIndex >= 0 && targetIndex < listboxRef.items.length) {
+                        // Defer completely! Solves the "Can not run a script at line 0" Auto-Save freeze!
+                        app.setTimeout(function () {
+                            safeExecute(function () {
+                                isProgrammaticSelection = true;
+                                listboxRef.selection = targetIndex;
+                                var selectedItem = listboxRef.items[targetIndex];
+                                if (selectedItem) {
+                                    var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
+                                    jumpToTime(timeToJump);
+                                    searchInput.text = "";
+                                    searchInput.active = true;
+                                }
+                            });
+                        }, 20);
+                    }
+                }
+            }
+        }
+
         // Add keyboard handler to listbox for shortcuts
         listbox.addEventListener('keydown', function (event) {
-            var keyName = event.keyName;
-
-            // Handle number keys (1-9) to jump to results
-            if (this.items.length > 0 && keyName) {
-                var numKey = null;
-
-                // Check if it's a number key (1-9) from main keyboard
-                if (keyName.length === 1) {
-                    var charCode = keyName.charCodeAt(0);
-                    if (charCode >= 49 && charCode <= 57) { // '1' to '9'
-                        numKey = charCode - 48; // Convert to 1-9
-                    }
-                }
-
-                // If it's a number key, jump to that item
-                if (numKey !== null) {
-                    // Prevent default behavior and stop event propagation IMMEDIATELY
-                    event.preventDefault();
-                    event.stopPropagation();
-
-                    // Prevent multiple handlers from executing the same shortcut
-                    if (isJumping) {
-                        return;
-                    }
-
-                    // Convert to 0-based index (1 -> 0, 2 -> 1, etc.)
-                    var targetIndex = numKey - 1;
-                    var that = this;
-
-                    // Only jump if the index is valid
-                    if (targetIndex >= 0 && targetIndex < this.items.length) {
-                        safeExecute(function () {
-                            // Set flag to prevent onChange from firing
-                            isProgrammaticSelection = true;
-
-                            // Select the item in the listbox
-                            that.selection = targetIndex;
-
-                            // Trigger the jump directly (onChange will be skipped due to flag)
-                            var selectedItem = that.items[targetIndex];
-                            if (selectedItem) {
-                                var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                                jumpToTime(timeToJump);
-                                searchInput.text = "";
-                                searchInput.active = true;
-                            }
-                        });
-                    }
-                }
-            }
+            handleNumberKeyJump(event, this);
         });
 
-        // Keyboard shortcuts: Press 1-9 to jump to corresponding result
-        // Note: Number keys will work when listbox has results
-        // If you need to type numbers in search, click outside the search box first
+        // Keyboard shortcuts: Press 1-9 anywhere in the window
         win.addEventListener('keydown', function (event) {
-            var keyName = event.keyName;
-
-            // Handle number keys (1-9) to jump to results
-            // Only intercept if listbox has items (results are shown)
-            if (listbox.items.length > 0 && keyName) {
-                var numKey = null;
-
-                // Check if it's a number key (1-9) from main keyboard
-                if (keyName.length === 1) {
-                    var charCode = keyName.charCodeAt(0);
-                    if (charCode >= 49 && charCode <= 57) { // '1' to '9'
-                        numKey = charCode - 48; // Convert to 1-9
-                    }
-                }
-
-                // If it's a number key, jump to that item
-                if (numKey !== null) {
-                    // Prevent default behavior and stop event propagation IMMEDIATELY
-                    event.preventDefault();
-                    event.stopPropagation();
-
-                    // Prevent multiple handlers from executing the same shortcut
-                    if (isJumping) {
-                        return;
-                    }
-
-                    // Convert to 0-based index (1 -> 0, 2 -> 1, etc.)
-                    var targetIndex = numKey - 1;
-
-                    // Only jump if the index is valid
-                    if (targetIndex >= 0 && targetIndex < listbox.items.length) {
-                        safeExecute(function () {
-                            // Set flag to prevent onChange from firing
-                            isProgrammaticSelection = true;
-
-                            // Select the item in the listbox
-                            listbox.selection = targetIndex;
-
-                            // Trigger the jump directly (onChange will be skipped due to flag)
-                            var selectedItem = listbox.items[targetIndex];
-                            if (selectedItem) {
-                                var timeToJump = exactJumpCheckbox.value ? selectedItem.matchTime : selectedItem.timeValue;
-                                jumpToTime(timeToJump);
-                                searchInput.text = "";
-                                searchInput.active = true;
-                            }
-                        });
-                    }
-                }
-            }
+            handleNumberKeyJump(event, listbox);
         });
 
+        win.center();
         win.show();
     }
 

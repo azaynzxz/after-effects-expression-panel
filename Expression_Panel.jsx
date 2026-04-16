@@ -696,7 +696,7 @@
             showFishDialog();
         };
 
-        // Tools row 5: Attach Leg
+        // Tools row 5: Attach Leg & Add Mouth
         var toolsRow5 = leftCol.add("group");
         toolsRow5.orientation = "row";
         toolsRow5.alignChildren = ["fill", "center"];
@@ -708,6 +708,14 @@
         attachLegBtn.helpTip = "Attach a leg comp to the selected layer";
         attachLegBtn.onClick = function () {
             showAttachLegDialog();
+        };
+
+        var attachMouthBtn = toolsRow5.add("button", undefined, "Add Mouth");
+        attachMouthBtn.alignment = ["fill", "center"];
+        attachMouthBtn.preferredSize.height = 16;
+        attachMouthBtn.helpTip = "Attach a mouth comp to the selected layer";
+        attachMouthBtn.onClick = function () {
+            showAttachMouthDialog();
         };
 
         // Anchor & Stagger Section
@@ -944,6 +952,14 @@
         bellowBtn.helpTip = "Move selected layers below the last selected layer";
         bellowBtn.onClick = function () {
             Bellow();
+        };
+
+        // Add Align to MK button
+        var alignMkBtn = utilityGroup.add("button", undefined, "Align to MK");
+        alignMkBtn.preferredSize.height = 16;
+        alignMkBtn.helpTip = "Align selected keyframes to active composition markers";
+        alignMkBtn.onClick = function () {
+            alignKeyframesToMarkers();
         };
 
         // Layer Navigation Section (below More button)
@@ -4260,6 +4276,172 @@
         }
     }
 
+    // ===== ATTACH MOUTH =====
+    function showAttachMouthDialog() {
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please open a composition first.");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("Please select at least one parent layer first.");
+                return;
+            }
+
+            // Cache selected layers into an array since adding new layers alters selection
+            var parentLayersToAttach = [];
+            for (var i = 0; i < selectedLayers.length; i++) {
+                parentLayersToAttach.push(selectedLayers[i]);
+            }
+
+            // Collect all compositions in the project
+            var compNames = [];
+            var compByName = {};
+            for (var i = 1; i <= app.project.numItems; i++) {
+                var item = app.project.item(i);
+                if (item instanceof CompItem) {
+                    compNames.push(item.name);
+                    compByName[item.name] = item;
+                }
+            }
+
+            if (compNames.length === 0) {
+                alert("No compositions found in this project.");
+                return;
+            }
+
+            // Build dialog
+            var dialog = new Window("dialog", "Add Mouth");
+            dialog.orientation = "column";
+            dialog.alignChildren = ["fill", "top"];
+            dialog.spacing = 10;
+            dialog.margins = 16;
+            dialog.preferredSize.width = 380;
+
+            var panel = dialog.add("panel", undefined, "Select Mouth Comp");
+            panel.orientation = "column";
+            panel.alignChildren = ["fill", "top"];
+            panel.spacing = 6;
+            panel.margins = 10;
+
+            var compSearch = createSearchableDropdown(panel, "Mouth:", compNames);
+
+            // Auto-select priority: 1. Yapping, 2. Lipsync, 3. Komat Kamit
+            var foundMouthIndex = -1;
+
+            // Pass 1: Look for Yapping (Highest Priority)
+            for (var p = 0; p < compSearch.dropdown.items.length; p++) {
+                if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("yapping") !== -1) {
+                    foundMouthIndex = p;
+                    break;
+                }
+            }
+
+            // Pass 2: Look for Lipsync
+            if (foundMouthIndex === -1) {
+                for (var p = 0; p < compSearch.dropdown.items.length; p++) {
+                    if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("lipsync") !== -1) {
+                        foundMouthIndex = p;
+                        break;
+                    }
+                }
+            }
+
+            // Pass 3: Look for Komat Kamit
+            if (foundMouthIndex === -1) {
+                for (var p = 0; p < compSearch.dropdown.items.length; p++) {
+                    if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("komat kamit") !== -1) {
+                        foundMouthIndex = p;
+                        break;
+                    }
+                }
+            }
+
+            if (foundMouthIndex !== -1) {
+                compSearch.dropdown.selection = foundMouthIndex;
+            }
+
+            var optionsGroup = dialog.add("group");
+            optionsGroup.orientation = "row";
+            optionsGroup.alignment = "left";
+            optionsGroup.margins = [0, 0, 0, 5];
+            var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Mouth (Horizontal)");
+
+            var btnGroup = dialog.add("group");
+            btnGroup.orientation = "row";
+            btnGroup.alignment = "center";
+            btnGroup.spacing = 10;
+
+            var applyBtn = btnGroup.add("button", undefined, "Apply");
+            var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+
+            applyBtn.onClick = function () {
+                var mouthName = compSearch.getSelectedName();
+                if (!mouthName) {
+                    alert("Please select a mouth comp.");
+                    return;
+                }
+
+                var mouthComp = compByName[mouthName];
+                if (!mouthComp) {
+                    alert("Mouth comp not found.");
+                    return;
+                }
+
+                app.beginUndoGroup("Add Mouth");
+
+                for (var j = 0; j < parentLayersToAttach.length; j++) {
+                    var parentLyr = parentLayersToAttach[j];
+                    var mouthLayer = comp.layers.add(mouthComp);
+
+                    // Place ABOVE the primary layer
+                    mouthLayer.moveBefore(parentLyr);
+
+                    // Parent it to the selected layer
+                    mouthLayer.parent = parentLyr;
+
+                    // Set the position relative to parent's anchor point
+                    mouthLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
+
+                    // Auto scale to 15% relatively
+                    var targetX = flipCheckbox.value ? -15 : 15;
+                    var currentScale = mouthLayer.transform.scale.value;
+
+                    // Perform scale override directly (keyframed if it was already keyed, though standard adds don't have keys)
+                    if (flipCheckbox.value) {
+                        if (currentScale.length > 2) {
+                            mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15, 15]);
+                        } else {
+                            mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15]);
+                        }
+                    } else {
+                        if (currentScale.length > 2) {
+                            mouthLayer.transform.scale.setValue([targetX, 15, 15]);
+                        } else {
+                            mouthLayer.transform.scale.setValue([targetX, 15]);
+                        }
+                    }
+                }
+
+                app.endUndoGroup();
+                updateStatus("Mouth attached to " + parentLayersToAttach.length + " layer(s)");
+                dialog.close();
+            };
+
+            cancelBtn.onClick = function () {
+                dialog.close();
+            };
+
+            dialog.show();
+
+        } catch (error) {
+            alert("Add Mouth Error: " + error.toString());
+        }
+    }
+
     // ===== AUDIO MARKERS =====
     function showAudioMarkersDialog() {
         var win = new Window("palette", "Audio Markers", undefined, { resizeable: false });
@@ -7133,14 +7315,23 @@
     // Hide all layers starting with 'hide' in main_comp
     function hideAllLayersNamedHide() {
         try {
-            // Function to process a composition recursively
-            function processComp(comp) {
+            var processedComps = {};
+            var missingXComps = [];
+
+            // Function to process a composition recursively up to depth 1
+            function processComp(comp, depth) {
+                if (processedComps[comp.id]) return;
+                processedComps[comp.id] = true;
+
+                var hasXLayer = false;
+
                 for (var i = 1; i <= comp.numLayers; i++) {
                     var layer = comp.layer(i);
 
-                    // Check for precomp and process it recursively
-                    if (layer.source instanceof CompItem) {
-                        processComp(layer.source); // Recursive
+                    // Check for precomp and process it recursively IF depth < 1
+                    // Ignore layers with "audio" in the name
+                    if (layer.source instanceof CompItem && depth < 1 && layer.name.toLowerCase().indexOf("audio") === -1) {
+                        processComp(layer.source, depth + 1); // limited depth
                     }
 
                     // Check if name starts with "hide" or "x" (case-insensitive)
@@ -7148,7 +7339,14 @@
                     if (lowerName.indexOf("hide") === 0 || lowerName.indexOf("x") === 0) {
                         layer.enabled = false; // Hides the layer (eye icon off)
                         layer.visible = false; // Optional UI update
+                        hasXLayer = true;
                     }
+                }
+
+                // If this is a precomp (not main_comp) and does not have an X or hide layer
+                // Also ignore any compositions that have "audio" in their name
+                if (!hasXLayer && comp.name !== "main_comp" && comp.name.toLowerCase().indexOf("audio") === -1) {
+                    missingXComps.push(comp.name);
                 }
             }
 
@@ -7164,9 +7362,54 @@
 
             if (mainComp) {
                 app.beginUndoGroup("Hide Layers Starting with 'hide' or 'x'");
-                processComp(mainComp);
+                processComp(mainComp, 0); // Start at depth 0
                 app.endUndoGroup();
-                updateStatus("Hidden all layers starting with 'hide' or 'x' in main_comp and precomps");
+
+                var logPathMsg = "";
+                if (missingXComps.length > 0) {
+                    var dateStr = new Date().toLocaleString();
+                    var reportText = "==================================================\n";
+                    reportText += "        MISSING \"X\" LAYERS REPORT\n";
+                    reportText += "==================================================\n";
+                    reportText += "Date: " + dateStr + "\n\n";
+                    reportText += "The following precompositions do NOT contain an\n";
+                    reportText += " \"x\" or \"hide\" layer inside them. Please review\n";
+                    reportText += " them and manually hide or adjust if necessary.\n\n";
+                    reportText += "--------------------------------------------------\n";
+                    for (var m = 0; m < missingXComps.length; m++) {
+                        reportText += "[ ] " + missingXComps[m] + "\n";
+                    }
+                    reportText += "--------------------------------------------------\n";
+                    reportText += "Total Missing: " + missingXComps.length + " precomps\n";
+                    reportText += "==================================================\n";
+
+                    var alertMsg = "⚠ ACTION REQUIRED ⚠\n\nFound " + missingXComps.length + " precomps missing an 'x' or 'hide' layer!\n\n";
+                    var maxAlertComps = 15;
+                    for (var k = 0; k < Math.min(missingXComps.length, maxAlertComps); k++) {
+                        alertMsg += " • " + missingXComps[k] + "\n";
+                    }
+                    if (missingXComps.length > maxAlertComps) {
+                        alertMsg += " • ... and " + (missingXComps.length - maxAlertComps) + " more.\n";
+                    }
+                    alertMsg += "\nA detailed report has been saved to your project folder.";
+
+                    alert(alertMsg);
+
+                    if (app.project.file) {
+                        var folder = app.project.file.parent;
+                        var logFile = new File(folder.fsName + "/missing_x_layers_report.txt");
+                        if (logFile.open("w")) {
+                            logFile.encoding = "UTF-8";
+                            logFile.write(reportText);
+                            logFile.close();
+                            logPathMsg = " | Log saved to project folder";
+                        }
+                    } else {
+                        logPathMsg = " | (Project not saved, no log created)";
+                    }
+                }
+
+                updateStatus("Hidden all layers starting with 'hide' or 'x' in main_comp and precomps" + logPathMsg);
             } else {
                 alert("Main Comp not found in the project.");
                 updateStatus("Main Comp not found");
@@ -7302,8 +7545,27 @@
 
                 if (!currentLayer.locked) {
                     try {
+                        var trimTime = nextLayer.inPoint;
+
                         // Trim current layer's out point to next layer's in point
-                        currentLayer.outPoint = nextLayer.inPoint;
+                        currentLayer.outPoint = trimTime;
+
+                        // Add marker inside precomp if it is one
+                        if (currentLayer.source instanceof CompItem) {
+                            var innerComp = currentLayer.source;
+                            var localTime;
+
+                            // Convert the main comp trimTime to local time inside the precomp
+                            if (currentLayer.timeRemapEnabled) {
+                                localTime = currentLayer.property("ADBE Time Remapping").valueAtTime(trimTime, false);
+                            } else {
+                                localTime = (trimTime - currentLayer.startTime) * (100 / currentLayer.stretch);
+                            }
+
+                            // Add the composition marker
+                            var mv = new MarkerValue("End");
+                            innerComp.markerProperty.setValueAtTime(localTime, mv);
+                        }
                     } catch (err) {
                         // Skip any errors and continue with next layer
                         continue;
@@ -8082,6 +8344,179 @@
 
         } catch (error) {
             updateStatus("Error: " + error.toString());
+        }
+    }
+
+    // Function to align selected keyframes to active composition markers
+    // Function to align selected keyframes to active composition markers
+    function alignKeyframesToMarkers() {
+        var undoGroupStarted = false;
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                if (typeof updateStatus === "function") updateStatus("No active composition found");
+                return;
+            }
+
+            var selectedProps = comp.selectedProperties;
+            if (!selectedProps || selectedProps.length === 0) {
+                if (typeof updateStatus === "function") updateStatus("Please select keyframes");
+                return;
+            }
+
+            var compMarkers = comp.markerProperty;
+            if (!compMarkers || compMarkers.numKeys === 0) {
+                if (typeof updateStatus === "function") updateStatus("No markers found in composition");
+                return;
+            }
+
+            var markerTimes = [];
+            for (var m = 1; m <= compMarkers.numKeys; m++) {
+                markerTimes.push(compMarkers.keyTime(m));
+            }
+            markerTimes.sort(function (a, b) { return a - b; });
+
+            app.beginUndoGroup("Align to MK");
+            undoGroupStarted = true;
+
+            var propRecords = [];
+            var allClusters = [];
+
+            for (var p = 0; p < selectedProps.length; p++) {
+                var prop = selectedProps[p];
+                if (!prop.canVaryOverTime || prop.selectedKeys.length === 0) {
+                    continue;
+                }
+
+                var layer = prop.propertyGroup(prop.propertyDepth);
+                var layerIndex = layer ? layer.index : -1;
+
+                var selKeyIndices = prop.selectedKeys;
+                var keysData = [];
+                for (var k = 0; k < selKeyIndices.length; k++) {
+                    var idx = selKeyIndices[k];
+                    var t = prop.keyTime(idx);
+
+                    var cluster = null;
+                    for (var c = 0; c < allClusters.length; c++) {
+                        if (allClusters[c].layerIndex === layerIndex && Math.abs(allClusters[c].time - t) < 0.005) {
+                            cluster = allClusters[c];
+                            break;
+                        }
+                    }
+                    if (!cluster) {
+                        cluster = { layerIndex: layerIndex, time: t };
+                        allClusters.push(cluster);
+                    }
+
+                    var data = {
+                        time: t,
+                        value: prop.keyValue(idx),
+                        clusterInfo: cluster
+                    };
+
+                    if (prop.propertyValueType === PropertyValueType.TwoD_SPATIAL || prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL) {
+                        try { data.inSpatialTangent = prop.keyInSpatialTangent(idx); } catch (e) { }
+                        try { data.outSpatialTangent = prop.keyOutSpatialTangent(idx); } catch (e) { }
+                        try { data.roving = prop.keyRoving(idx); } catch (e) { }
+                    }
+
+                    try { data.inInterpolationType = prop.keyInInterpolationType(idx); } catch (e) { }
+                    try { data.outInterpolationType = prop.keyOutInterpolationType(idx); } catch (e) { }
+
+                    if (data.inInterpolationType === KeyframeInterpolationType.BEZIER || data.outInterpolationType === KeyframeInterpolationType.BEZIER) {
+                        try { data.inTemporalEase = prop.keyInTemporalEase(idx); } catch (e) { }
+                        try { data.outTemporalEase = prop.keyOutTemporalEase(idx); } catch (e) { }
+                    }
+                    try { data.spatialContinuous = prop.keySpatialContinuous(idx); } catch (e) { }
+                    try { data.spatialAutoBezier = prop.keySpatialAutoBezier(idx); } catch (e) { }
+                    try { data.temporalContinuous = prop.keyTemporalContinuous(idx); } catch (e) { }
+                    try { data.temporalAutoBezier = prop.keyTemporalAutoBezier(idx); } catch (e) { }
+
+                    keysData.push(data);
+                }
+
+                keysData.sort(function (a, b) { return a.time - b.time; });
+
+                var revIndices = [];
+                for (var k = 0; k < selKeyIndices.length; k++) { revIndices.push(selKeyIndices[k]); }
+                revIndices.sort(function (a, b) { return b - a; });
+
+                var dummyTime = (prop.numKeys > 0 ? prop.keyTime(prop.numKeys) : comp.time) + 9000;
+
+                propRecords.push({
+                    prop: prop,
+                    keysData: keysData,
+                    revIndices: revIndices,
+                    dummyTime: dummyTime
+                });
+            }
+
+            allClusters.sort(function (a, b) {
+                if (Math.abs(a.time - b.time) > 0.005) {
+                    return a.time - b.time;
+                }
+                return a.layerIndex - b.layerIndex;
+            });
+
+            for (var c = 0; c < allClusters.length; c++) {
+                allClusters[c].rank = c;
+            }
+
+            var totalKeysMoved = 0;
+
+            for (var r = 0; r < propRecords.length; r++) {
+                var record = propRecords[r];
+                var prop = record.prop;
+
+                prop.addKey(record.dummyTime);
+
+                for (var k = 0; k < record.revIndices.length; k++) {
+                    prop.removeKey(record.revIndices[k]);
+                }
+
+                for (var k = 0; k < record.keysData.length; k++) {
+                    var d = record.keysData[k];
+                    var newTime = d.time;
+                    var rank = d.clusterInfo.rank;
+
+                    if (rank < markerTimes.length) {
+                        newTime = markerTimes[rank];
+                        totalKeysMoved++;
+                    }
+
+                    var newIdx = prop.addKey(newTime);
+                    prop.setValueAtKey(newIdx, d.value);
+
+                    if (prop.propertyValueType === PropertyValueType.TwoD_SPATIAL || prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL) {
+                        try { prop.setSpatialTangentsAtKey(newIdx, d.inSpatialTangent, d.outSpatialTangent); } catch (e) { }
+                        try { prop.setRovingAtKey(newIdx, d.roving); } catch (e) { }
+                        try { prop.setSpatialContinuousAtKey(newIdx, d.spatialContinuous); } catch (e) { }
+                        try { prop.setSpatialAutoBezierAtKey(newIdx, d.spatialAutoBezier); } catch (e) { }
+                    }
+                    try { prop.setTemporalContinuousAtKey(newIdx, d.temporalContinuous); } catch (e) { }
+                    try { prop.setTemporalAutoBezierAtKey(newIdx, d.temporalAutoBezier); } catch (e) { }
+
+                    if (d.inTemporalEase && d.outTemporalEase) {
+                        try { prop.setTemporalEaseAtKey(newIdx, d.inTemporalEase, d.outTemporalEase); } catch (e) { }
+                    }
+
+                    try { prop.setInterpolationTypeAtKey(newIdx, d.inInterpolationType, d.outInterpolationType); } catch (e) { }
+                }
+
+                var finalDummyIdx = prop.nearestKeyIndex(record.dummyTime);
+                if (finalDummyIdx > 0 && Math.abs(prop.keyTime(finalDummyIdx) - record.dummyTime) < 0.1) {
+                    prop.removeKey(finalDummyIdx);
+                }
+            }
+
+            app.endUndoGroup();
+            if (typeof updateStatus === "function") updateStatus("Aligned " + allClusters.length + " keyframe cluster(s) to markers");
+
+        } catch (e) {
+            if (undoGroupStarted) app.endUndoGroup();
+            if (typeof updateStatus === "function") updateStatus("Error: " + e.toString());
+            else alert("Error: " + e.toString());
         }
     }
 
