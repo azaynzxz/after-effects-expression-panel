@@ -954,12 +954,21 @@
             Bellow();
         };
 
+        // Add Align Keyframe Only checkbox
+        var alignKfOnlyChk = utilityGroup.add("checkbox", undefined, "Align Keyframe Only");
+        alignKfOnlyChk.value = true;
+        alignKfOnlyChk.helpTip = "Check to align keyframes, uncheck to align layers to markers";
+
         // Add Align to MK button
         var alignMkBtn = utilityGroup.add("button", undefined, "Align to MK");
         alignMkBtn.preferredSize.height = 16;
-        alignMkBtn.helpTip = "Align selected keyframes to active composition markers";
+        alignMkBtn.helpTip = "Align selected keyframes or layers to active composition markers";
         alignMkBtn.onClick = function () {
-            alignKeyframesToMarkers();
+            if (alignKfOnlyChk.value) {
+                alignKeyframesToMarkers();
+            } else {
+                alignLayersToMarkers();
+            }
         };
 
         // Layer Navigation Section (below More button)
@@ -1717,6 +1726,22 @@
             framesInput.text = "12";
         };
 
+        var preset7Btn = presetRow3.add("button", undefined, "12,57");
+        preset7Btn.preferredSize.width = 60;
+        preset7Btn.preferredSize.height = 20;
+        preset7Btn.onClick = function () {
+            ampInput.text = "12";
+            framesInput.text = "57";
+        };
+
+        var preset8Btn = presetRow3.add("button", undefined, "24,72");
+        preset8Btn.preferredSize.width = 60;
+        preset8Btn.preferredSize.height = 20;
+        preset8Btn.onClick = function () {
+            ampInput.text = "24";
+            framesInput.text = "72";
+        };
+
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
@@ -2096,6 +2121,28 @@
         preset4Btn.onClick = function () {
             ampInput.text = "70";
             framesInput.text = "90";
+        };
+
+        // Third row of presets
+        var presetRow3 = presetGroup.add("group");
+        presetRow3.orientation = "row";
+        presetRow3.alignChildren = ["fill", "center"];
+        presetRow3.spacing = 3;
+
+        var preset5Btn = presetRow3.add("button", undefined, "12,57");
+        preset5Btn.preferredSize.width = 60;
+        preset5Btn.preferredSize.height = 20;
+        preset5Btn.onClick = function () {
+            ampInput.text = "12";
+            framesInput.text = "57";
+        };
+
+        var preset6Btn = presetRow3.add("button", undefined, "24,72");
+        preset6Btn.preferredSize.width = 60;
+        preset6Btn.preferredSize.height = 20;
+        preset6Btn.onClick = function () {
+            ampInput.text = "24";
+            framesInput.text = "72";
         };
 
         var buttonGroup = dialog.add("group");
@@ -4239,23 +4286,34 @@
                     // Now that it is parented, set the position relative to parent's anchor point
                     legLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
 
-                    // Auto scale to 64% relatively
-                    var targetX = flipCheckbox.value ? -64 : 64;
+                    // Get dimensions of parent and leg to calculate scale proportions
+                    var pRect = parentLyr.sourceRectAtTime(comp.time, false);
+                    var lRect = legLayer.sourceRectAtTime(comp.time, false);
+
+                    var parentSum = pRect.width + pRect.height;
+                    var legSum = lRect.width + lRect.height;
+
+                    // Auto scale to 64% relatively based on the sums
+                    var scaleFactor = (legSum > 0) ? (parentSum / legSum) : 1;
+                    var baseScale = 64 * scaleFactor;
+
+                    var targetX = flipCheckbox.value ? -baseScale : baseScale;
+                    var targetY = baseScale;
                     var currentScale = legLayer.transform.scale.value;
 
                     if (flipCheckbox.value) {
                         // Use setValueAtTime to update the keyframe created by the flip
                         if (currentScale.length > 2) {
-                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, 64, 64]);
+                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, targetY, targetY]);
                         } else {
-                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, 64]);
+                            legLayer.transform.scale.setValueAtTime(comp.time, [targetX, targetY]);
                         }
                     } else {
                         // Use normal setValue
                         if (currentScale.length > 2) {
-                            legLayer.transform.scale.setValue([targetX, 64, 64]);
+                            legLayer.transform.scale.setValue([targetX, targetY, targetY]);
                         } else {
-                            legLayer.transform.scale.setValue([targetX, 64]);
+                            legLayer.transform.scale.setValue([targetX, targetY]);
                         }
                     }
                 }
@@ -8512,6 +8570,64 @@
 
             app.endUndoGroup();
             if (typeof updateStatus === "function") updateStatus("Aligned " + allClusters.length + " keyframe cluster(s) to markers");
+
+        } catch (e) {
+            if (undoGroupStarted) app.endUndoGroup();
+            if (typeof updateStatus === "function") updateStatus("Error: " + e.toString());
+            else alert("Error: " + e.toString());
+        }
+    }
+
+    // Function to align selected layers to active composition markers
+    function alignLayersToMarkers() {
+        var undoGroupStarted = false;
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                if (typeof updateStatus === "function") updateStatus("No active composition found");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (!selectedLayers || selectedLayers.length === 0) {
+                if (typeof updateStatus === "function") updateStatus("Please select layers");
+                return;
+            }
+
+            var compMarkers = comp.markerProperty;
+            if (!compMarkers || compMarkers.numKeys === 0) {
+                if (typeof updateStatus === "function") updateStatus("No markers found in composition");
+                return;
+            }
+
+            var markerTimes = [];
+            for (var m = 1; m <= compMarkers.numKeys; m++) {
+                markerTimes.push(compMarkers.keyTime(m));
+            }
+            markerTimes.sort(function (a, b) { return a - b; });
+
+            app.beginUndoGroup("Align Layers to MK");
+            undoGroupStarted = true;
+
+            var layersToAlign = [];
+            for (var i = 0; i < selectedLayers.length; i++) {
+                layersToAlign.push(selectedLayers[i]);
+            }
+            // Reverse the array so bottom layers align to earlier markers
+            layersToAlign.reverse();
+
+            var movedCount = 0;
+            for (var i = 0; i < layersToAlign.length; i++) {
+                if (i < markerTimes.length) {
+                    var layer = layersToAlign[i];
+                    var offset = markerTimes[i] - layer.inPoint;
+                    layer.startTime += offset;
+                    movedCount++;
+                }
+            }
+
+            app.endUndoGroup();
+            if (typeof updateStatus === "function") updateStatus("Aligned " + movedCount + " layer(s) to markers");
 
         } catch (e) {
             if (undoGroupStarted) app.endUndoGroup();
