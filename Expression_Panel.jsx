@@ -798,6 +798,14 @@
             applyAudioSyncExpression();
         };
 
+        // Add Lips CTRL button
+        var lipsCtrlBtn = utilityGroup.add("button", undefined, "Lips CTRL");
+        lipsCtrlBtn.preferredSize.height = 16;
+        lipsCtrlBtn.helpTip = "Open Lips CTRL panel to add Stop/Resume markers for audio sync";
+        lipsCtrlBtn.onClick = function () {
+            showLipsCtrlDialog();
+        };
+
         // Add Audio Marker button
         var audioMarkersBtn = utilityGroup.add("button", undefined, "Audio Marker");
         audioMarkersBtn.preferredSize.height = 16;
@@ -1015,26 +1023,134 @@
 
             app.beginUndoGroup("Apply Audio Sync Expression");
 
+            var expression = [
+                'try {',
+                '    var ampLayer = thisComp.layer("Audio Amplitude");',
+                '    var ampVal = ampLayer.effect("Both Channels")("Slider") / 75;',
+                '    var isFrozen = false;',
+                '    var freezeTime = 0;',
+                '    ',
+                '    if (marker.numKeys > 0) {',
+                '        for (var i = 1; i <= marker.numKeys; i++) {',
+                '            var mk = marker.key(i);',
+                '            if (mk.time <= time) {',
+                '                var c = mk.comment.toLowerCase();',
+                '                if (c.indexOf("stop") !== -1) {',
+                '                    isFrozen = true;',
+                '                    freezeTime = mk.time;',
+                '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1) {',
+                '                    isFrozen = false;',
+                '                }',
+                '            } else {',
+                '                break;',
+                '            }',
+                '        }',
+                '    }',
+                '    ',
+                '    if (isFrozen) {',
+                '        ampLayer.effect("Both Channels")("Slider").valueAtTime(freezeTime) / 75;',
+                '    } else {',
+                '        ampVal;',
+                '    }',
+                '} catch(e) {',
+                '    value;',
+                '}'
+            ].join('\n');
+
             for (var i = 0; i < selectedLayers.length; i++) {
                 var layer = selectedLayers[i];
 
-                // Enable time remapping if not already enabled
                 if (!layer.timeRemapEnabled) {
                     layer.timeRemapEnabled = true;
                 }
-
-                // Apply the audio amplitude expression
-                var expression = 'thisComp.layer("Audio Amplitude").effect("Both Channels")("Slider")/75';
 
                 layer.timeRemap.expression = expression;
             }
 
             app.endUndoGroup();
-            updateStatus("Applied audio sync expression to " + selectedLayers.length + " layer(s)");
+            updateStatus("Applied marker-aware audio sync to " + selectedLayers.length + " layer(s)");
 
         } catch (error) {
             updateStatus("Error: " + error.toString());
         }
+    }
+
+    // Lips CTRL dialog — add Stop / Resume comp markers at current playhead
+    function showLipsCtrlDialog() {
+        var dlg = new Window("palette", "Lips CTRL", undefined, { resizeable: false });
+        dlg.orientation = "column";
+        dlg.alignChildren = ["fill", "top"];
+        dlg.spacing = 6;
+        dlg.margins = 12;
+
+        // Info label
+        var infoTxt = dlg.add("statictext", undefined, "Adds marker at current playhead:");
+        infoTxt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        // Buttons row
+        var btnRow = dlg.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignChildren = ["fill", "center"];
+        btnRow.spacing = 6;
+
+        var stopBtn = btnRow.add("button", undefined, "\u23F9 Stop");
+        stopBtn.preferredSize.height = 28;
+        stopBtn.helpTip = "Freeze lips at current playhead time (adds \"stop\" marker)";
+        stopBtn.onClick = function () {
+            addLipsMarker("stop");
+        };
+
+        var resumeBtn = btnRow.add("button", undefined, "\u25B6 Resume");
+        resumeBtn.preferredSize.height = 28;
+        resumeBtn.helpTip = "Resume audio-driven lips at current playhead time (adds \"sync\" marker)";
+        resumeBtn.onClick = function () {
+            addLipsMarker("sync");
+        };
+
+        // Status label
+        var statusLbl = dlg.add("statictext", undefined, "Ready");
+        statusLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        statusLbl.alignment = ["fill", "center"];
+
+        function addLipsMarker(comment) {
+            try {
+                var comp = app.project.activeItem;
+                if (!comp || !(comp instanceof CompItem)) {
+                    statusLbl.text = "No active comp!";
+                    return;
+                }
+
+                var selectedLayers = comp.selectedLayers;
+                if (selectedLayers.length === 0) {
+                    statusLbl.text = "No layers selected!";
+                    return;
+                }
+
+                app.beginUndoGroup("Add Lips Marker");
+
+                var t = comp.time;
+                var markerVal = new MarkerValue(comment);
+
+                for (var i = 0; i < selectedLayers.length; i++) {
+                    selectedLayers[i].property("Marker").setValueAtTime(t, markerVal);
+                }
+
+                app.endUndoGroup();
+
+                var label = comment === "stop" ? "STOP" : "RESUME";
+                var ts = Math.floor(t / 60) + ":" +
+                    (t % 60 < 10 ? "0" : "") + t.toFixed(2).replace(".", ":");
+                statusLbl.text = label + " @ " + ts + " on " + selectedLayers.length + " layer(s)";
+                updateStatus("Lips " + label + " marker added to " + selectedLayers.length + " layer(s) at " + t.toFixed(2) + "s");
+
+            } catch (error) {
+                statusLbl.text = "Error: " + error.toString();
+                updateStatus("Lips CTRL error: " + error.toString());
+            }
+        }
+
+        dlg.center();
+        dlg.show();
     }
 
     // Copy Audio comp from main_comp and sync it
@@ -4153,7 +4269,7 @@
 
             // Try to auto-select "kaki"
             for (var p = 0; p < compSearch.dropdown.items.length; p++) {
-                if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("kaki") !== -1) {
+                if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("kaki walk") !== -1) {
                     compSearch.dropdown.selection = p;
                     break;
                 }
