@@ -43,77 +43,10 @@
         myPanel.margins = 3; // Reduced from 4
         myPanel.preferredSize.width = 230; // More compact width
 
-        // Title
-        var titleGroup = myPanel.add("group");
-        titleGroup.orientation = "row";
-        titleGroup.alignChildren = ["center", "center"];
 
-        var title = titleGroup.add("statictext", undefined, "Expression Snippets");
-        title.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
-
-        // Timeline jumper group
-        var timelineGroup = myPanel.add("group");
-        timelineGroup.orientation = "column";
-        timelineGroup.alignChildren = ["fill", "top"];
-        timelineGroup.spacing = 2; // Reduced from 3
-        timelineGroup.margins = 3; // Reduced from 4
-
-        // Top row with label and timecode input
-        var topRow = timelineGroup.add("group");
-        topRow.orientation = "row";
-        topRow.alignChildren = ["left", "center"];
-        topRow.spacing = 3;
-
-        var timelineLabel = topRow.add("statictext", undefined, "Jump:");
-        timelineLabel.preferredSize.width = 40;
-        timelineLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
-
-        var timeInput = topRow.add("edittext", undefined, "");
-        timeInput.preferredSize.width = 100;
-        timeInput.preferredSize.height = 24;
-        timeInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 12);
-        timeInput.helpTip = "Paste timecode (e.g. 00:00:30:00 or 00:00:30.017)";
-
-        // Calibration controls next to input
-        var calLabel = topRow.add("statictext", undefined, "Cal:");
-        calLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-
-        var calibrationInput = topRow.add("edittext", undefined, "0");
-        calibrationInput.preferredSize.width = 30;
-        calibrationInput.preferredSize.height = 24;
-        calibrationInput.helpTip = "Milliseconds offset (+/-) for all jumps";
-
-        var msLabel = topRow.add("statictext", undefined, "ms");
-        msLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        var calPlusBtn = topRow.add("button", undefined, "+");
-        calPlusBtn.preferredSize.width = 16;
-        calPlusBtn.preferredSize.height = 24;
-        calPlusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current + 50).toString();
-        };
-
-        var calMinusBtn = topRow.add("button", undefined, "-");
-        calMinusBtn.preferredSize.width = 16;
-        calMinusBtn.preferredSize.height = 24;
-        calMinusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current - 50).toString();
-        };
-
-        // Auto-move layer feature row
-        var autoMoveRow = timelineGroup.add("group");
-        autoMoveRow.orientation = "row";
-        autoMoveRow.alignChildren = ["left", "center"];
-        autoMoveRow.spacing = 3;
-
-        var autoMoveCheck = autoMoveRow.add("checkbox", undefined, "Auto-move next layer");
-        autoMoveCheck.helpTip = "When pasting timecode, automatically move the layer above the selected one to that time";
-        autoMoveCheck.value = false;
 
         // Bottom row with navigation buttons and frame input
-        var bottomRow = timelineGroup.add("group");
+        var bottomRow = myPanel.add("group");
         bottomRow.orientation = "row";
         bottomRow.alignChildren = ["left", "center"];
         bottomRow.spacing = 2;
@@ -179,19 +112,14 @@
             try {
                 var comp = app.project.activeItem;
                 if (comp && comp instanceof CompItem) {
-                    // Apply calibration offset
-                    var calibrationMs = parseFloat(calibrationInput.text) || 0;
-                    var calibrationSeconds = calibrationMs / 1000;
-
-                    var newTime = comp.time + seconds + calibrationSeconds;
+                    var newTime = comp.time + seconds;
                     // Clamp to composition duration
                     newTime = Math.max(0, Math.min(newTime, comp.duration));
                     comp.time = newTime;
 
                     // Update status with the new time
                     var timeInFrames = Math.floor(newTime * comp.frameRate);
-                    var calMessage = calibrationMs !== 0 ? " (cal: " + calibrationMs + "ms)" : "";
-                    updateStatus("Jumped to frame " + timeInFrames + " (" + newTime.toFixed(2) + "s)" + calMessage);
+                    updateStatus("Jumped to frame " + timeInFrames + " (" + newTime.toFixed(2) + "s)");
                 }
             } catch (error) {
                 updateStatus("Error: " + error.toString());
@@ -208,18 +136,13 @@
 
                 var comp = app.project.activeItem;
                 if (comp && comp instanceof CompItem) {
-                    // Apply calibration offset
-                    var calibrationMs = parseFloat(calibrationInput.text) || 0;
-                    var calibrationSeconds = calibrationMs / 1000;
-
                     var seconds = frames / comp.frameRate;
-                    var newTime = comp.time + seconds + calibrationSeconds;
+                    var newTime = comp.time + seconds;
                     // Clamp to composition duration
                     newTime = Math.max(0, Math.min(newTime, comp.duration));
                     comp.time = newTime;
 
-                    var calMessage = calibrationMs !== 0 ? " (cal: " + calibrationMs + "ms)" : "";
-                    updateStatus("Jumped " + frames + " frames to " + newTime.toFixed(2) + "s" + calMessage);
+                    updateStatus("Jumped " + frames + " frames to " + newTime.toFixed(2) + "s");
                 }
             } catch (error) {
                 updateStatus("Error: " + error.toString());
@@ -312,21 +235,11 @@
                     return;
                 }
 
-                // Apply calibration offset
-                var calibrationMs = parseFloat(calibrationInput.text) || 0;
-                var calibrationSeconds = calibrationMs / 1000;
-                totalSeconds += calibrationSeconds;
-
                 // Clamp to composition duration
                 totalSeconds = Math.max(0, Math.min(totalSeconds, mainComp.duration));
 
                 // Jump to time
                 mainComp.time = totalSeconds;
-
-                // Auto-move next layer if enabled
-                if (autoMoveCheck.value) {
-                    moveNextLayerToCurrentTime(mainComp);
-                }
 
                 // Format the time for status display
                 var hours = Math.floor(totalSeconds / 3600);
@@ -394,24 +307,6 @@
                 updateStatus("Auto-move error: " + error.toString());
             }
         }
-
-        // Auto-jump when text changes (including paste)
-        timeInput.onChanging = function () {
-            if (this.text) {
-                parseTimeAndJump(this.text);
-                // Clear input and refocus for next input
-                var self = this;
-                app.setTimeout(function () {
-                    self.text = "";
-                    self.active = true;
-                }, 100);
-            }
-        };
-
-        // Also add onClick to ensure it stays focused when clicked
-        timeInput.onClick = function () {
-            this.active = true;
-        };
 
         // Separator
         myPanel.add("panel");
@@ -585,13 +480,6 @@
         addButtonsToGroup(loopCol1, ["Loop Cycle", "Loop Continue"]);
         addButtonsToGroup(loopCol2, ["Loop PingPong"]);
 
-        var pinchBtn = loopCol1.add("button", undefined, "Pinch");
-        pinchBtn.alignment = ["fill", "center"];
-        pinchBtn.preferredSize.height = 16;
-        pinchBtn.helpTip = "Add a pinch preset animation (+12%, -15%, etc.)";
-        pinchBtn.onClick = function () {
-            showPinchDialog();
-        };
 
         // Looper button (part of Loops category)
         var looperBtn = loopCol2.add("button", undefined, "Looper");
@@ -718,14 +606,48 @@
             showAttachMouthDialog();
         };
 
-        // Anchor & Stagger Section
+        // Tools row 6: Pinch | List Jumper
+        var toolsRow6 = leftCol.add("group");
+        toolsRow6.orientation = "row";
+        toolsRow6.alignChildren = ["fill", "center"];
+        toolsRow6.spacing = 2;
+
+        var pinchBtn = toolsRow6.add("button", undefined, "Pinch");
+        pinchBtn.alignment = ["fill", "center"];
+        pinchBtn.preferredSize.height = 16;
+        pinchBtn.helpTip = "Add a pinch preset animation (+12%, -15%, etc.)";
+        pinchBtn.onClick = function () {
+            showPinchDialog();
+        };
+
+        var listJumperBtn = toolsRow6.add("button", undefined, "List Jumper");
+        listJumperBtn.alignment = ["fill", "center"];
+        listJumperBtn.preferredSize.height = 16;
+        listJumperBtn.helpTip = "Open List Jumper - jump to timeline positions based on CSV word data";
+        listJumperBtn.onClick = function () {
+            var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
+            $.evalFile(new File(scriptFile));
+        };
+
+        // Layer Utils Section - 2 column layout
         leftCol.add("panel");
         var layUtilTitle = leftCol.add("statictext", undefined, "Layer Utils");
         layUtilTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         layUtilTitle.alignment = "center";
 
+        var layUtilRow = leftCol.add("group");
+        layUtilRow.orientation = "row";
+        layUtilRow.alignChildren = ["fill", "top"];
+        layUtilRow.spacing = 2;
+
+        // Sub-col 1: Stagger + Anchor Point
+        var layUtilSubCol1 = layUtilRow.add("group");
+        layUtilSubCol1.orientation = "column";
+        layUtilSubCol1.alignChildren = ["center", "top"];
+        layUtilSubCol1.spacing = 1;
+
         // Stagger UI Section
-        var staggerRow = leftCol.add("group");
+        var staggerRow = layUtilSubCol1.add("group");
         staggerRow.orientation = "row";
         staggerRow.alignChildren = ["center", "center"];
         staggerRow.spacing = 1;
@@ -754,7 +676,7 @@
         };
 
         // Anchor Point Section
-        var anchorGroup = leftCol.add("group");
+        var anchorGroup = layUtilSubCol1.add("group");
         anchorGroup.orientation = "column";
         anchorGroup.alignChildren = ["center", "center"];
         anchorGroup.spacing = 1;
@@ -775,6 +697,41 @@
                 })(r, c, symbols[r][c]);
             }
         }
+
+        // Sub-col 2: Linker, Bellow, Align KF Only, Align to MK
+        var layUtilSubCol2 = layUtilRow.add("group");
+        layUtilSubCol2.orientation = "column";
+        layUtilSubCol2.alignChildren = ["fill", "top"];
+        layUtilSubCol2.spacing = 2;
+
+        var linkerBtnLU = layUtilSubCol2.add("button", undefined, "Linker");
+        linkerBtnLU.preferredSize.height = 16;
+        linkerBtnLU.helpTip = "Parent selected layers to the last selected layer";
+        linkerBtnLU.onClick = function () {
+            linkerLayers();
+        };
+
+        var bellowBtnLU = layUtilSubCol2.add("button", undefined, "Bellow");
+        bellowBtnLU.preferredSize.height = 16;
+        bellowBtnLU.helpTip = "Move selected layers below the last selected layer";
+        bellowBtnLU.onClick = function () {
+            Bellow();
+        };
+
+        var alignKfOnlyChk = layUtilSubCol2.add("checkbox", undefined, "Align KF Only");
+        alignKfOnlyChk.value = true;
+        alignKfOnlyChk.helpTip = "Check to align keyframes, uncheck to align layers to markers";
+
+        var alignMkBtn = layUtilSubCol2.add("button", undefined, "Align to MK");
+        alignMkBtn.preferredSize.height = 16;
+        alignMkBtn.helpTip = "Align selected keyframes or layers to active composition markers";
+        alignMkBtn.onClick = function () {
+            if (alignKfOnlyChk.value) {
+                alignKeyframesToMarkers();
+            } else {
+                alignLayersToMarkers();
+            }
+        };
 
         // Right Column
         var rightCol = mainGroup.add("group");
@@ -938,38 +895,7 @@
             showPutHereDialog();
         };
 
-        // Add Linker button
-        var linkerBtn = utilityGroup.add("button", undefined, "Linker");
-        linkerBtn.preferredSize.height = 16;
-        linkerBtn.helpTip = "Parent selected layers to the last selected layer";
-        linkerBtn.onClick = function () {
-            linkerLayers();
-        };
 
-        // Add Bellow button
-        var bellowBtn = utilityGroup.add("button", undefined, "Bellow");
-        bellowBtn.preferredSize.height = 16;
-        bellowBtn.helpTip = "Move selected layers below the last selected layer";
-        bellowBtn.onClick = function () {
-            Bellow();
-        };
-
-        // Add Align Keyframe Only checkbox
-        var alignKfOnlyChk = utilityGroup.add("checkbox", undefined, "Align Keyframe Only");
-        alignKfOnlyChk.value = true;
-        alignKfOnlyChk.helpTip = "Check to align keyframes, uncheck to align layers to markers";
-
-        // Add Align to MK button
-        var alignMkBtn = utilityGroup.add("button", undefined, "Align to MK");
-        alignMkBtn.preferredSize.height = 16;
-        alignMkBtn.helpTip = "Align selected keyframes or layers to active composition markers";
-        alignMkBtn.onClick = function () {
-            if (alignKfOnlyChk.value) {
-                alignKeyframesToMarkers();
-            } else {
-                alignLayersToMarkers();
-            }
-        };
 
         // Layer Navigation Section (below More button)
         rightCol.add("panel");
@@ -1016,9 +942,6 @@
 
         // Store reference for status updates
         myPanel.statusText = statusText;
-
-        // Make timeline input always active/focused (do this after all UI is created)
-        timeInput.active = true;
 
         // Helper function to add buttons to a group
         function addButtonsToGroup(group, buttonNames) {
