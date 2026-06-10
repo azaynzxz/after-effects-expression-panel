@@ -377,6 +377,28 @@
             openXCropTool();
         };
 
+        // Third row of utilities
+        var utilRow3 = quickUtilGroup.add("group");
+        utilRow3.orientation = "row";
+        utilRow3.alignChildren = ["fill", "center"];
+        utilRow3.spacing = 1;
+
+        // Add Batch FPS button
+        var batchFpsBtn = utilRow3.add("button", undefined, "Batch FPS");
+        batchFpsBtn.preferredSize.height = 16;
+        batchFpsBtn.helpTip = "Change framerate of selected precomp source compositions in main_comp";
+        batchFpsBtn.onClick = function () {
+            showBatchFramerateDialog();
+        };
+
+        // Add Hide Layer 2 button
+        var hideLayer2Btn = utilRow3.add("button", undefined, "Hide Layer 2");
+        hideLayer2Btn.preferredSize.height = 16;
+        hideLayer2Btn.helpTip = "Hide all layers starting with 'hide' or 'x' in a specific composition (user-selected)";
+        hideLayer2Btn.onClick = function () {
+            hideAllLayersNamedHide2();
+        };
+
         // Main content group with two columns
         var mainGroup = myPanel.add("group");
         mainGroup.orientation = "row";
@@ -801,7 +823,7 @@
         // Add Lips CTRL button
         var lipsCtrlBtn = utilityGroup.add("button", undefined, "Lips CTRL");
         lipsCtrlBtn.preferredSize.height = 16;
-        lipsCtrlBtn.helpTip = "Open Lips CTRL panel to add Stop/Resume markers for audio sync";
+        lipsCtrlBtn.helpTip = "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right";
         lipsCtrlBtn.onClick = function () {
             showLipsCtrlDialog();
         };
@@ -903,9 +925,31 @@
             showPutHereDialog();
         };
 
+        // Add Unprecomp button
+        var unprecompBtn = utilityGroup.add("button", undefined, "Unprecomp");
+        unprecompBtn.preferredSize.height = 16;
+        unprecompBtn.helpTip = "Dissolve selected precomp: move its layers into the current comp then re-precomp with X Crop";
+        unprecompBtn.onClick = function () {
+            showUnprecompDialog();
+        };
 
+        // Add Blink button
+        var blinkBtn = utilityGroup.add("button", undefined, "Blink");
+        blinkBtn.preferredSize.height = 16;
+        blinkBtn.helpTip = "Add blink animation by manipulating Scale Y (eye open/close) with markers";
+        blinkBtn.onClick = function () {
+            showBlinkDialog();
+        };
 
-        // Layer Navigation Section (below More button)
+        // Add White BG button
+        var whiteBgBtn = utilityGroup.add("button", undefined, "White BG");
+        whiteBgBtn.preferredSize.height = 16;
+        whiteBgBtn.helpTip = "Set background color of all precomps in main_comp to white";
+        whiteBgBtn.onClick = function () {
+            setPrecompBgWhite();
+        };
+
+        // Layer Navigation Section
         rightCol.add("panel");
         var layerNavTitle = rightCol.add("statictext", undefined, "Layer Navigation");
         layerNavTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
@@ -1028,7 +1072,6 @@
                 '    var ampLayer = thisComp.layer("Audio Amplitude");',
                 '    var ampVal = ampLayer.effect("Both Channels")("Slider") / 75;',
                 '    var isFrozen = false;',
-                '    var freezeTime = 0;',
                 '    ',
                 '    if (marker.numKeys > 0) {',
                 '        for (var i = 1; i <= marker.numKeys; i++) {',
@@ -1037,7 +1080,6 @@
                 '                var c = mk.comment.toLowerCase();',
                 '                if (c.indexOf("stop") !== -1) {',
                 '                    isFrozen = true;',
-                '                    freezeTime = mk.time;',
                 '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1) {',
                 '                    isFrozen = false;',
                 '                }',
@@ -1048,7 +1090,7 @@
                 '    }',
                 '    ',
                 '    if (isFrozen) {',
-                '        ampLayer.effect("Both Channels")("Slider").valueAtTime(freezeTime) / 75;',
+                '        0;',
                 '    } else {',
                 '        ampVal;',
                 '    }',
@@ -1084,8 +1126,11 @@
         dlg.margins = 12;
 
         // Info label
-        var infoTxt = dlg.add("statictext", undefined, "Adds marker at current playhead:");
+        var infoTxt = dlg.add("statictext", undefined, "Adds stop/resume markers at playhead:");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        var infoTxt2 = dlg.add("statictext", undefined, "Works with: Audio Sync, Wiggle, Up Down, Left Right");
+        infoTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
 
         // Buttons row
         var btnRow = dlg.add("group");
@@ -1095,14 +1140,14 @@
 
         var stopBtn = btnRow.add("button", undefined, "\u23F9 Stop");
         stopBtn.preferredSize.height = 28;
-        stopBtn.helpTip = "Freeze lips at current playhead time (adds \"stop\" marker)";
+        stopBtn.helpTip = "Freeze animation at current playhead time (adds \"stop\" marker)";
         stopBtn.onClick = function () {
             addLipsMarker("stop");
         };
 
         var resumeBtn = btnRow.add("button", undefined, "\u25B6 Resume");
         resumeBtn.preferredSize.height = 28;
-        resumeBtn.helpTip = "Resume audio-driven lips at current playhead time (adds \"sync\" marker)";
+        resumeBtn.helpTip = "Resume animation at current playhead time (adds \"sync\" marker)";
         resumeBtn.onClick = function () {
             addLipsMarker("sync");
         };
@@ -1643,6 +1688,19 @@
             }
         };
 
+        // Use Markers checkbox
+        var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.onClick = function () {
+            if (useMarkersCheck.value) {
+                stopTimeInput.enabled = false;
+                stopHereCheck.enabled = false;
+            } else {
+                stopTimeInput.enabled = true;
+                stopHereCheck.enabled = true;
+            }
+        };
+
         // Randomize duration section
         var randomizeGroup = dialog.add("group");
         randomizeGroup.orientation = "column";
@@ -1653,18 +1711,24 @@
         randomizeCheck.value = false;
         randomizeCheck.helpTip = "When multiple layers selected, randomize frames per cycle between min and max";
 
+        var reverseCheck = randomizeGroup.add("checkbox", undefined, "Reverse Direction");
+        reverseCheck.value = false;
+        reverseCheck.helpTip = "Inverts the amplitude value (e.g. 50 becomes -50) for all selected layers";
+
         var randomizeInputGroup = randomizeGroup.add("group");
         randomizeInputGroup.orientation = "row";
         randomizeInputGroup.alignChildren = ["left", "center"];
         randomizeInputGroup.spacing = 4;
 
-        randomizeInputGroup.add("statictext", undefined, "Min:");
-        var minFramesInput = randomizeInputGroup.add("edittext", undefined, "12");
-        minFramesInput.preferredSize.width = 50;
-
-        randomizeInputGroup.add("statictext", undefined, "Max:");
-        var maxFramesInput = randomizeInputGroup.add("edittext", undefined, "35");
-        maxFramesInput.preferredSize.width = 50;
+        randomizeInputGroup.add("statictext", undefined, "Speed:");
+        var speedDropdown = randomizeInputGroup.add("dropdownlist", undefined, [
+            "Very Fast (3-7)",
+            "Fast (7-11)",
+            "Normal (12-14)",
+            "Slow (14-20)",
+            "Very Slow (23-29)"
+        ]);
+        speedDropdown.selection = 2; // Default to Normal (12-14)
 
         // Preset buttons in 4x2 grid
         var presetGroup = dialog.add("group");
@@ -1791,20 +1855,21 @@
                 var amp = ampInput.text;
                 var frames = framesInput.text;
                 var stopTimeStr = stopTimeInput.text;
+                var useMarkers = useMarkersCheck.value;
+
+                var isReversed = reverseCheck.value;
 
                 var randomizeDuration = randomizeCheck.value;
-                var minFrames = minFramesInput.text;
-                var maxFrames = maxFramesInput.text;
+                var minFrames = 12;
+                var maxFrames = 14;
 
-                // Validate randomize inputs if checkbox is checked
-                if (randomizeDuration) {
-                    if (!minFrames || !maxFrames || isNaN(parseFloat(minFrames)) || isNaN(parseFloat(maxFrames))) {
-                        alert("Please enter valid numbers for Min and Max frames when Randomize duration is checked.");
-                        return;
-                    }
-                    if (parseFloat(minFrames) >= parseFloat(maxFrames)) {
-                        alert("Min frames must be less than Max frames.");
-                        return;
+                if (randomizeDuration && speedDropdown.selection) {
+                    switch (speedDropdown.selection.index) {
+                        case 0: minFrames = 3; maxFrames = 7; break; // Very Fast
+                        case 1: minFrames = 7; maxFrames = 11; break; // Fast
+                        case 2: minFrames = 12; maxFrames = 14; break; // Normal
+                        case 3: minFrames = 14; maxFrames = 20; break; // Slow
+                        case 4: minFrames = 23; maxFrames = 29; break; // Very Slow
                     }
                 }
 
@@ -1834,99 +1899,63 @@
                     var selectedLayers = comp.selectedLayers;
 
                     if (selectedLayers.length > 1 && randomizeDuration) {
-                        // Multiple layers selected AND randomize duration checked - randomize frames per cycle using min/max
-                        var minFramesNum = Math.floor(parseFloat(minFrames));
-                        var maxFramesNum = Math.floor(parseFloat(maxFrames));
+                        // Multiple layers selected AND randomize duration checked.
+                        // Use float values (1 decimal place) for virtually guaranteed uniqueness across any number of layers.
+                        var minFramesNum = parseFloat(minFrames);
+                        var maxFramesNum = parseFloat(maxFrames);
 
-                        // Track used values to ensure no duplicates
-                        var usedFrames = [];
+                        // Helper: random float in [lo, hi] rounded to 1 decimal place
+                        function randomFloat(lo, hi) {
+                            var raw = lo + Math.random() * (hi - lo);
+                            return Math.round(raw * 10) / 10;
+                        }
 
                         for (var i = 0; i < selectedLayers.length; i++) {
                             var randomFrames;
 
                             if (i === 0) {
-                                // First layer gets the min value
+                                // First layer gets the exact min value
                                 randomFrames = minFramesNum;
                             } else {
-                                // Other layers get random values that are NOT the same as min value
-                                // Generate random value between min+1 and max (inclusive)
-                                var availableMin = minFramesNum + 1;
-                                var availableMax = maxFramesNum;
+                                // Every other layer gets a unique decimal in (min, max].
+                                // Offset the lower bound slightly so we never land exactly on min.
+                                var lo = minFramesNum + 0.1;
+                                var hi = maxFramesNum;
 
-                                // Handle edge case: if min+1 > max
-                                if (availableMin > availableMax) {
-                                    // If min+1 > max, use max (but ensure it's different from min)
-                                    if (maxFramesNum > minFramesNum) {
-                                        randomFrames = maxFramesNum;
-                                    } else {
-                                        // If max equals min, use max+1
-                                        randomFrames = maxFramesNum + 1;
-                                    }
+                                if (lo > hi) {
+                                    // Range too narrow — just step above min by layer index * 0.1
+                                    randomFrames = Math.round((minFramesNum + i * 0.1) * 10) / 10;
                                 } else {
-                                    // Normal case: generate random value between min+1 and max
-                                    // Keep generating until we get a value that's not min and not already used
-                                    var foundUniqueValue = false;
-                                    var attempts = 0;
-                                    var maxAttempts = 100;
-
-                                    while (!foundUniqueValue && attempts < maxAttempts) {
-                                        // Generate random value between availableMin and availableMax
-                                        randomFrames = Math.floor(Math.random() * (availableMax - availableMin + 1)) + availableMin;
-
-                                        // Ensure it's not the min value
-                                        if (randomFrames === minFramesNum) {
-                                            attempts++;
-                                            continue;
-                                        }
-
-                                        // Check if this value is already used
-                                        var isUsed = false;
-                                        for (var j = 0; j < usedFrames.length; j++) {
-                                            if (usedFrames[j] === randomFrames) {
-                                                isUsed = true;
-                                                break;
-                                            }
-                                        }
-
-                                        if (!isUsed) {
-                                            foundUniqueValue = true;
-                                        } else {
-                                            attempts++;
-                                        }
-                                    }
-
-                                    // If we couldn't find a unique value, find the first unused value that's not min
-                                    if (!foundUniqueValue) {
-                                        randomFrames = availableMax; // Start with max
-                                        for (var k = availableMin; k <= availableMax; k++) {
-                                            var isKUsed = false;
-                                            for (var m = 0; m < usedFrames.length; m++) {
-                                                if (usedFrames[m] === k) {
-                                                    isKUsed = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (!isKUsed && k !== minFramesNum) {
-                                                randomFrames = k;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Final safety check: ensure other layers never get the min value
-                                if (randomFrames === minFramesNum) {
-                                    randomFrames = maxFramesNum > minFramesNum ? maxFramesNum : maxFramesNum + 1;
+                                    randomFrames = randomFloat(lo, hi);
                                 }
                             }
 
-                            // Add to used values
-                            usedFrames.push(randomFrames);
-
+                            var currentAmp = (isReversed && i > 0) ? (-parseFloat(amp)).toString() : amp;
                             var expression;
-                            if (stopTimeComponents) {
+                            if (useMarkers) {
+                                expression = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + randomFrames + ";\n" +
+                                    "var isFrozen = false;\n" +
+                                    "if (marker.numKeys > 0) {\n" +
+                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                    "        var mk = marker.key(i);\n" +
+                                    "        if (mk.time <= time) {\n" +
+                                    "            var c = mk.comment.toLowerCase();\n" +
+                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                    "        } else { break; }\n" +
+                                    "    }\n" +
+                                    "}\n" +
+                                    "if (isFrozen) {\n" +
+                                    "    value;\n" +
+                                    "} else {\n" +
+                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                    "    value + [0, y_movement];\n" +
+                                    "}";
+                            } else if (stopTimeComponents) {
                                 var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
                                     "stopTime = " + stopTimeCalculation + "\n" +
                                     "t = time;\n" +
@@ -1937,7 +1966,7 @@
                                     "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
                                     "value + [0, y_movement];";
                             } else {
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
                                     "fps = thisComp.frameDuration;\n" +
                                     "t = time / (framesPerCycle * fps);\n" +
@@ -1950,10 +1979,32 @@
                     } else if (selectedLayers.length > 1) {
                         // Multiple layers selected but randomize NOT checked - use same frames for all
                         for (var i = 0; i < selectedLayers.length; i++) {
+                            var currentAmp = (isReversed && i > 0) ? (-parseFloat(amp)).toString() : amp;
                             var expression;
-                            if (stopTimeComponents) {
+                            if (useMarkers) {
+                                expression = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + frames + ";\n" +
+                                    "var isFrozen = false;\n" +
+                                    "if (marker.numKeys > 0) {\n" +
+                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                    "        var mk = marker.key(i);\n" +
+                                    "        if (mk.time <= time) {\n" +
+                                    "            var c = mk.comment.toLowerCase();\n" +
+                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                    "        } else { break; }\n" +
+                                    "    }\n" +
+                                    "}\n" +
+                                    "if (isFrozen) {\n" +
+                                    "    value;\n" +
+                                    "} else {\n" +
+                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                    "    value + [0, y_movement];\n" +
+                                    "}";
+                            } else if (stopTimeComponents) {
                                 var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + frames + ";\n" +
                                     "stopTime = " + stopTimeCalculation + "\n" +
                                     "t = time;\n" +
@@ -1964,7 +2015,7 @@
                                     "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
                                     "value + [0, y_movement];";
                             } else {
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + frames + ";\n" +
                                     "fps = thisComp.frameDuration;\n" +
                                     "t = time / (framesPerCycle * fps);\n" +
@@ -1980,10 +2031,32 @@
                             return;
                         }
                         // Single layer - use normal settings
+                        var currentAmp = isReversed ? (-parseFloat(amp)).toString() : amp;
                         var expression;
-                        if (stopTimeComponents) {
+                        if (useMarkers) {
+                            expression = "amp = " + currentAmp + ";\n" +
+                                "framesPerCycle = " + frames + ";\n" +
+                                "var isFrozen = false;\n" +
+                                "if (marker.numKeys > 0) {\n" +
+                                "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                "        var mk = marker.key(i);\n" +
+                                "        if (mk.time <= time) {\n" +
+                                "            var c = mk.comment.toLowerCase();\n" +
+                                "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                "        } else { break; }\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "if (isFrozen) {\n" +
+                                "    value;\n" +
+                                "} else {\n" +
+                                "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                "    value + [0, y_movement];\n" +
+                                "}";
+                        } else if (stopTimeComponents) {
                             var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                            expression = "amp = " + amp + ";\n" +
+                            expression = "amp = " + currentAmp + ";\n" +
                                 "framesPerCycle = " + frames + ";\n" +
                                 "stopTime = " + stopTimeCalculation + "\n" +
                                 "t = time;\n" +
@@ -1994,7 +2067,7 @@
                                 "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
                                 "value + [0, y_movement];";
                         } else {
-                            expression = "amp = " + amp + ";\n" +
+                            expression = "amp = " + currentAmp + ";\n" +
                                 "framesPerCycle = " + frames + ";\n" +
                                 "fps = thisComp.frameDuration;\n" +
                                 "t = time / (framesPerCycle * fps);\n" +
@@ -2084,6 +2157,29 @@
                 }
             }
         };
+
+        // Use Markers checkbox
+        var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.onClick = function () {
+            if (useMarkersCheck.value) {
+                stopTimeInput.enabled = false;
+                stopHereCheck.enabled = false;
+            } else {
+                stopTimeInput.enabled = true;
+                stopHereCheck.enabled = true;
+            }
+        };
+
+        // Add Reverse Checkbox
+        var alternateGroup = dialog.add("group");
+        alternateGroup.orientation = "column";
+        alternateGroup.alignChildren = ["fill", "top"];
+        alternateGroup.spacing = 4;
+
+        var reverseCheck = alternateGroup.add("checkbox", undefined, "Reverse Direction");
+        reverseCheck.value = false;
+        reverseCheck.helpTip = "Inverts the amplitude value (e.g. 50 becomes -50) for all selected layers";
 
         // Preset buttons in 4x2 grid
         var presetGroup = dialog.add("group");
@@ -2194,6 +2290,9 @@
                 var amp = ampInput.text;
                 var frames = framesInput.text;
                 var stopTimeStr = stopTimeInput.text;
+                var useMarkers = useMarkersCheck.value;
+
+                var isReversed = reverseCheck.value;
 
                 if (amp && frames && !isNaN(parseFloat(amp)) && !isNaN(parseFloat(frames))) {
                     var comp = app.project.activeItem;
@@ -2223,11 +2322,33 @@
                     if (selectedLayers.length > 1) {
                         // Multiple layers selected - randomize frames per cycle
                         for (var i = 0; i < selectedLayers.length; i++) {
+                            var currentAmp = (isReversed && i > 0) ? (-parseFloat(amp)).toString() : amp;
                             var randomFrames = Math.floor(Math.random() * (35 - 12 + 1)) + 12; // Random value between 12-35
                             var expression;
-                            if (stopTimeComponents) {
+                            if (useMarkers) {
+                                expression = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + randomFrames + ";\n" +
+                                    "var isFrozen = false;\n" +
+                                    "if (marker.numKeys > 0) {\n" +
+                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                    "        var mk = marker.key(i);\n" +
+                                    "        if (mk.time <= time) {\n" +
+                                    "            var c = mk.comment.toLowerCase();\n" +
+                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                    "        } else { break; }\n" +
+                                    "    }\n" +
+                                    "}\n" +
+                                    "if (isFrozen) {\n" +
+                                    "    value;\n" +
+                                    "} else {\n" +
+                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "    x_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                    "    value + [x_movement, 0];\n" +
+                                    "}";
+                            } else if (stopTimeComponents) {
                                 var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
                                     "stopTime = " + stopTimeCalculation + "\n" +
                                     "t = time;\n" +
@@ -2238,7 +2359,7 @@
                                     "x_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
                                     "value + [x_movement, 0];";
                             } else {
-                                expression = "amp = " + amp + ";\n" +
+                                expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
                                     "fps = thisComp.frameDuration;\n" +
                                     "t = time / (framesPerCycle * fps);\n" +
@@ -2254,10 +2375,32 @@
                             return;
                         }
                         // Single layer - use normal settings
+                        var currentAmp = isReversed ? (-parseFloat(amp)).toString() : amp;
                         var expression;
-                        if (stopTimeComponents) {
+                        if (useMarkers) {
+                            expression = "amp = " + currentAmp + ";\n" +
+                                "framesPerCycle = " + frames + ";\n" +
+                                "var isFrozen = false;\n" +
+                                "if (marker.numKeys > 0) {\n" +
+                                "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                "        var mk = marker.key(i);\n" +
+                                "        if (mk.time <= time) {\n" +
+                                "            var c = mk.comment.toLowerCase();\n" +
+                                "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                "        } else { break; }\n" +
+                                "    }\n" +
+                                "}\n" +
+                                "if (isFrozen) {\n" +
+                                "    value;\n" +
+                                "} else {\n" +
+                                "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                "    x_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                "    value + [x_movement, 0];\n" +
+                                "}";
+                        } else if (stopTimeComponents) {
                             var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                            expression = "amp = " + amp + ";\n" +
+                            expression = "amp = " + currentAmp + ";\n" +
                                 "framesPerCycle = " + frames + ";\n" +
                                 "stopTime = " + stopTimeCalculation + "\n" +
                                 "t = time;\n" +
@@ -2268,7 +2411,7 @@
                                 "x_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
                                 "value + [x_movement, 0];";
                         } else {
-                            expression = "amp = " + amp + ";\n" +
+                            expression = "amp = " + currentAmp + ";\n" +
                                 "framesPerCycle = " + frames + ";\n" +
                                 "fps = thisComp.frameDuration;\n" +
                                 "t = time / (framesPerCycle * fps);\n" +
@@ -5604,6 +5747,10 @@
             };
         }
 
+        // Use Markers checkbox
+        var useMarkersCheck = dialog.add("checkbox", undefined, "Use Markers (stop/resume)");
+        useMarkersCheck.helpTip = "Use layer markers to stop/resume wiggle. Add markers via Lips CTRL.";
+
         // Preview text
         var previewGroup = dialog.add("group");
         previewGroup.orientation = "column";
@@ -5636,9 +5783,30 @@
         okBtn.onClick = function () {
             var freq = parseFloat(freqInput.text);
             var amp = parseFloat(ampInput.text);
+            var useMarkers = useMarkersCheck.value;
 
             if (!isNaN(freq) && !isNaN(amp)) {
-                var expression = "wiggle(" + freq + "," + amp + ")";
+                var expression;
+                if (useMarkers) {
+                    expression = "var isFrozen = false;\n" +
+                        "if (marker.numKeys > 0) {\n" +
+                        "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                        "        var mk = marker.key(i);\n" +
+                        "        if (mk.time <= time) {\n" +
+                        "            var c = mk.comment.toLowerCase();\n" +
+                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                        "        } else { break; }\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "if (isFrozen) {\n" +
+                        "    value;\n" +
+                        "} else {\n" +
+                        "    wiggle(" + freq + "," + amp + ");\n" +
+                        "}";
+                } else {
+                    expression = "wiggle(" + freq + "," + amp + ")";
+                }
                 handleExpressionClick("Wiggle", expression);
                 dialog.close();
             } else {
@@ -7518,6 +7686,166 @@
         }
     }
 
+    // Hide all layers starting with 'hide' or 'x' in a user-selected composition
+    function hideAllLayersNamedHide2() {
+        try {
+            // Collect all compositions in the project
+            var compNames = [];
+            var compItems = [];
+            for (var i = 1; i <= app.project.numItems; i++) {
+                var item = app.project.item(i);
+                if (item instanceof CompItem) {
+                    compNames.push(item.name);
+                    compItems.push(item);
+                }
+            }
+
+            if (compNames.length === 0) {
+                alert("No compositions found in the project.");
+                updateStatus("No compositions found");
+                return;
+            }
+
+            // Create dialog for composition selection
+            var dialog = new Window("dialog", "Hide Layer 2 - Select Composition");
+            dialog.orientation = "column";
+            dialog.alignChildren = ["fill", "top"];
+            dialog.spacing = 10;
+            dialog.margins = 16;
+
+            dialog.add("statictext", undefined, "Select the composition to hide layers in:");
+
+            var compDropdown = dialog.add("dropdownlist", undefined, compNames);
+            compDropdown.preferredSize.width = 300;
+
+            // Default select "main_comp" if it exists, otherwise select first
+            var defaultIdx = 0;
+            for (var d = 0; d < compNames.length; d++) {
+                if (compNames[d] === "main_comp") {
+                    defaultIdx = d;
+                    break;
+                }
+            }
+            compDropdown.selection = defaultIdx;
+
+            // Buttons
+            var btnGroup = dialog.add("group");
+            btnGroup.orientation = "row";
+            btnGroup.alignment = "center";
+            btnGroup.spacing = 10;
+
+            var okBtn = btnGroup.add("button", undefined, "Hide Layers");
+            var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+
+            cancelBtn.onClick = function () {
+                dialog.close(0);
+            };
+
+            okBtn.onClick = function () {
+                dialog.close(1);
+            };
+
+            dialog.center();
+            var result = dialog.show();
+
+            if (result !== 1) return;
+
+            var selectedIdx = compDropdown.selection.index;
+            var targetComp = compItems[selectedIdx];
+            var targetName = compNames[selectedIdx];
+
+            // Now run the hide logic on the selected comp
+            var processedComps = {};
+            var missingXComps = [];
+
+            function processComp(comp, depth) {
+                if (processedComps[comp.id]) return;
+                processedComps[comp.id] = true;
+
+                var hasXLayer = false;
+
+                for (var i = 1; i <= comp.numLayers; i++) {
+                    var layer = comp.layer(i);
+
+                    // Check for precomp and process it recursively IF depth < 1
+                    // Ignore layers with "audio" in the name
+                    if (layer.source instanceof CompItem && depth < 1 && layer.name.toLowerCase().indexOf("audio") === -1) {
+                        processComp(layer.source, depth + 1);
+                    }
+
+                    // Check if name starts with "hide" or "x" (case-insensitive)
+                    var lowerName = layer.name.toLowerCase();
+                    if (lowerName.indexOf("hide") === 0 || lowerName.indexOf("x") === 0) {
+                        layer.enabled = false;
+                        layer.visible = false;
+                        hasXLayer = true;
+                    }
+                }
+
+                // If this is a precomp (not the target comp) and does not have an X or hide layer
+                // Also ignore any compositions that have "audio" in their name
+                if (!hasXLayer && comp.name !== targetName && comp.name.toLowerCase().indexOf("audio") === -1) {
+                    missingXComps.push(comp.name);
+                }
+            }
+
+            app.beginUndoGroup("Hide Layer 2 - '" + targetName + "'");
+            processComp(targetComp, 0);
+            app.endUndoGroup();
+
+            var logPathMsg = "";
+            if (missingXComps.length > 0) {
+                var dateStr = new Date().toLocaleString();
+                var reportText = "==================================================\n";
+                reportText += "        MISSING \"X\" LAYERS REPORT\n";
+                reportText += "==================================================\n";
+                reportText += "Date: " + dateStr + "\n";
+                reportText += "Target Comp: " + targetName + "\n\n";
+                reportText += "The following precompositions do NOT contain an\n";
+                reportText += " \"x\" or \"hide\" layer inside them. Please review\n";
+                reportText += " them and manually hide or adjust if necessary.\n\n";
+                reportText += "--------------------------------------------------\n";
+                for (var m = 0; m < missingXComps.length; m++) {
+                    reportText += "[ ] " + missingXComps[m] + "\n";
+                }
+                reportText += "--------------------------------------------------\n";
+                reportText += "Total Missing: " + missingXComps.length + " precomps\n";
+                reportText += "==================================================\n";
+
+                var alertMsg = "\u26A0 ACTION REQUIRED \u26A0\n\nFound " + missingXComps.length + " precomps missing an 'x' or 'hide' layer!\n\n";
+                var maxAlertComps = 15;
+                for (var k = 0; k < Math.min(missingXComps.length, maxAlertComps); k++) {
+                    alertMsg += " \u2022 " + missingXComps[k] + "\n";
+                }
+                if (missingXComps.length > maxAlertComps) {
+                    alertMsg += " \u2022 ... and " + (missingXComps.length - maxAlertComps) + " more.\n";
+                }
+                alertMsg += "\nA detailed report has been saved to your project folder.";
+
+                alert(alertMsg);
+
+                if (app.project.file) {
+                    var folder = app.project.file.parent;
+                    var logFile = new File(folder.fsName + "/missing_x_layers_report.txt");
+                    if (logFile.open("w")) {
+                        logFile.encoding = "UTF-8";
+                        logFile.write(reportText);
+                        logFile.close();
+                        logPathMsg = " | Log saved to project folder";
+                    }
+                } else {
+                    logPathMsg = " | (Project not saved, no log created)";
+                }
+            }
+
+            updateStatus("Hidden all 'hide'/'x' layers in '" + targetName + "' and precomps" + logPathMsg);
+
+        } catch (error) {
+            alert("Error hiding layers: " + error.message);
+            updateStatus("Error: " + error.message);
+        }
+    }
+
     // Show all layers starting with 'hide' in main_comp
     function showAllLayersNamedHide() {
         try {
@@ -9098,6 +9426,791 @@
 
         } catch (error) {
             updateStatus("Error: " + error.toString());
+        }
+    }
+
+    // ─── Unprecomp ───────────────────────────────────────────────────────────────
+    // Dissolves a selected precomp layer: copies inner layers back to the parent
+    // comp preserving their visual position, then optionally re-precomps with
+    // X Crop (processBoltCrop) using the original precomp name.
+    function showUnprecompDialog() {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length !== 1) {
+            updateStatus("Select exactly one precomp layer to Unprecomp");
+            return;
+        }
+
+        var precompLayer = selectedLayers[0];
+        if (!precompLayer.source || !(precompLayer.source instanceof CompItem)) {
+            updateStatus("Selected layer is not a precomp");
+            return;
+        }
+
+        var srcComp = precompLayer.source;
+        if (srcComp.numLayers === 0) {
+            updateStatus("Precomp has no layers");
+            return;
+        }
+
+        // ── dialog ──
+        var dlg = new Window("dialog", "Unprecomp", undefined, { resizeable: false });
+        dlg.orientation = "column";
+        dlg.alignChildren = ["fill", "top"];
+        dlg.spacing = 8;
+        dlg.margins = 14;
+
+        var infoTxt = dlg.add("statictext", undefined,
+            "Dissolve: \"" + precompLayer.name + "\"  (" + srcComp.numLayers + " layers inside)");
+        infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        infoTxt.alignment = ["center", "top"];
+
+        dlg.add("panel");
+
+        var optGroup = dlg.add("group");
+        optGroup.orientation = "column";
+        optGroup.alignChildren = ["left", "top"];
+        optGroup.spacing = 5;
+
+        var chkXCrop = optGroup.add("checkbox", undefined, "Re-precomp with X Crop (tight bounding box)");
+        chkXCrop.value = true;
+        chkXCrop.helpTip = "After pasting layers, re-precomp them using X Crop so the bounding box is tight";
+
+        dlg.add("panel");
+
+        var dlgStatus = dlg.add("statictext", undefined, "Ready");
+        dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        dlgStatus.alignment = ["fill", "center"];
+        dlgStatus.preferredSize.width = 300;
+
+        var btnRow = dlg.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignChildren = ["fill", "center"];
+        btnRow.spacing = 6;
+
+        var applyBtn = btnRow.add("button", undefined, "Unprecomp");
+        applyBtn.preferredSize.height = 26;
+
+        var cancelBtn = btnRow.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize.height = 26;
+        cancelBtn.onClick = function () { dlg.close(); };
+
+        applyBtn.onClick = function () {
+            try {
+                doUnprecomp(comp, precompLayer, srcComp, chkXCrop.value, dlgStatus);
+            } catch (err) {
+                dlgStatus.text = "Error: " + err.toString();
+                updateStatus("Unprecomp error: " + err.toString());
+            }
+        };
+
+        dlg.center();
+        dlg.show();
+    }
+
+    function doUnprecomp(comp, precompLayer, srcComp, useXCrop, dlgStatus) {
+        // -- Snapshot everything we need BEFORE touching the comp --
+        var oldName          = precompLayer.name;
+        var precompIndex     = precompLayer.index;      // used to shift indices later
+        var precompStartTime = precompLayer.startTime;  // saved before remove()
+
+        var innerCount = srcComp.numLayers;
+        if (innerCount === 0) { dlgStatus.text = "Precomp is empty"; return; }
+
+        // Snapshot inner layer start-times (srcComp is unchanged during the copy loop)
+        var innerStartTimes = [];
+        for (var ci = 1; ci <= innerCount; ci++) {
+            innerStartTimes.push(srcComp.layer(ci).startTime);
+        }
+
+        var layerCountBefore = comp.numLayers;
+
+        // Undo group wraps everything; try/finally guarantees it always closes
+        app.beginUndoGroup("Unprecomp: " + oldName);
+        try {
+
+            // ---- Step 1: copy inner layers into the parent comp -----------------
+            // copyToComp() APPENDS each layer to the BOTTOM of the stack
+            // (highest index). Copying in forward order 1 -> innerCount therefore
+            // preserves the original top-to-bottom panel order perfectly.
+            for (var ci = 1; ci <= innerCount; ci++) {
+                srcComp.layer(ci).copyToComp(comp);
+            }
+            // After the loop:
+            //   srcComp.layer(1) -> comp index (layerCountBefore + 1)   [top of pasted]
+            //   srcComp.layer(N) -> comp index (layerCountBefore + N)   [bottom of pasted]
+
+            // ---- Step 2: fix timeline placement ---------------------------------
+            // copyToComp copies each layer's startTime from the source comp's
+            // own timeline. We offset by precompStartTime so each inner layer
+            // lands at the correct absolute moment in the parent comp:
+            //   parent_time = srcComp_time + precompStartTime
+            var pastedIndices = [];
+            for (var ci = 0; ci < innerCount; ci++) {
+                var idx = layerCountBefore + 1 + ci;   // 1-based index in comp
+                var pl  = comp.layer(idx);
+                pl.startTime = innerStartTimes[ci] + precompStartTime;
+                pastedIndices.push(idx);
+            }
+
+            // ---- Step 3: delete the original precomp layer ----------------------
+            // The precomp is ALWAYS at a lower index than the pasted layers
+            // (precompIndex <= layerCountBefore < layerCountBefore+1 = first pasted).
+            // Removing it shifts every layer below it (including all pasted) UP by 1.
+            precompLayer.remove();
+            for (var pi = 0; pi < pastedIndices.length; pi++) {
+                pastedIndices[pi]--;    // compensate for the removed layer above
+            }
+
+            // ---- Step 4: select only the pasted layers --------------------------
+            for (var si = 1; si <= comp.numLayers; si++) {
+                comp.layer(si).selected = false;
+            }
+            for (var pi = 0; pi < pastedIndices.length; pi++) {
+                comp.layer(pastedIndices[pi]).selected = true;
+            }
+
+            // ---- Step 5: re-precomp (with or without X Crop tight bbox) ---------
+            if (useXCrop) {
+                // Load X Crop.jsx functions into global scope.
+                // __XCROP_LOADED_AS_MODULE suppresses the script's own UI.
+                var xCropPath = new File($.fileName).parent.absoluteURI + "/X Crop.jsx";
+                var xCropFile = new File(xCropPath);
+                if (!xCropFile.exists) {
+                    throw new Error("X Crop.jsx not found at: " + xCropPath);
+                }
+                $.global.__XCROP_LOADED_AS_MODULE = true;
+                $.evalFile(xCropFile);      // defines processBoltCrop globally
+
+                // Re-confirm layer selection after evalFile (evalFile can disrupt it)
+                for (var si = 1; si <= comp.numLayers; si++) {
+                    comp.layer(si).selected = false;
+                }
+                for (var pi = 0; pi < pastedIndices.length; pi++) {
+                    comp.layer(pastedIndices[pi]).selected = true;
+                }
+
+                // processBoltCrop(precompFirst=true, name):
+                //   1. precomposes the selected layers into a new comp named oldName
+                //   2. crops that precomp to a tight bounding box via bolt-crop logic
+                processBoltCrop(true, oldName);
+
+                dlgStatus.text = "Done: \"" + oldName + "\" re-precomped with X Crop";
+                updateStatus("Unprecomp done: \"" + oldName + "\" with X Crop");
+            } else {
+                // Plain re-precompose using AE's built-in precompose (no crop)
+                var indices = [];
+                for (var pi = 0; pi < pastedIndices.length; pi++) {
+                    indices.push(pastedIndices[pi]);
+                }
+                comp.layers.precompose(indices, oldName, true);
+                dlgStatus.text = "Done: \"" + oldName + "\" re-precomped (no X Crop)";
+                updateStatus("Unprecomp done: \"" + oldName + "\" (no X Crop)");
+            }
+
+            app.endUndoGroup();
+
+        } catch (err) {
+            app.endUndoGroup();   // always close -- prevents the undo group mismatch
+            dlgStatus.text = "Error: " + err.toString();
+            updateStatus("Unprecomp error: " + err.toString());
+        }
+    }
+
+    // Batch Framerate Changer
+    function showBatchFramerateDialog() {
+        // Find main_comp
+        var mainComp = null;
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem && item.name === "main_comp") {
+                mainComp = item;
+                break;
+            }
+        }
+
+        if (!mainComp) {
+            updateStatus("main_comp not found");
+            return;
+        }
+
+        var selectedLayers = mainComp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected in main_comp");
+            return;
+        }
+
+        // Collect precomp layers
+        var precompLayers = [];
+        for (var j = 0; j < selectedLayers.length; j++) {
+            var layer = selectedLayers[j];
+            if (layer instanceof AVLayer && layer.source instanceof CompItem) {
+                precompLayers.push(layer);
+            }
+        }
+
+        if (precompLayers.length === 0) {
+            updateStatus("No precomp layers selected in main_comp");
+            return;
+        }
+
+        // Build dialog
+        var dlg = new Window("dialog", "Batch FPS Changer", undefined, { resizeable: false });
+        dlg.orientation = "column";
+        dlg.alignChildren = ["fill", "top"];
+        dlg.spacing = 8;
+        dlg.margins = 14;
+
+        // Info
+        var infoTxt = dlg.add("statictext", undefined, precompLayers.length + " precomp layer(s) selected in main_comp");
+        infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        infoTxt.alignment = ["center", "top"];
+
+        dlg.add("panel");
+
+        // FPS presets label
+        var fpsLabel = dlg.add("statictext", undefined, "Select target framerate:");
+        fpsLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        // Industry standard FPS presets
+        var fpsPresets = [
+            { label: "23.976 fps  (Film / Streaming)",   value: 24000/1001 },
+            { label: "24 fps      (Cinema)",              value: 24 },
+            { label: "25 fps      (PAL / Europe TV)",     value: 25 },
+            { label: "29.97 fps   (NTSC / USA TV)",       value: 30000/1001 },
+            { label: "30 fps      (Web / YouTube)",       value: 30 },
+            { label: "48 fps      (HFR Cinema)",          value: 48 },
+            { label: "50 fps      (PAL HD / Sports)",     value: 50 },
+            { label: "59.94 fps   (NTSC HD)",             value: 60000/1001 },
+            { label: "60 fps      (Gaming / Motion)",     value: 60 }
+        ];
+
+        // Radio buttons group
+        var radioGroup = dlg.add("group");
+        radioGroup.orientation = "column";
+        radioGroup.alignChildren = ["left", "top"];
+        radioGroup.spacing = 3;
+
+        var radioButtons = [];
+        for (var r = 0; r < fpsPresets.length; r++) {
+            (function(idx) {
+                var rb = radioGroup.add("radiobutton", undefined, fpsPresets[idx].label);
+                rb.graphics.font = ScriptUI.newFont("Courier New", "REGULAR", 9);
+                if (idx === 2) rb.value = true; // Default: 25 fps
+                radioButtons.push(rb);
+            })(r);
+        }
+
+        dlg.add("panel");
+
+        // Options
+        var optGroup = dlg.add("group");
+        optGroup.orientation = "column";
+        optGroup.alignChildren = ["left", "top"];
+        optGroup.spacing = 4;
+
+        var chkConformDuration = optGroup.add("checkbox", undefined, "Preserve comp duration (adjust frame count)");
+        chkConformDuration.value = true;
+        chkConformDuration.helpTip = "When checked, the comp duration in seconds stays the same";
+
+        dlg.add("panel");
+
+        // Status label
+        var dlgStatus = dlg.add("statictext", undefined, "Ready");
+        dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        dlgStatus.alignment = ["fill", "center"];
+        dlgStatus.preferredSize.width = 280;
+
+        // Buttons row
+        var btnRow = dlg.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignChildren = ["fill", "center"];
+        btnRow.spacing = 6;
+
+        var applyBtn = btnRow.add("button", undefined, "Apply");
+        applyBtn.preferredSize.height = 26;
+        applyBtn.helpTip = "Apply the selected framerate to all selected precomp source compositions";
+
+        var cancelBtn = btnRow.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize.height = 26;
+
+        cancelBtn.onClick = function() {
+            dlg.close();
+        };
+
+        applyBtn.onClick = function() {
+            // Find selected FPS
+            var selectedFps = -1;
+            var selectedLabel = "";
+            for (var ri = 0; ri < radioButtons.length; ri++) {
+                if (radioButtons[ri].value) {
+                    selectedFps = fpsPresets[ri].value;
+                    selectedLabel = fpsPresets[ri].label;
+                    break;
+                }
+            }
+
+            if (selectedFps < 0) {
+                dlgStatus.text = "Please select a framerate.";
+                return;
+            }
+
+            try {
+                app.beginUndoGroup("Batch FPS Change");
+
+                var changed = 0;
+                var skipped = 0;
+                var names = [];
+
+                for (var pi = 0; pi < precompLayers.length; pi++) {
+                    var srcComp = precompLayers[pi].source;
+                    if (srcComp instanceof CompItem) {
+                        var oldFps = srcComp.frameRate;
+                        var oldDuration = srcComp.duration;
+
+                        if (Math.abs(oldFps - selectedFps) < 0.001) {
+                            skipped++;
+                            continue;
+                        }
+
+                        srcComp.frameRate = selectedFps;
+
+                        // If preserve duration is checked, set duration to match original seconds
+                        if (chkConformDuration.value) {
+                            srcComp.duration = oldDuration;
+                        }
+
+                        names.push(srcComp.name);
+                        changed++;
+                    }
+                }
+
+                app.endUndoGroup();
+
+                var msg = "Changed " + changed + " comp(s) to " + selectedFps.toFixed(3) + " fps";
+                if (skipped > 0) msg += " (" + skipped + " already at target fps)";
+                dlgStatus.text = msg;
+                updateStatus(msg);
+
+            } catch (err) {
+                app.endUndoGroup();
+                dlgStatus.text = "Error: " + err.toString();
+                updateStatus("Batch FPS error: " + err.toString());
+            }
+        };
+
+        dlg.center();
+        dlg.show();
+    }
+
+    // ===== BLINK ANIMATION =====
+    function showBlinkDialog() {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            alert("Please open a composition first.");
+            return;
+        }
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            alert("Please select at least one layer.");
+            return;
+        }
+
+        var dlg = new Window("dialog", "Blink Animation", undefined, { resizeable: false });
+        dlg.orientation = "column";
+        dlg.alignChildren = ["fill", "top"];
+        dlg.spacing = 8;
+        dlg.margins = 14;
+
+        // Info
+        var infoTxt = dlg.add("statictext", undefined, selectedLayers.length + " layer(s) selected");
+        infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        infoTxt.alignment = ["center", "top"];
+
+        dlg.add("panel");
+
+        // Blink Mode
+        var modeLabel = dlg.add("statictext", undefined, "Blink Mode:");
+        modeLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var modeGroup = dlg.add("group");
+        modeGroup.orientation = "column";
+        modeGroup.alignChildren = ["left", "top"];
+        modeGroup.spacing = 3;
+
+        var modeNormal = modeGroup.add("radiobutton", undefined, "Normal  –  blink, pause 2-6s, repeat");
+        modeNormal.value = true;
+        var modeCringe = modeGroup.add("radiobutton", undefined, "Cringe  –  3× rapid blinks, long pause, 1× blink");
+        var modeRapid = modeGroup.add("radiobutton", undefined, "Rapid  –  fast continuous blinking (0.3-0.8s)");
+        var modeCustom = modeGroup.add("radiobutton", undefined, "Custom  –  set your own intervals below");
+
+        dlg.add("panel");
+
+        // Blink Duration (how long the eye stays closed)
+        var blinkDurGroup = dlg.add("group");
+        blinkDurGroup.orientation = "row";
+        blinkDurGroup.alignChildren = ["left", "center"];
+        var blinkDurLabel = blinkDurGroup.add("statictext", undefined, "Blink duration (frames):");
+        blinkDurLabel.preferredSize.width = 140;
+        var blinkDurInput = blinkDurGroup.add("edittext", undefined, "2");
+        blinkDurInput.preferredSize.width = 50;
+        blinkDurInput.helpTip = "How many frames the eye stays closed (Scale Y = 0%)";
+
+        // Close speed (transition frames)
+        var transGroup = dlg.add("group");
+        transGroup.orientation = "row";
+        transGroup.alignChildren = ["left", "center"];
+        var transLabel = transGroup.add("statictext", undefined, "Transition frames:");
+        transLabel.preferredSize.width = 140;
+        var transInput = transGroup.add("edittext", undefined, "1");
+        transInput.preferredSize.width = 50;
+        transInput.helpTip = "Frames for the closing/opening transition (0 = instant)";
+
+        dlg.add("panel");
+
+        // Custom settings group
+        var customLabel = dlg.add("statictext", undefined, "Custom Mode Settings:");
+        customLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var customGroup = dlg.add("group");
+        customGroup.orientation = "column";
+        customGroup.alignChildren = ["fill", "top"];
+        customGroup.spacing = 4;
+
+        // Min interval
+        var minIntGroup = customGroup.add("group");
+        minIntGroup.orientation = "row";
+        minIntGroup.alignChildren = ["left", "center"];
+        var minIntLabel = minIntGroup.add("statictext", undefined, "Min interval (sec):");
+        minIntLabel.preferredSize.width = 140;
+        var minIntInput = minIntGroup.add("edittext", undefined, "2");
+        minIntInput.preferredSize.width = 50;
+
+        // Max interval
+        var maxIntGroup = customGroup.add("group");
+        maxIntGroup.orientation = "row";
+        maxIntGroup.alignChildren = ["left", "center"];
+        var maxIntLabel = maxIntGroup.add("statictext", undefined, "Max interval (sec):");
+        maxIntLabel.preferredSize.width = 140;
+        var maxIntInput = maxIntGroup.add("edittext", undefined, "6");
+        maxIntInput.preferredSize.width = 50;
+
+        // Blinks per burst
+        var burstGroup = customGroup.add("group");
+        burstGroup.orientation = "row";
+        burstGroup.alignChildren = ["left", "center"];
+        var burstLabel = burstGroup.add("statictext", undefined, "Blinks per burst:");
+        burstLabel.preferredSize.width = 140;
+        var burstInput = burstGroup.add("edittext", undefined, "1");
+        burstInput.preferredSize.width = 50;
+        burstInput.helpTip = "Number of blinks in quick succession before pausing";
+
+        // Burst gap
+        var burstGapGroup = customGroup.add("group");
+        burstGapGroup.orientation = "row";
+        burstGapGroup.alignChildren = ["left", "center"];
+        var burstGapLabel = burstGapGroup.add("statictext", undefined, "Gap between bursts (f):");
+        burstGapLabel.preferredSize.width = 140;
+        var burstGapInput = burstGapGroup.add("edittext", undefined, "4");
+        burstGapInput.preferredSize.width = 50;
+        burstGapInput.helpTip = "Frames between blinks inside a burst";
+
+        // Enable/disable custom fields based on mode
+        function updateCustomEnabled() {
+            var enabled = modeCustom.value;
+            minIntInput.enabled = enabled;
+            maxIntInput.enabled = enabled;
+            burstInput.enabled = enabled;
+            burstGapInput.enabled = enabled;
+        }
+        modeNormal.onClick = updateCustomEnabled;
+        modeCringe.onClick = updateCustomEnabled;
+        modeRapid.onClick = updateCustomEnabled;
+        modeCustom.onClick = updateCustomEnabled;
+        updateCustomEnabled();
+
+        dlg.add("panel");
+
+        // Multi-layer offset
+        var offsetGroup = dlg.add("group");
+        offsetGroup.orientation = "row";
+        offsetGroup.alignChildren = ["left", "center"];
+        var offsetLabel = offsetGroup.add("statictext", undefined, "Layer offset (sec):");
+        offsetLabel.preferredSize.width = 140;
+        var offsetInput = offsetGroup.add("edittext", undefined, "0.5");
+        offsetInput.preferredSize.width = 50;
+        offsetInput.helpTip = "Time offset between layers so they don't blink in sync. Each layer is shifted by (index × this value).";
+
+        // Add markers checkbox
+        var addMarkersChk = dlg.add("checkbox", undefined, "Add markers at each blink");
+        addMarkersChk.value = true;
+        addMarkersChk.helpTip = "Add layer markers at each blink for easy manual adjustment";
+
+        dlg.add("panel");
+
+        // Status
+        var dlgStatus = dlg.add("statictext", undefined, "Ready");
+        dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        dlgStatus.alignment = ["fill", "center"];
+        dlgStatus.preferredSize.width = 280;
+
+        // Buttons
+        var btnRow = dlg.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignChildren = ["fill", "center"];
+        btnRow.spacing = 6;
+
+        var applyBtn = btnRow.add("button", undefined, "Apply");
+        applyBtn.preferredSize.height = 26;
+
+        var cancelBtn = btnRow.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize.height = 26;
+        cancelBtn.onClick = function () { dlg.close(); };
+
+        applyBtn.onClick = function () {
+            try {
+                var fps = comp.frameRate;
+                var blinkDurFrames = parseInt(blinkDurInput.text) || 2;
+                var transFrames = parseInt(transInput.text) || 1;
+                var layerOffset = parseFloat(offsetInput.text) || 0.5;
+                var doMarkers = addMarkersChk.value;
+
+                // Determine blink schedule parameters based on mode
+                var minInterval, maxInterval, blinksPerBurst, burstGapFrames;
+
+                if (modeNormal.value) {
+                    // Normal: single blinks, 2-6s random pause
+                    minInterval = 2;
+                    maxInterval = 6;
+                    blinksPerBurst = 1;
+                    burstGapFrames = 4;
+                } else if (modeCringe.value) {
+                    // Cringe: 3 rapid blinks, long pause (4-8s), then 1 single blink
+                    minInterval = 4;
+                    maxInterval = 8;
+                    blinksPerBurst = 3;
+                    burstGapFrames = 3;
+                } else if (modeRapid.value) {
+                    // Rapid: fast continuous blinking
+                    minInterval = 0.3;
+                    maxInterval = 0.8;
+                    blinksPerBurst = 1;
+                    burstGapFrames = 2;
+                } else {
+                    // Custom
+                    minInterval = parseFloat(minIntInput.text) || 2;
+                    maxInterval = parseFloat(maxIntInput.text) || 6;
+                    blinksPerBurst = parseInt(burstInput.text) || 1;
+                    burstGapFrames = parseInt(burstGapInput.text) || 4;
+                }
+
+                if (minInterval > maxInterval) {
+                    var tmp = minInterval;
+                    minInterval = maxInterval;
+                    maxInterval = tmp;
+                }
+
+                app.beginUndoGroup("Blink Animation");
+
+                var totalBlinks = 0;
+
+                for (var li = 0; li < selectedLayers.length; li++) {
+                    var layer = selectedLayers[li];
+                    var scaleProp = layer.transform.scale;
+
+                    // Layer time range
+                    var layerIn = layer.inPoint;
+                    var layerOut = layer.outPoint;
+                    var layerDuration = layerOut - layerIn;
+
+                    // Offset this layer's blink start so characters don't blink in sync
+                    var startOffset = li * layerOffset;
+
+                    // Seed the pseudo-random using layer index for reproducibility but variation
+                    var seed = layer.index * 7 + li * 13 + 42;
+
+                    // Simple seeded pseudo-random generator
+                    function seededRandom() {
+                        seed = (seed * 9301 + 49297) % 233280;
+                        return seed / 233280;
+                    }
+
+                    // Generate blink schedule
+                    var blinkTimes = [];
+                    var currentTime = layerIn + startOffset;
+
+                    // For cringe mode, alternate between burst-of-3 and single blink
+                    var cringePhase = 0; // 0 = burst of 3, 1 = single blink
+
+                    while (currentTime < layerOut) {
+                        var activeBurst = blinksPerBurst;
+
+                        if (modeCringe.value) {
+                            // Cringe alternates: 3 rapid blinks, then 1 single blink
+                            activeBurst = (cringePhase === 0) ? 3 : 1;
+                            cringePhase = (cringePhase + 1) % 2;
+                        }
+
+                        // Add each blink in this burst
+                        for (var b = 0; b < activeBurst; b++) {
+                            if (currentTime >= layerOut) break;
+                            blinkTimes.push(currentTime);
+
+                            if (b < activeBurst - 1) {
+                                // Gap between blinks inside a burst
+                                currentTime += burstGapFrames / fps;
+                            }
+                        }
+
+                        // Random pause after this burst
+                        var pause = minInterval + seededRandom() * (maxInterval - minInterval);
+                        currentTime += pause;
+                    }
+
+                    // Get current scale value to preserve X
+                    var currentScale = scaleProp.value;
+                    var scaleX = currentScale[0];
+
+                    // Set initial open keyframe
+                    var blinkDurSec = blinkDurFrames / fps;
+                    var transSec = transFrames / fps;
+
+                    // Apply keyframes for each blink
+                    for (var bi = 0; bi < blinkTimes.length; bi++) {
+                        var blinkStart = blinkTimes[bi];
+
+                        // Clamp all times within layer range
+                        var tClose = blinkStart;
+                        var tClosed = tClose + transSec;
+                        var tOpen = tClosed + blinkDurSec;
+                        var tOpened = tOpen + transSec;
+
+                        if (tOpened > layerOut) continue;
+
+                        // Before blink: eye open (add keyframe slightly before close)
+                        var tBeforeClose = Math.max(layerIn, tClose - (1 / fps));
+                        var k1 = scaleProp.addKey(tBeforeClose);
+                        scaleProp.setValueAtKey(k1, [scaleX, 100]);
+
+                        if (transFrames > 0) {
+                            // Transition close
+                            var k2 = scaleProp.addKey(tClosed);
+                            scaleProp.setValueAtKey(k2, [scaleX, 0]);
+                        } else {
+                            // Instant close at blink start
+                            var k2 = scaleProp.addKey(tClose);
+                            scaleProp.setValueAtKey(k2, [scaleX, 0]);
+                        }
+
+                        // Eye closed hold
+                        var k3 = scaleProp.addKey(tOpen);
+                        scaleProp.setValueAtKey(k3, [scaleX, 0]);
+
+                        if (transFrames > 0) {
+                            // Transition open
+                            var k4 = scaleProp.addKey(tOpened);
+                            scaleProp.setValueAtKey(k4, [scaleX, 100]);
+                        } else {
+                            // Instant open
+                            var k4 = scaleProp.addKey(tOpen + (1 / fps));
+                            scaleProp.setValueAtKey(k4, [scaleX, 100]);
+                        }
+
+                        // Add marker
+                        if (doMarkers) {
+                            var markerComment = "Blink";
+                            if (modeCringe.value) {
+                                markerComment = (bi % 4 < 3) ? "Blink (burst)" : "Blink (single)";
+                            } else if (modeRapid.value) {
+                                markerComment = "Blink (rapid)";
+                            }
+                            var mv = new MarkerValue(markerComment);
+                            layer.property("Marker").setValueAtTime(tClose, mv);
+                        }
+
+                        totalBlinks++;
+                    }
+                }
+
+                app.endUndoGroup();
+
+                var modeStr = modeNormal.value ? "Normal" : modeCringe.value ? "Cringe" : modeRapid.value ? "Rapid" : "Custom";
+                dlgStatus.text = "Added " + totalBlinks + " blinks (" + modeStr + ") to " + selectedLayers.length + " layer(s)";
+                updateStatus("Blink: " + totalBlinks + " blinks (" + modeStr + ") on " + selectedLayers.length + " layer(s)");
+
+            } catch (err) {
+                app.endUndoGroup();
+                dlgStatus.text = "Error: " + err.toString();
+                updateStatus("Blink error: " + err.toString());
+            }
+        };
+
+        dlg.center();
+        dlg.show();
+    }
+
+    // ===== WHITE BG FOR PRECOMPS =====
+    function setPrecompBgWhite() {
+        try {
+            // Find main_comp
+            var mainComp = null;
+            for (var i = 1; i <= app.project.numItems; i++) {
+                var item = app.project.item(i);
+                if (item instanceof CompItem && item.name === "main_comp") {
+                    mainComp = item;
+                    break;
+                }
+            }
+
+            if (!mainComp) {
+                alert("Could not find 'main_comp' in the project.");
+                updateStatus("White BG: main_comp not found");
+                return;
+            }
+
+            app.beginUndoGroup("White BG Precomps");
+
+            var changed = 0;
+            var visited = {}; // track by comp id to avoid duplicates
+
+            // Recursive function to set bg on a comp and all its nested precomps
+            function processComp(comp) {
+                if (visited[comp.id]) return;
+                visited[comp.id] = true;
+
+                // Set this comp's background to white
+                comp.bgColor = [1, 1, 1];
+                changed++;
+
+                // Recurse into nested precomps
+                for (var j = 1; j <= comp.numLayers; j++) {
+                    var layer = comp.layer(j);
+                    if (layer instanceof AVLayer && layer.source instanceof CompItem) {
+                        processComp(layer.source);
+                    }
+                }
+            }
+
+            // Process all precomp layers in main_comp
+            for (var k = 1; k <= mainComp.numLayers; k++) {
+                var layer = mainComp.layer(k);
+                if (layer instanceof AVLayer && layer.source instanceof CompItem) {
+                    processComp(layer.source);
+                }
+            }
+
+            app.endUndoGroup();
+
+            updateStatus("White BG: Changed " + changed + " precomp(s) to white background");
+
+        } catch (err) {
+            app.endUndoGroup();
+            updateStatus("White BG error: " + err.toString());
         }
     }
 

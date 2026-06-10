@@ -210,6 +210,9 @@ function createXBoltCropUI(thisObj) {
         var success = false;
         try {
             processBoltCrop(true, precompName);
+            if (looperCheckbox && looperCheckbox.value) {
+                applyLooperTool();
+            }
             success = true;
         } catch (e) {
             alert("Error: " + e.toString());
@@ -237,6 +240,10 @@ function createXBoltCropUI(thisObj) {
         var selectedText = offsetDropdown.selection.text;
         CROP_OFFSET = parseInt(selectedText.replace(" px", ""));
     };
+
+    var looperCheckbox = offsetGroup.add("checkbox", undefined, "Looper");
+    looperCheckbox.value = false;
+    looperCheckbox.helpTip = "Enable time remap loop on the precomp after cropping";
 
     // Dynamic Layout Adjustment on Resize
     panel.onResizing = panel.onResize = function () {
@@ -317,6 +324,7 @@ function processBoltCrop(precompFirst, precompName) {
 
         // Set the precomp layer's start time so it aligns with the original layers' position
         newLayer.startTime = earliestIn;
+        newLayer.selected = true; // Ensure the new layer is selected for subsequent tools
 
         selectedLayers = [newLayer];
     }
@@ -602,6 +610,55 @@ function showXCropDialog() {
     var dialog = new Window("dialog", "X Crop", undefined, { resizeable: true });
     createXBoltCropUI(dialog);
     dialog.show();
+}
+
+/**
+* Applies the time remap loop to the selected layer(s).
+*/
+function applyLooperTool() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return;
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) return;
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            if (!layer.source || !(layer.source instanceof CompItem)) {
+                continue;
+            }
+
+            if (!layer.timeRemapEnabled) {
+                layer.timeRemapEnabled = true;
+            }
+
+            var timeRemap = layer.property("ADBE Time Remapping");
+            if (!timeRemap) continue;
+
+            var layerDuration = layer.source.duration;
+            var fps = comp.frameRate;
+            var totalFrames = Math.round(layerDuration * fps);
+
+            if (totalFrames < 2) continue;
+
+            var startTime = layer.inPoint;
+            var secondToLastFrameTime = startTime + (totalFrames - 1) / fps;
+            var secondToLastFrameValue = (totalFrames - 1) / fps;
+            timeRemap.setValueAtTime(secondToLastFrameTime, secondToLastFrameValue);
+
+            for (var k = timeRemap.numKeys; k >= 1; k--) {
+                if (timeRemap.keyTime(k) > secondToLastFrameTime + 0.001) {
+                    timeRemap.removeKey(k);
+                }
+            }
+
+            timeRemap.expression = 'loopOut("cycle")';
+        }
+    } catch (error) {
+        // Silently fail if something goes wrong
+    }
 }
 
 // Create and show the UI panel only if run standalone (not loaded from Expression Panel)
