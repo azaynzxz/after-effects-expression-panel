@@ -10,7 +10,7 @@ function main() {
         // Create the GUI dialog
         var dialog = createGUI();
         var result = dialog.show();
-        
+
         if (result == 1) { // User clicked "Process Files"
             var processHidden = dialog.includeHiddenCheckbox.value; // Get checkbox value
             var sourceFolder = dialog.sourceFolderGroup.sourcePath.text;
@@ -27,7 +27,7 @@ function main() {
             }
 
             // Process the folder with the selected option
-            processBatchPSD(folder, processHidden); 
+            processBatchPSD(folder, processHidden);
         }
         // If user clicks cancel or closes the dialog, the script simply ends.
     } catch (e) {
@@ -67,8 +67,8 @@ function createGUI() {
     dialog.sourceFolderGroup.sourcePath = sourcePath;
 
     // Browse button functionality
-    browseBtn.onClick = function() {
-        var folder = Folder.selectDialog("Select folder containing PSD files:");
+    browseBtn.onClick = function () {
+        var folder = Folder.selectDialog("Select folder containing PSD files (includes subfolders):");
         if (folder != null) {
             sourcePath.text = folder.fsName;
         }
@@ -81,16 +81,16 @@ function createGUI() {
 
     var processBtn = buttonGroup.add("button", undefined, "Process Files");
     processBtn.preferredSize.width = 120;
-    
+
     var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
     cancelBtn.preferredSize.width = 120;
 
     // Button functionality
-    processBtn.onClick = function() {
+    processBtn.onClick = function () {
         dialog.close(1); // Return 1 for processing
     };
 
-    cancelBtn.onClick = function() {
+    cancelBtn.onClick = function () {
         dialog.close(0); // Return 0 for cancel
     };
 
@@ -101,17 +101,27 @@ function createGUI() {
 // Process all PSD files in the batch
 function processBatchPSD(sourceFolder, processHidden) {
     try {
-        // Get all PSD files
-        var psdFiles = sourceFolder.getFiles("*.psd");
-
-        if (psdFiles.length == 0) {
-            alert("No PSD files found in the selected folder.");
-            return;
+        // Function to get all PSD files recursively
+        function getPsdFiles(folder) {
+            var files = folder.getFiles();
+            var psds = [];
+            for (var i = 0; i < files.length; i++) {
+                if (files[i] instanceof Folder) {
+                    psds = psds.concat(getPsdFiles(files[i]));
+                } else if (files[i] instanceof File && files[i].name.toLowerCase().match(/\.psd$/)) {
+                    psds.push(files[i]);
+                }
+            }
+            return psds;
         }
 
-        // --- MODIFIED FOLDER LOGIC ---
-        // The output folder is now the same as the source folder.
-        var outputFolder = sourceFolder;
+        // Get all PSD files recursively
+        var psdFiles = getPsdFiles(sourceFolder);
+
+        if (psdFiles.length == 0) {
+            alert("No PSD files found in the selected folder or its subfolders.");
+            return;
+        }
 
         // Show progress dialog
         var progressDialog = createProgressDialog(psdFiles.length);
@@ -130,7 +140,8 @@ function processBatchPSD(sourceFolder, processHidden) {
                 progressDialog.update();
 
                 // Process the file, passing the hidden layer flag
-                processSinglePSD(psdFiles[i], outputFolder, processHidden);
+                // Save back to the folder where the file was found
+                processSinglePSD(psdFiles[i], psdFiles[i].parent, processHidden);
 
             } catch (fileError) {
                 // This will log errors for individual files but continue the batch
@@ -150,7 +161,7 @@ function processBatchPSD(sourceFolder, processHidden) {
 
         // Change the cancel button to a close button
         progressDialog.cancelBtn.text = "Close";
-        progressDialog.cancelBtn.onClick = function() {
+        progressDialog.cancelBtn.onClick = function () {
             progressDialog.close();
         }
 
@@ -183,12 +194,12 @@ function createProgressDialog(totalFiles) {
     progressDialog.progressBar = progressBar;
     progressDialog.cancelBtn = cancelBtn;
 
-    cancelBtn.onClick = function() {
+    cancelBtn.onClick = function () {
         progressDialog.cancelled = true;
     };
 
     // When the user closes the window, also treat it as a cancel
-    progressDialog.onClose = function() {
+    progressDialog.onClose = function () {
         progressDialog.cancelled = true;
     };
 
@@ -232,7 +243,7 @@ function processSinglePSD(psdFile, outputFolder, processHidden) {
         // Make sure to close document if open
         try {
             if (doc) doc.close(SaveOptions.DONOTSAVECHANGES);
-        } catch (closeError) {}
+        } catch (closeError) { }
 
         throw new Error("Failed to process " + psdFile.name + ": " + e.message);
     }

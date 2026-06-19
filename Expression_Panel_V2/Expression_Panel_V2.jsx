@@ -36,716 +36,406 @@
         // Determine if this is a dockable panel or standalone window
         var myPanel = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Panel");
 
-        // Panel properties
+        // Panel properties - highly optimized for compact docking (160px width)
         myPanel.orientation = "column";
-        myPanel.alignChildren = ["fill", "top"];
-        myPanel.spacing = 1; // Reduced from 2
-        myPanel.margins = 3; // Reduced from 4
-        myPanel.preferredSize.width = 230; // More compact width
+        myPanel.alignChildren = ["fill", "fill"];
+        myPanel.spacing = 1;
+        myPanel.margins = 2;
+        myPanel.preferredSize.width = 160;
 
+        // ================= GLOBAL HEADER (TIMELINE & LAYER CONTROLS) =================
+        var headerGroup = myPanel.add("group");
+        headerGroup.orientation = "column";
+        headerGroup.alignChildren = ["fill", "top"];
+        headerGroup.spacing = 1;
+        headerGroup.margins = [0, 0, 0, 1];
 
+        // Timeline controls row 1 (6 jump buttons)
+        var jumpRow = headerGroup.add("group");
+        jumpRow.orientation = "row";
+        jumpRow.alignChildren = ["center", "center"];
+        jumpRow.spacing = 2;
 
-        // Bottom row with navigation buttons and frame input
-        var bottomRow = myPanel.add("group");
-        bottomRow.orientation = "row";
-        bottomRow.alignChildren = ["left", "center"];
-        bottomRow.spacing = 2;
+        var jumpBack1s = jumpRow.add("button", undefined, "-1");
+        jumpBack1s.preferredSize.width = 22;
+        jumpBack1s.preferredSize.height = 18;
+        jumpBack1s.helpTip = "Jump backward 1 second";
+        jumpBack1s.onClick = function () { jumpByTime(-1); };
 
-        // Jump backward buttons
-        var jumpBack1s = bottomRow.add("button", undefined, "-1s");
-        jumpBack1s.preferredSize.width = 38;
-        jumpBack1s.onClick = function () {
-            jumpByTime(-1);
-        };
+        var jumpBack05s = jumpRow.add("button", undefined, "-.5");
+        jumpBack05s.preferredSize.width = 22;
+        jumpBack05s.preferredSize.height = 18;
+        jumpBack05s.helpTip = "Jump backward 0.5 seconds";
+        jumpBack05s.onClick = function () { jumpByTime(-0.5); };
 
-        var jumpBack05s = bottomRow.add("button", undefined, "-0.5s");
-        jumpBack05s.preferredSize.width = 38;
-        jumpBack05s.onClick = function () {
-            jumpByTime(-0.5);
-        };
+        var jumpBack4f = jumpRow.add("button", undefined, "-4");
+        jumpBack4f.preferredSize.width = 22;
+        jumpBack4f.preferredSize.height = 18;
+        jumpBack4f.helpTip = "Jump backward 4 frames";
+        jumpBack4f.onClick = function () { jumpByFrames(-4); };
 
-        // Add -4 frame button
-        var jumpBack4f = bottomRow.add("button", undefined, "-4f");
-        jumpBack4f.preferredSize.width = 30;
-        jumpBack4f.onClick = function () {
-            jumpByFrames(-4);
-        };
+        var jumpForward4f = jumpRow.add("button", undefined, "+4");
+        jumpForward4f.preferredSize.width = 22;
+        jumpForward4f.preferredSize.height = 18;
+        jumpForward4f.helpTip = "Jump forward 4 frames";
+        jumpForward4f.onClick = function () { jumpByFrames(4); };
 
-        // Frame input group
-        var frameGroup = bottomRow.add("group");
-        frameGroup.orientation = "row";
-        frameGroup.alignChildren = ["left", "center"];
-        frameGroup.spacing = 2;
+        var jumpForward05s = jumpRow.add("button", undefined, "+.5");
+        jumpForward05s.preferredSize.width = 22;
+        jumpForward05s.preferredSize.height = 18;
+        jumpForward05s.helpTip = "Jump forward 0.5 seconds";
+        jumpForward05s.onClick = function () { jumpByTime(0.5); };
 
-        var frameInput = frameGroup.add("edittext", undefined, "");
-        frameInput.preferredSize.width = 40;
-        frameInput.helpTip = "Enter number of frames to jump";
+        var jumpForward1s = jumpRow.add("button", undefined, "+1");
+        jumpForward1s.preferredSize.width = 22;
+        jumpForward1s.preferredSize.height = 18;
+        jumpForward1s.helpTip = "Jump forward 1 second";
+        jumpForward1s.onClick = function () { jumpByTime(1); };
 
-        var frameJumpBtn = frameGroup.add("button", undefined, "Go");
-        frameJumpBtn.preferredSize.width = 32;
-        frameJumpBtn.onClick = function () {
-            jumpByFrames(parseInt(frameInput.text));
-        };
+        // Layer Navigation row
+        var layerNavRow = headerGroup.add("group");
+        layerNavRow.orientation = "row";
+        layerNavRow.alignChildren = ["center", "center"];
+        layerNavRow.alignment = ["center", "center"];
+        layerNavRow.spacing = 1;
 
-        // Add +4 frame button
-        var jumpForward4f = bottomRow.add("button", undefined, "+4f");
-        jumpForward4f.preferredSize.width = 30;
-        jumpForward4f.onClick = function () {
-            jumpByFrames(4);
-        };
+        var prevLayerBtn = layerNavRow.add("button", undefined, "◀ Lay");
+        prevLayerBtn.preferredSize = [69, 18];
+        prevLayerBtn.helpTip = "Jump to previous layer start";
+        prevLayerBtn.onClick = function () { jumpToPreviousLayerDirect(); };
 
-        // Jump forward buttons
-        var jumpForward05s = bottomRow.add("button", undefined, "+0.5s");
-        jumpForward05s.preferredSize.width = 38;
-        jumpForward05s.onClick = function () {
-            jumpByTime(0.5);
-        };
+        var nextLayerBtn = layerNavRow.add("button", undefined, "Lay ▶");
+        nextLayerBtn.preferredSize = [69, 18];
+        nextLayerBtn.helpTip = "Jump to next layer start";
+        nextLayerBtn.onClick = function () { jumpToNextLayerDirect(); };
 
-        var jumpForward1s = bottomRow.add("button", undefined, "+1s");
-        jumpForward1s.preferredSize.width = 38;
-        jumpForward1s.onClick = function () {
-            jumpByTime(1);
-        };
+        // Search Group
+        var searchGroup = headerGroup.add("group");
+        searchGroup.orientation = "row";
+        searchGroup.alignChildren = ["fill", "center"];
+        searchGroup.spacing = 1;
+        searchGroup.margins = [2, 0, 2, 0];
 
-        // Function to jump by seconds
-        function jumpByTime(seconds) {
-            try {
-                var comp = app.project.activeItem;
-                if (comp && comp instanceof CompItem) {
-                    var newTime = comp.time + seconds;
-                    // Clamp to composition duration
-                    newTime = Math.max(0, Math.min(newTime, comp.duration));
-                    comp.time = newTime;
+        var searchInput = searchGroup.add("edittext", undefined, "Search...");
+        searchInput.preferredSize.height = 18;
+        searchInput.helpTip = "Search functions... (type here)";
 
-                    // Update status with the new time
-                    var timeInFrames = Math.floor(newTime * comp.frameRate);
-                    updateStatus("Jumped to frame " + timeInFrames + " (" + newTime.toFixed(2) + "s)");
-                }
-            } catch (error) {
-                updateStatus("Error: " + error.toString());
-            }
-        }
-
-        // Function to jump by frames
-        function jumpByFrames(frames) {
-            try {
-                if (isNaN(frames)) {
-                    updateStatus("Please enter a valid frame number");
-                    return;
-                }
-
-                var comp = app.project.activeItem;
-                if (comp && comp instanceof CompItem) {
-                    var seconds = frames / comp.frameRate;
-                    var newTime = comp.time + seconds;
-                    // Clamp to composition duration
-                    newTime = Math.max(0, Math.min(newTime, comp.duration));
-                    comp.time = newTime;
-
-                    updateStatus("Jumped " + frames + " frames to " + newTime.toFixed(2) + "s");
-                }
-            } catch (error) {
-                updateStatus("Error: " + error.toString());
-            }
-        }
-
-        // Add some visual spacing after the timeline group
-        var spacer = myPanel.add("group");
-        spacer.preferredSize.height = 2;
-
-        // Parse timecode and jump
-        function parseTimeAndJump(timeStr) {
-            try {
-                // Find main composition
-                var mainComp = null;
-                for (var i = 1; i <= app.project.numItems; i++) {
-                    var item = app.project.item(i);
-                    if (item instanceof CompItem && item.name === "main_comp") {
-                        mainComp = item;
-                        break;
-                    }
-                }
-
-                if (!mainComp) {
-                    updateStatus("Could not find 'main_comp'");
-                    return;
-                }
-
-                // Remove any whitespace
-                timeStr = timeStr.replace(/\s/g, '');
-
-                var totalSeconds = 0;
-                var fps = mainComp.frameRate; // Get composition frame rate
-
-                // Helper function to parse time parts
-                function parseTimeParts(h, m, s, f) {
-                    return parseInt(h) * 3600 + // Hours
-                        parseInt(m) * 60 + // Minutes
-                        parseInt(s) + // Seconds
-                        parseFloat(f || 0); // Frames as decimal of a second
-                }
-
-                // Try different time formats
-                if (timeStr.indexOf(':') !== -1) {
-                    // Split by colon first
-                    var mainParts = timeStr.split(':');
-
-                    // Check if the last part contains a period (frames in decimal format)
-                    if (mainParts[mainParts.length - 1].indexOf('.') !== -1) {
-                        // Handle subtitle engine format (HH:MM:SS.FFF)
-                        var lastPart = mainParts[mainParts.length - 1].split('.');
-                        mainParts[mainParts.length - 1] = lastPart[0];
-
-                        // Convert frame number to seconds
-                        // If it's 3 digits (e.g., .017), treat as frame number
-                        var frameNumber = parseInt(lastPart[1]);
-                        if (lastPart[1].length === 3) {
-                            // Remove leading zeros and convert to actual frame number
-                            frameNumber = parseInt(lastPart[1].replace(/^0+/, ''));
-                        }
-                        var frameSeconds = frameNumber / fps;
-
-                        if (mainParts.length === 3) {
-                            // Format: HH:MM:SS.FFF
-                            totalSeconds = parseTimeParts(mainParts[0], mainParts[1], mainParts[2], frameSeconds);
-                        } else if (mainParts.length === 2) {
-                            // Format: MM:SS.FFF
-                            totalSeconds = parseTimeParts(0, mainParts[0], mainParts[1], frameSeconds);
-                        }
-                    } else {
-                        // Handle standard frame format (HH:MM:SS:FF)
-                        if (mainParts.length === 4) {
-                            // Format: HH:MM:SS:FF
-                            totalSeconds = parseTimeParts(mainParts[0], mainParts[1], mainParts[2], mainParts[3] / fps);
-                        } else if (mainParts.length === 3) {
-                            // Format: MM:SS:FF
-                            totalSeconds = parseTimeParts(0, mainParts[0], mainParts[1], mainParts[2] / fps);
-                        } else if (mainParts.length === 2) {
-                            // Format: SS:FF
-                            totalSeconds = parseTimeParts(0, 0, mainParts[0], mainParts[1] / fps);
-                        }
-                    }
-                } else {
-                    // Try parsing as seconds
-                    totalSeconds = parseFloat(timeStr);
-                }
-
-                if (isNaN(totalSeconds)) {
-                    updateStatus("Invalid time format");
-                    return;
-                }
-
-                // Clamp to composition duration
-                totalSeconds = Math.max(0, Math.min(totalSeconds, mainComp.duration));
-
-                // Jump to time
-                mainComp.time = totalSeconds;
-
-                // Format the time for status display
-                var hours = Math.floor(totalSeconds / 3600);
-                var minutes = Math.floor((totalSeconds % 3600) / 60);
-                var seconds = Math.floor(totalSeconds % 60);
-                var frames = Math.floor((totalSeconds % 1) * fps);
-
-                // Helper function to pad numbers with leading zeros
-                function padNumber(num, width) {
-                    var str = num.toString();
-                    while (str.length < width) {
-                        str = '0' + str;
-                    }
-                    return str;
-                }
-
-                // Format display time with frames
-                var timeDisplay = (hours > 0 ? padNumber(hours, 2) + ':' : '') +
-                    padNumber(minutes, 2) + ':' +
-                    padNumber(seconds, 2) + '.' +
-                    padNumber(frames, 2); // Display frames as two digits
-
-                updateStatus("Jumped to " + timeDisplay);
-
-            } catch (error) {
-                updateStatus("Error: " + error.toString());
-            }
-        }
-
-        // Function to move next layer to current time
-        function moveNextLayerToCurrentTime(comp) {
-            try {
-                var selectedLayers = comp.selectedLayers;
-                if (selectedLayers.length === 0) {
-                    return; // No layer selected, skip auto-move
-                }
-
-                // Get the first selected layer
-                var currentLayer = selectedLayers[0];
-                var currentLayerIndex = currentLayer.index;
-
-                // Find the next layer (layer above = lower index)
-                var nextLayerIndex = currentLayerIndex - 1;
-
-                if (nextLayerIndex >= 1) { // Make sure there's a layer above
-                    var nextLayer = comp.layer(nextLayerIndex);
-
-                    // Move the next layer to current time
-                    nextLayer.startTime = comp.time;
-
-                    // Deselect all layers first
-                    for (var i = 0; i < selectedLayers.length; i++) {
-                        selectedLayers[i].selected = false;
-                    }
-
-                    // Select the moved layer
-                    nextLayer.selected = true;
-
-                    updateStatus("Moved '" + nextLayer.name + "' to current time and selected it");
-                } else {
-                    updateStatus("No layer above current selection to move");
-                }
-
-            } catch (error) {
-                updateStatus("Auto-move error: " + error.toString());
-            }
-        }
+        var clearSearchBtn = searchGroup.add("button", undefined, "✖");
+        clearSearchBtn.preferredSize = [18, 18];
+        clearSearchBtn.helpTip = "Clear search";
 
         // Separator
-        myPanel.add("panel");
+        var sep1 = headerGroup.add("panel");
+        sep1.alignment = ["fill", "top"];
+        sep1.preferredSize = [10, 2];
 
-        // Quick Utilities - 3x2 Layout
-        var quickUtilGroup = myPanel.add("group");
-        quickUtilGroup.orientation = "column";
-        quickUtilGroup.alignChildren = ["fill", "top"];
-        quickUtilGroup.spacing = 1;
+        // ================= TABBED MAIN PANEL =================
+        // ================= TABBED MAIN PANEL =========        // ================= CUSTOM TAB BAR =================
+        var tabGroup = myPanel.add("group");
+        tabGroup.orientation = "row";
+        tabGroup.alignChildren = ["center", "center"];
+        tabGroup.spacing = 1;
+        tabGroup.margins = [0, 1, 0, 1];
 
-        // First row of utilities
-        var utilRow1 = quickUtilGroup.add("group");
-        utilRow1.orientation = "row";
-        utilRow1.alignChildren = ["fill", "center"];
-        utilRow1.spacing = 1;
+        var btnBasic = tabGroup.add("button", undefined, "★");
+        btnBasic.preferredSize = [24, 18];
+        btnBasic.helpTip = "Basic Animations";
 
-        // Add Current Keyframes button
-        var addKeyframesBtn = utilRow1.add("button", undefined, "Add Keyframes");
-        addKeyframesBtn.preferredSize.height = 16;
-        addKeyframesBtn.helpTip = "Adds keyframes for current position, scale and rotation values";
-        addKeyframesBtn.onClick = function () {
-            addCurrentKeyframes();
-        };
+        var btnComplex = tabGroup.add("button", undefined, "✵");
+        btnComplex.preferredSize = [24, 18];
+        btnComplex.helpTip = "Complex Animations";
 
-        // Add Hide Layers button
-        var hideLayersBtn = utilRow1.add("button", undefined, "Hide Layers");
-        hideLayersBtn.preferredSize.height = 16;
-        hideLayersBtn.helpTip = "Hide all layers starting with 'hide' or 'x' in main_comp";
-        hideLayersBtn.onClick = function () {
-            hideAllLayersNamedHide();
-        };
+        var btnUtil = tabGroup.add("button", undefined, "⚙");
+        btnUtil.preferredSize = [24, 18];
+        btnUtil.helpTip = "Utilities";
 
-        // Add Show Layers button
-        var showLayersBtn = utilRow1.add("button", undefined, "Show Layers");
-        showLayersBtn.preferredSize.height = 16;
-        showLayersBtn.helpTip = "Show all layers starting with 'hide' or 'x' in main_comp";
-        showLayersBtn.onClick = function () {
-            showAllLayersNamedHide();
-        };
+        var btnLoops = tabGroup.add("button", undefined, "↻");
+        btnLoops.preferredSize = [24, 18];
+        btnLoops.helpTip = "Loops";
 
-        // Second row of utilities
-        var utilRow2 = quickUtilGroup.add("group");
-        utilRow2.orientation = "row";
-        utilRow2.alignChildren = ["fill", "center"];
-        utilRow2.spacing = 1;
+        var btnTools = tabGroup.add("button", undefined, "⚒");
+        btnTools.preferredSize = [24, 18];
+        btnTools.helpTip = "Tools";
 
-        // Add Trim Selected button
-        var trimSelectedBtn = utilRow2.add("button", undefined, "Trim Selected");
-        trimSelectedBtn.preferredSize.height = 16;
-        trimSelectedBtn.helpTip = "Trim selected layers to avoid overlapping";
-        trimSelectedBtn.onClick = function () {
-            trimSelectedLayers();
-        };
+        var btnLayerUtil = tabGroup.add("button", undefined, "☰");
+        btnLayerUtil.preferredSize = [24, 18];
+        btnLayerUtil.helpTip = "Layer Utilities";
 
-        // Add Batch Duration button
-        var batchDurationBtn = utilRow2.add("button", undefined, "Batch Duration");
-        batchDurationBtn.preferredSize.height = 16;
-        batchDurationBtn.helpTip = "Change duration of selected precomp source compositions";
-        batchDurationBtn.onClick = function () {
-            changeBatchDuration();
-        };
+        // Stack Container for Tab contents
+        var containerStack = myPanel.add("group");
+        containerStack.orientation = "stack";
+        containerStack.alignChildren = ["fill", "fill"];
+        containerStack.alignment = ["fill", "fill"];
 
-        // Add X Crop button
-        var xCropBtn = utilRow2.add("button", undefined, "X Crop");
-        xCropBtn.preferredSize.height = 16;
-        xCropBtn.helpTip = "Open X Crop tool for smart composition cropping";
-        xCropBtn.onClick = function () {
-            openXCropTool();
-        };
+        // Helper to add a bottom spacer to absorb vertical stretching
+        function addTabSpacer(parent) {
+            var spacer = parent.add("group");
+            spacer.alignment = ["fill", "fill"];
+            return spacer;
+        }
 
-        // Third row of utilities
-        var utilRow3 = quickUtilGroup.add("group");
-        utilRow3.orientation = "row";
-        utilRow3.alignChildren = ["fill", "center"];
-        utilRow3.spacing = 1;
+        // Helper to add grid/rows of buttons
+        function addBtn(parent, label, key, actionFn, helpText) {
+            var btn = parent.add("button", undefined, label);
+            btn.alignment = ["fill", "center"];
+            btn.preferredSize.height = 18;
+            btn.maximumSize.width = 110;
+            btn.helpTip = helpText || EXPRESSIONS[key] || key;
+            btn.onClick = function () {
+                try {
+                    actionFn(key);
+                } catch(e) {
+                    updateStatus("Error: " + e.toString());
+                }
+            };
+            return btn;
+        }
 
-        // Add Batch FPS button
-        var batchFpsBtn = utilRow3.add("button", undefined, "Batch FPS");
-        batchFpsBtn.preferredSize.height = 16;
-        batchFpsBtn.helpTip = "Change framerate of selected precomp source compositions in main_comp";
-        batchFpsBtn.onClick = function () {
-            showBatchFramerateDialog();
-        };
+        // Action routing helper
+        function runAnim(key) {
+            if (key === "Time Rotation") showTimeRotationDialog();
+            else if (key === "Up Down") showUpDownDialog();
+            else if (key === "Left Right") showLeftRightDialog();
+            else if (key === "Water Float") showWaterFloatDialog();
+            else if (key === "Glitter") showGlitterDialog();
+            else if (key === "Fish-like") showFishDialog();
+            else if (key === "Fast Wiggle") showWigglePresetsDialog();
+            else if (key === "Posterize Time") showPosterizeTimeDialog();
+            else if (key === "Rotation PingPong") showRotationPingPongDialog();
+            else if (key === "Thunder Flicker") showThunderFlickerDialog();
+            else if (key === "Scale Pulse") showScalePulseDialog();
+            else if (key === "V Scale") showVScaleDialog();
+            else if (key === "B Posterizer") showBPosterizerDialog();
+            else if (key === "Walk/Run Arc") showWalkRunDialog();
+            else handleExpressionClick(key, EXPRESSIONS[key]);
+        }
 
-        // Add Hide Layer 2 button
-        var hideLayer2Btn = utilRow3.add("button", undefined, "Hide Layer 2");
-        hideLayer2Btn.preferredSize.height = 16;
-        hideLayer2Btn.helpTip = "Hide all layers starting with 'hide' or 'x' in a specific composition (user-selected)";
-        hideLayer2Btn.onClick = function () {
-            hideAllLayersNamedHide2();
-        };
+        // ---------------- TAB 1: BASIC ANIMATION (★) ----------------
+        var tabBasic = containerStack.add("group");
+        tabBasic.orientation = "column";
+        tabBasic.alignChildren = ["fill", "top"];
+        tabBasic.spacing = 2;
+        tabBasic.margins = 2;
 
-        // Main content group with two columns
-        var mainGroup = myPanel.add("group");
-        mainGroup.orientation = "row";
-        mainGroup.alignChildren = ["fill", "top"];
-        mainGroup.spacing = 2; // Reduced from 3
-
-        // Left Column
-        var leftCol = mainGroup.add("group");
-        leftCol.orientation = "column";
-        leftCol.alignChildren = ["fill", "top"];
-        leftCol.spacing = 1; // Reduced from 2
-        leftCol.preferredSize.width = 110;
-
-        // Basic Animations (Left Column)
-        leftCol.add("panel");
-        var basicTitle = leftCol.add("statictext", undefined, "Basic Animations");
-        basicTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        basicTitle.alignment = "center";
-
-        var basicGroup = leftCol.add("group");
-        basicGroup.orientation = "column";
-        basicGroup.alignChildren = ["fill", "top"];
-        basicGroup.spacing = 1;
-
-        // Basic animation buttons - paired in 2-column rows
         var basicPairs = [
-            ["Fast Wiggle", "Posterize Time"],
-            ["Stop Motion", "Time Rotation"],
-            ["Up Down", "Left Right"],
-            ["Rot PingPong", "Thunder Flicker"],
-            ["Horror Light", "Scale Pulse"],
-            ["V Scale", "B Posterizer"]
+            ["∿ Wiggle", "Fast Wiggle"],
+            ["⧗ Posterize Time", "Posterize Time"],
+            ["⏸ Stop Motion", "Stop Motion"],
+            ["↻ Time Rotation", "Time Rotation"],
+            ["↕ Up Down", "Up Down"],
+            ["↔ Left Right", "Left Right"],
+            ["⇄ Rot PingPong", "Rotation PingPong"],
+            ["☇ Thunder Flicker", "Thunder Flicker"],
+            ["☽ Horror Light", "Horror Light"],
+            ["⤢ Scale Pulse", "Scale Pulse"],
+            ["↕ V Scale", "V Scale"],
+            ["⧗ B Posterizer", "B Posterizer"]
         ];
-        // Map short labels to expression keys
-        var labelToKey = { "Rot PingPong": "Rotation PingPong" };
 
-        for (var bp = 0; bp < basicPairs.length; bp++) {
-            var bRow = basicGroup.add("group");
-            bRow.orientation = "row";
-            bRow.alignChildren = ["fill", "center"];
-            bRow.spacing = 2;
+        for (var i = 0; i < basicPairs.length; i += 2) {
+            var row = tabBasic.add("group");
+            row.orientation = "row";
+            row.alignChildren = ["fill", "center"];
+            row.spacing = 2;
+            addBtn(row, basicPairs[i][0], basicPairs[i][1], runAnim);
+            if (i + 1 < basicPairs.length) {
+                addBtn(row, basicPairs[i+1][0], basicPairs[i+1][1], runAnim);
+            }
+        }
+        addTabSpacer(tabBasic);
 
-            for (var bc = 0; bc < basicPairs[bp].length; bc++) {
-                var label = basicPairs[bp][bc];
-                var key = labelToKey[label] || label;
-                (function (lbl, expressionKey) {
-                    var btn = bRow.add("button", undefined, lbl);
-                    btn.alignment = ["fill", "center"];
-                    btn.preferredSize.height = 16;
-                    btn.helpTip = EXPRESSIONS[expressionKey] || expressionKey;
-                    btn.onClick = function () {
-                        if (expressionKey === "Time Rotation") {
-                            showTimeRotationDialog();
-                        } else if (expressionKey === "Up Down") {
-                            showUpDownDialog();
-                        } else if (expressionKey === "Left Right") {
-                            showLeftRightDialog();
-                        } else if (expressionKey === "Fast Wiggle") {
-                            showWigglePresetsDialog();
-                        } else if (expressionKey === "Posterize Time") {
-                            showPosterizeTimeDialog();
-                        } else if (expressionKey === "Rotation PingPong") {
-                            showRotationPingPongDialog();
-                        } else if (expressionKey === "Thunder Flicker") {
-                            showThunderFlickerDialog();
-                        } else if (expressionKey === "Scale Pulse") {
-                            showScalePulseDialog();
-                        } else if (expressionKey === "V Scale") {
-                            showVScaleDialog();
-                        } else if (expressionKey === "B Posterizer") {
-                            showBPosterizerDialog();
-                        } else {
-                            handleExpressionClick(expressionKey, EXPRESSIONS[expressionKey]);
-                        }
-                    };
-                })(label, key);
+        // ---------------- TAB 2: COMPLEX ANIMATION (✵) ----------------
+        var tabComplex = containerStack.add("group");
+        tabComplex.orientation = "column";
+        tabComplex.alignChildren = ["fill", "top"];
+        tabComplex.spacing = 2;
+        tabComplex.margins = 2;
+
+        var complexItems = [
+            ["≈ Water Float", "Water Float", runAnim],
+            ["✦ Glitter", "Glitter", runAnim],
+            ["⚏ Fish-like", "Fish-like", runAnim],
+            ["≈ Water Distort", "Water Distort", function() { showWaterDistortionDialog(); }],
+            ["✳ Rim Light", "Rim Light", function() { addRimLightEffects(); }],
+            ["⇅ Choppy Flip", "Choppy Flip", function() { showChoppyFlipDialog(); }],
+            ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }],
+            ["⤓ Squash", "Squash", function() { applySquashAnimation(); }],
+            ["◒ Blink", "Blink", function() { showBlinkDialog(); }],
+            ["⇾ Kick Out", "Kick Out", function() { showKickOutOfFrameDialog(); }],
+            ["⇿ Put Here", "Put Here", function() { showPutHereDialog(); }],
+            ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }],
+            ["□ White BG", "White BG", function() { setPrecompBgWhite(); }]
+        ];
+
+        for (var i = 0; i < complexItems.length; i += 2) {
+            var row = tabComplex.add("group");
+            row.orientation = "row";
+            row.alignChildren = ["fill", "center"];
+            row.spacing = 2;
+            addBtn(row, complexItems[i][0], complexItems[i][1], complexItems[i][2]);
+            if (i + 1 < complexItems.length) {
+                addBtn(row, complexItems[i+1][0], complexItems[i+1][1], complexItems[i+1][2]);
+            }
+        }
+        addTabSpacer(tabComplex);
+
+        // ---------------- TAB 3: UTILITIES (⚙) ----------------
+        var tabUtil = containerStack.add("group");
+        tabUtil.orientation = "column";
+        tabUtil.alignChildren = ["fill", "top"];
+        tabUtil.spacing = 2;
+        tabUtil.margins = 2;
+
+        var utilItems = [
+            ["⛨ XLock", "XLock", function() { toggleXLockLayers(); }, "Toggle lock status for layers named 'x' or 'X' in main_comp"],
+            ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
+            ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio comp from main_comp to current comp and sync it"],
+            ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
+            ["⚲ Lips CTRL", "Lips CTRL", function() { showLipsCtrlDialog(); }, "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right"],
+            ["♫ Audio Marker", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
+            ["⚯ Puppet→Null", "Puppet→Null", function() { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
+            ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
+            ["↔ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
+            ["↕ Flip V", "Flip V", function() { flipVertical(); }, "Flip layers vertically (invert Y scale)"],
+            ["☒ Hide Layers", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
+            ["☑ Show Layers", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
+            ["☒ Hide Layer 2", "Hide Layer 2", function() { hideAllLayersNamedHide2(); }, "Hide all layers starting with 'hide' or 'x' in a user-selected comp"],
+            ["⧗ Batch Duration", "Batch Duration", function() { changeBatchDuration(); }, "Change duration of selected precomp source compositions"],
+            ["⧗ Batch FPS", "Batch FPS", function() { showBatchFramerateDialog(); }, "Change framerate of selected precomp source compositions in main_comp"],
+            ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
+            ["♦ Add Keyframes", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale and rotation values"],
+            ["✃ Trim Selected", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"]
+        ];
+
+        for (var i = 0; i < utilItems.length; i += 2) {
+            var row = tabUtil.add("group");
+            row.orientation = "row";
+            row.alignChildren = ["fill", "center"];
+            row.spacing = 2;
+            addBtn(row, utilItems[i][0], utilItems[i][1], utilItems[i][2], utilItems[i][3]);
+            if (i + 1 < utilItems.length) {
+                addBtn(row, utilItems[i+1][0], utilItems[i+1][1], utilItems[i+1][2], utilItems[i+1][3]);
+            }
+        }
+        addTabSpacer(tabUtil);
+
+        // ---------------- TAB 4: LOOPS (↻) ----------------
+        var tabLoops = containerStack.add("group");
+        tabLoops.orientation = "column";
+        tabLoops.alignChildren = ["fill", "top"];
+        tabLoops.spacing = 2;
+        tabLoops.margins = 2;
+
+        var loopPairs = [
+            ["↻ Loop Cycle", "Loop Cycle"],
+            ["➔ Loop Continue", "Loop Continue"],
+            ["⇄ Loop PingPong", "Loop PingPong"]
+        ];
+
+        var rowL1 = tabLoops.add("group");
+        rowL1.orientation = "row";
+        rowL1.alignChildren = ["fill", "center"];
+        rowL1.spacing = 2;
+        addBtn(rowL1, loopPairs[0][0], loopPairs[0][1], runAnim);
+        addBtn(rowL1, loopPairs[1][0], loopPairs[1][1], runAnim);
+
+        var rowL2 = tabLoops.add("group");
+        rowL2.orientation = "row";
+        rowL2.alignChildren = ["fill", "center"];
+        rowL2.spacing = 2;
+        addBtn(rowL2, loopPairs[2][0], loopPairs[2][1], runAnim);
+        var looperBtn = rowL2.add("button", undefined, "∞ Looper");
+        looperBtn.alignment = ["fill", "center"];
+        looperBtn.preferredSize.height = 18;
+        looperBtn.maximumSize.width = 110;
+        looperBtn.helpTip = "Enable time remap loop on selected precomp layer";
+        looperBtn.onClick = function () { looperTool(); };
+        addTabSpacer(tabLoops);
+
+        // ---------------- TAB 5: TOOLS (⚒) ----------------
+        var tabTools = containerStack.add("group");
+        tabTools.orientation = "column";
+        tabTools.alignChildren = ["fill", "top"];
+        tabTools.spacing = 2;
+        tabTools.margins = 2;
+
+        var toolPairs = [
+            ["▢ Create Null", "Create Null", function() { createNullObject(); }, "Creates a null object for the selected layer"],
+            ["⇄ Reverse KF", "Reverse KF", function() { reverseAllKeyframes(); }, "Reverse selected keyframes"],
+            ["⤢ Batch Scale", "Batch Scale", function() { showBatchScaleDialog(); }, "Batch scale layers with presets"],
+            ["⧉ Smart Precomp", "Smart Precomp", function() { createSmartPrecomp(); }, "Create precomp retaining size, scale and position"],
+            ["⤎ CP Movement", "CP Movement", function() { showCPMovementDialog(); }, "Copy movement from a layer inside precomp"],
+            ["⌕ Auto Zoom", "Auto Zoom", function() { showAutoZoomDialog(); }, "Add zoom in/out keyframes to selected layers"],
+            ["⤏ Walk/Run", "Walk/Run", function() { showWalkRunDialog(); }, "Add walking/running arc movement"],
+            ["⚯ Attach Leg", "Attach Leg", function() { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
+            ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer"],
+            ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"]
+        ];
+
+        for (var i = 0; i < toolPairs.length; i += 2) {
+            var row = tabTools.add("group");
+            row.orientation = "row";
+            row.alignChildren = ["fill", "center"];
+            row.spacing = 2;
+            addBtn(row, toolPairs[i][0], toolPairs[i][1], toolPairs[i][2], toolPairs[i][3]);
+            if (i + 1 < toolPairs.length) {
+                addBtn(row, toolPairs[i+1][0], toolPairs[i+1][1], toolPairs[i+1][2], toolPairs[i+1][3]);
             }
         }
 
-        // Loops (Left Column)
-        leftCol.add("panel");
-        var loopTitle = leftCol.add("statictext", undefined, "Loops");
-        loopTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        loopTitle.alignment = "center";
-
-        var loopsGrid = leftCol.add("group");
-        loopsGrid.orientation = "row";
-        loopsGrid.alignChildren = ["fill", "top"];
-        loopsGrid.spacing = 2;
-
-        var loopCol1 = loopsGrid.add("group");
-        loopCol1.orientation = "column";
-        loopCol1.alignChildren = ["fill", "top"];
-        loopCol1.spacing = 1;
-
-        var loopCol2 = loopsGrid.add("group");
-        loopCol2.orientation = "column";
-        loopCol2.alignChildren = ["fill", "top"];
-        loopCol2.spacing = 1;
-
-        addButtonsToGroup(loopCol1, ["Loop Cycle", "Loop Continue"]);
-        addButtonsToGroup(loopCol2, ["Loop PingPong"]);
-
-
-        // Looper button (part of Loops category)
-        var looperBtn = loopCol2.add("button", undefined, "Looper");
-        looperBtn.alignment = ["fill", "center"];
-        looperBtn.preferredSize.height = 16;
-        looperBtn.helpTip = "Enable time remap loop on selected precomp layer";
-        looperBtn.onClick = function () {
-            looperTool();
-        };
-
-        // Tools section (separated from Loops)
-        leftCol.add("panel");
-        var toolsTitle = leftCol.add("statictext", undefined, "Tools");
-        toolsTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        toolsTitle.alignment = "center";
-
-        // Tools row 1: Create Null | Reverse KF
-        var toolsRow1 = leftCol.add("group");
-        toolsRow1.orientation = "row";
-        toolsRow1.alignChildren = ["fill", "center"];
-        toolsRow1.spacing = 2;
-
-        var createNullBtnMain = toolsRow1.add("button", undefined, "Create Null");
-        createNullBtnMain.alignment = ["fill", "center"];
-        createNullBtnMain.preferredSize.height = 16;
-        createNullBtnMain.helpTip = "Creates a null object for the selected layer";
-        createNullBtnMain.onClick = function () {
-            createNullObject();
-        };
-
-        var reverseKFBtn2 = toolsRow1.add("button", undefined, "Reverse KF");
-        reverseKFBtn2.alignment = ["fill", "center"];
-        reverseKFBtn2.preferredSize.height = 16;
-        reverseKFBtn2.helpTip = "Reverse selected keyframes (select keyframes in timeline first)";
-        reverseKFBtn2.onClick = function () {
-            reverseAllKeyframes();
-        };
-
-        // Tools row 2: Batch Scale | Smart Precomp
-        var toolsRow2 = leftCol.add("group");
-        toolsRow2.orientation = "row";
-        toolsRow2.alignChildren = ["fill", "center"];
-        toolsRow2.spacing = 2;
-
-        var batchScaleBtn2 = toolsRow2.add("button", undefined, "Batch Scale");
-        batchScaleBtn2.alignment = ["fill", "center"];
-        batchScaleBtn2.preferredSize.height = 16;
-        batchScaleBtn2.helpTip = "Batch scale layers with presets (34%, 50%, 100%)";
-        batchScaleBtn2.onClick = function () {
-            showBatchScaleDialog();
-        };
-
-        var smartPrecompBtn2 = toolsRow2.add("button", undefined, "Smart Precomp");
-        smartPrecompBtn2.alignment = ["fill", "center"];
-        smartPrecompBtn2.preferredSize.height = 16;
-        smartPrecompBtn2.helpTip = "Create precomp from selected layers while retaining size, scale and position";
-        smartPrecompBtn2.onClick = function () {
-            createSmartPrecomp();
-        };
-
-        // Tools row 3: CP Movement | Auto Zoom
-        var toolsRow3 = leftCol.add("group");
-        toolsRow3.orientation = "row";
-        toolsRow3.alignChildren = ["fill", "center"];
-        toolsRow3.spacing = 2;
-
-        var cpMovementBtn2 = toolsRow3.add("button", undefined, "CP Movement");
-        cpMovementBtn2.alignment = ["fill", "center"];
-        cpMovementBtn2.preferredSize.height = 16;
-        cpMovementBtn2.helpTip = "Copy movement from a layer inside a precomp to this layer's position";
-        cpMovementBtn2.onClick = function () {
-            showCPMovementDialog();
-        };
-
-        var autoZoomBtn2 = toolsRow3.add("button", undefined, "Auto Zoom");
-        autoZoomBtn2.alignment = ["fill", "center"];
-        autoZoomBtn2.preferredSize.height = 16;
-        autoZoomBtn2.helpTip = "Add zoom in/out keyframes to selected layers with easing";
-        autoZoomBtn2.onClick = function () {
-            showAutoZoomDialog();
-        };
-
-        // Tools row 4: Walk/Run | Fish-like
-        var toolsRow4 = leftCol.add("group");
-        toolsRow4.orientation = "row";
-        toolsRow4.alignChildren = ["fill", "center"];
-        toolsRow4.spacing = 2;
-
-        var walkRunBtn2 = toolsRow4.add("button", undefined, "Walk/Run");
-        walkRunBtn2.alignment = ["fill", "center"];
-        walkRunBtn2.preferredSize.height = 16;
-        walkRunBtn2.helpTip = "Add walking/running arc movement to selected layers";
-        walkRunBtn2.onClick = function () {
-            showWalkRunDialog();
-        };
-
-        var fishLikeBtn2 = toolsRow4.add("button", undefined, "Fish-like");
-        fishLikeBtn2.alignment = ["fill", "center"];
-        fishLikeBtn2.preferredSize.height = 16;
-        fishLikeBtn2.helpTip = "Swimming fish animation";
-        fishLikeBtn2.onClick = function () {
-            showFishDialog();
-        };
-
-        // Tools row 5: Attach Leg & Add Mouth
-        var toolsRow5 = leftCol.add("group");
-        toolsRow5.orientation = "row";
-        toolsRow5.alignChildren = ["fill", "center"];
-        toolsRow5.spacing = 2;
-
-        var attachLegBtn = toolsRow5.add("button", undefined, "Attach Leg");
-        attachLegBtn.alignment = ["fill", "center"];
-        attachLegBtn.preferredSize.height = 16;
-        attachLegBtn.helpTip = "Attach a leg comp to the selected layer";
-        attachLegBtn.onClick = function () {
-            showAttachLegDialog();
-        };
-
-        var attachMouthBtn = toolsRow5.add("button", undefined, "Add Mouth");
-        attachMouthBtn.alignment = ["fill", "center"];
-        attachMouthBtn.preferredSize.height = 16;
-        attachMouthBtn.helpTip = "Attach a mouth comp to the selected layer";
-        attachMouthBtn.onClick = function () {
-            showAttachMouthDialog();
-        };
-
-        // Tools row 6: Pinch | List Jumper
-        var toolsRow6 = leftCol.add("group");
-        toolsRow6.orientation = "row";
-        toolsRow6.alignChildren = ["fill", "center"];
-        toolsRow6.spacing = 2;
-
-        var pinchBtn = toolsRow6.add("button", undefined, "Pinch");
-        pinchBtn.alignment = ["fill", "center"];
-        pinchBtn.preferredSize.height = 16;
-        pinchBtn.helpTip = "Add a pinch preset animation (+12%, -15%, etc.)";
-        pinchBtn.onClick = function () {
-            showPinchDialog();
-        };
-
-        var listJumperBtn = toolsRow6.add("button", undefined, "List Jumper");
+        // List Jumper row
+        var rowTLast = tabTools.add("group");
+        rowTLast.orientation = "row";
+        rowTLast.alignChildren = ["fill", "center"];
+        rowTLast.spacing = 2;
+        var listJumperBtn = rowTLast.add("button", undefined, "☰ List Jumper");
         listJumperBtn.alignment = ["fill", "center"];
-        listJumperBtn.preferredSize.height = 16;
+        listJumperBtn.preferredSize.height = 18;
+        listJumperBtn.maximumSize.width = 110;
         listJumperBtn.helpTip = "Open List Jumper - jump to timeline positions based on CSV word data";
         listJumperBtn.onClick = function () {
             var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
             $.evalFile(new File(scriptFile));
         };
+        addTabSpacer(tabTools);
 
-        // Layer Utils Section - 2 column layout
-        leftCol.add("panel");
-        var layUtilTitle = leftCol.add("statictext", undefined, "Layer Utils");
-        layUtilTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        layUtilTitle.alignment = "center";
+        // ---------------- TAB 6: LAYER UTILS (☰) ----------------
+        var tabLayerUtil = containerStack.add("group");
+        tabLayerUtil.orientation = "column";
+        tabLayerUtil.alignChildren = ["fill", "top"];
+        tabLayerUtil.spacing = 2;
+        tabLayerUtil.margins = 2;
 
-        var layUtilRow = leftCol.add("group");
-        layUtilRow.orientation = "row";
-        layUtilRow.alignChildren = ["fill", "top"];
-        layUtilRow.spacing = 2;
+        // Sub row 1: Linker & Bellow
+        var linkBellowRow = tabLayerUtil.add("group");
+        linkBellowRow.orientation = "row";
+        linkBellowRow.alignChildren = ["center", "center"];
+        linkBellowRow.alignment = ["center", "top"];
+        linkBellowRow.spacing = 2;
 
-        // Sub-col 1: Stagger + Anchor Point
-        var layUtilSubCol1 = layUtilRow.add("group");
-        layUtilSubCol1.orientation = "column";
-        layUtilSubCol1.alignChildren = ["center", "top"];
-        layUtilSubCol1.spacing = 1;
-
-        // Stagger UI Section
-        var staggerRow = layUtilSubCol1.add("group");
-        staggerRow.orientation = "row";
-        staggerRow.alignChildren = ["center", "center"];
-        staggerRow.spacing = 1;
-
-        var staggerLeftBtn = staggerRow.add("button", undefined, "<");
-        staggerLeftBtn.preferredSize.width = 24;
-        staggerLeftBtn.preferredSize.height = 16;
-        staggerLeftBtn.helpTip = "Stagger Ascending";
-        staggerLeftBtn.onClick = function () {
-            staggerLayers(parseFloat(staggerInput.text) || 1, "Ascending");
-        };
-
-        var staggerInput = staggerRow.add("edittext", undefined, "1");
-        staggerInput.preferredSize.width = 32;
-        staggerInput.preferredSize.height = 18;
-        staggerInput.helpTip = "Offset frames";
-        staggerInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-        staggerInput.justify = "center";
-
-        var staggerRightBtn = staggerRow.add("button", undefined, ">");
-        staggerRightBtn.preferredSize.width = 24;
-        staggerRightBtn.preferredSize.height = 16;
-        staggerRightBtn.helpTip = "Stagger Descending";
-        staggerRightBtn.onClick = function () {
-            staggerLayers(parseFloat(staggerInput.text) || 1, "Descending");
-        };
-
-        // Anchor Point Section
-        var anchorGroup = layUtilSubCol1.add("group");
-        anchorGroup.orientation = "column";
-        anchorGroup.alignChildren = ["center", "center"];
-        anchorGroup.spacing = 1;
-
-        var symbols = [["\\", "^", "/"], ["<", "o", ">"], ["/", "v", "\\"]];
-        for (var r = 0; r < 3; r++) {
-            var row = anchorGroup.add("group");
-            row.orientation = "row";
-            row.spacing = 1;
-            for (var c = 0; c < 3; c++) {
-                (function (rr, cc, sym) {
-                    var btn = row.add("button", undefined, sym);
-                    btn.preferredSize = [24, 18];
-                    btn.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
-                    btn.onClick = function () {
-                        moveAnchorPoint(cc, rr);
-                    };
-                })(r, c, symbols[r][c]);
-            }
-        }
-
-        // Sub-col 2: Linker, Bellow, Align KF Only, Align to MK
-        var layUtilSubCol2 = layUtilRow.add("group");
-        layUtilSubCol2.orientation = "column";
-        layUtilSubCol2.alignChildren = ["fill", "top"];
-        layUtilSubCol2.spacing = 2;
-
-        var linkerBtnLU = layUtilSubCol2.add("button", undefined, "Linker");
-        linkerBtnLU.preferredSize.height = 16;
+        var linkerBtnLU = linkBellowRow.add("button", undefined, "⚯ Link");
+        linkerBtnLU.preferredSize = [69, 18];
         linkerBtnLU.helpTip = "Parent selected layers to the last selected layer";
-        linkerBtnLU.onClick = function () {
-            linkerLayers();
-        };
+        linkerBtnLU.onClick = function () { linkerLayers(); };
 
-        var bellowBtnLU = layUtilSubCol2.add("button", undefined, "Bellow");
-        bellowBtnLU.preferredSize.height = 16;
+        var bellowBtnLU = linkBellowRow.add("button", undefined, "↓ Belw");
+        bellowBtnLU.preferredSize = [69, 18];
         bellowBtnLU.helpTip = "Move selected layers below the last selected layer";
-        bellowBtnLU.onClick = function () {
-            Bellow();
-        };
+        bellowBtnLU.onClick = function () { Bellow(); };
 
-        var alignKfOnlyChk = layUtilSubCol2.add("checkbox", undefined, "Align KF Only");
+        // Sub row 2: Align marker and KF checkbox
+        var alignRow = tabLayerUtil.add("group");
+        alignRow.orientation = "row";
+        alignRow.alignChildren = ["center", "center"];
+        alignRow.alignment = ["center", "top"];
+        alignRow.spacing = 4;
+
+        var alignKfOnlyChk = alignRow.add("checkbox", undefined, "KF");
         alignKfOnlyChk.value = true;
         alignKfOnlyChk.helpTip = "Check to align keyframes, uncheck to align layers to markers";
 
-        var alignMkBtn = layUtilSubCol2.add("button", undefined, "Align to MK");
-        alignMkBtn.preferredSize.height = 16;
+        var alignMkBtn = alignRow.add("button", undefined, "⇥ Algn");
+        alignMkBtn.preferredSize = [69, 18];
         alignMkBtn.helpTip = "Align selected keyframes or layers to active composition markers";
         alignMkBtn.onClick = function () {
             if (alignKfOnlyChk.value) {
@@ -755,237 +445,310 @@
             }
         };
 
-        // Right Column
-        var rightCol = mainGroup.add("group");
-        rightCol.orientation = "column";
-        rightCol.alignChildren = ["fill", "top"];
-        rightCol.spacing = 1; // Reduced from 2
-        rightCol.preferredSize.width = 110;
+        // Separator 1
+        var sep2 = tabLayerUtil.add("panel");
+        sep2.alignment = ["fill", "top"];
+        sep2.preferredSize = [10, 2];
 
-        // Complex Animations (Right Column)
-        rightCol.add("panel");
-        var complexTitle = rightCol.add("statictext", undefined, "Complex Animations");
-        complexTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        complexTitle.alignment = "center";
+        // Anchor Point Mover Grid (Centered and separate)
+        var anchorGroup = tabLayerUtil.add("group");
+        anchorGroup.orientation = "column";
+        anchorGroup.alignChildren = ["center", "center"];
+        anchorGroup.alignment = ["center", "top"];
+        anchorGroup.spacing = 1;
 
-        var complexGroup = rightCol.add("group");
-        complexGroup.orientation = "column";
-        complexGroup.alignChildren = ["fill", "top"];
-        complexGroup.spacing = 1;
+        var AP_Symbols = [
+            ["↖", "↑", "↗"],
+            ["←", "⊙", "→"],
+            ["↙", "↓", "↘"]
+        ];
+        for (var r = 0; r < 3; r++) {
+            var row = anchorGroup.add("group");
+            row.orientation = "row";
+            row.spacing = 1;
+            for (var c = 0; c < 3; c++) {
+                (function (rr, cc, sym) {
+                    var btn = row.add("button", undefined, sym);
+                    btn.preferredSize = [26, 22];
+                    btn.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 11);
+                    btn.onClick = function () {
+                        moveAnchorPoint(cc, rr);
+                    };
+                })(r, c, AP_Symbols[r][c]);
+            }
+        }
 
-        // Complex animation buttons (Fish-like moved to accordion)
-        var complexButtons = ["Water Float", "Glitter"];
-        addButtonsToGroup(complexGroup, complexButtons);
+        // Separator 2
+        var sep3 = tabLayerUtil.add("panel");
+        sep3.alignment = ["fill", "top"];
+        sep3.preferredSize = [10, 2];
 
-        // Utility (Right Column)
-        rightCol.add("panel");
-        var utilityTitle = rightCol.add("statictext", undefined, "Utilities");
-        utilityTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        utilityTitle.alignment = "center";
+        // Stagger UI Group (Centered, below AP mover)
+        var staggerGrp = tabLayerUtil.add("group");
+        staggerGrp.orientation = "row";
+        staggerGrp.alignChildren = ["center", "center"];
+        staggerGrp.alignment = ["center", "top"];
+        staggerGrp.spacing = 1;
 
-        var utilityGroup = rightCol.add("group");
-        utilityGroup.orientation = "column";
-        utilityGroup.alignChildren = ["fill", "top"];
-        utilityGroup.spacing = 1;
-
-        // Add XLock button
-        var xLockBtn = utilityGroup.add("button", undefined, "XLock");
-        xLockBtn.preferredSize.height = 16;
-        xLockBtn.helpTip = "Toggle lock status for layers named 'x' or 'X' in main_comp";
-        xLockBtn.onClick = function () {
-            toggleXLockLayers();
+        var staggerLeftBtn = staggerGrp.add("button", undefined, "◀");
+        staggerLeftBtn.preferredSize.width = 18;
+        staggerLeftBtn.preferredSize.height = 16;
+        staggerLeftBtn.helpTip = "Stagger Ascending";
+        staggerLeftBtn.onClick = function () {
+            staggerLayers(parseFloat(staggerInput.text) || 1, "Ascending");
         };
 
-        // Add Auto Trim button
-        var autoTrimBtn = utilityGroup.add("button", undefined, "Auto Trim");
-        autoTrimBtn.preferredSize.height = 16;
-        autoTrimBtn.helpTip = "Trim overlapping layers automatically in main_comp";
-        autoTrimBtn.onClick = function () {
-            autoTrimLayers();
+        var staggerInput = staggerGrp.add("edittext", undefined, "1");
+        staggerInput.preferredSize.width = 22;
+        staggerInput.preferredSize.height = 16;
+        staggerInput.helpTip = "Offset frames";
+        staggerInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        staggerInput.justify = "center";
+
+        var staggerRightBtn = staggerGrp.add("button", undefined, "▶");
+        staggerRightBtn.preferredSize.width = 18;
+        staggerRightBtn.preferredSize.height = 16;
+        staggerRightBtn.helpTip = "Stagger Descending";
+        staggerRightBtn.onClick = function () {
+            staggerLayers(parseFloat(staggerInput.text) || 1, "Descending");
         };
 
-        // Add Copy Audio button
-        var copyAudioBtn = utilityGroup.add("button", undefined, "Copy Audio");
-        copyAudioBtn.preferredSize.height = 16;
-        copyAudioBtn.helpTip = "Copy audio comp from main_comp to current comp and sync it";
-        copyAudioBtn.onClick = function () {
-            copyAndSyncAudio();
+        var staggerLbl = staggerGrp.add("statictext", undefined, "░ Stg");
+        staggerLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        addTabSpacer(tabLayerUtil);
+
+        // ---------------- TAB SEARCH (🔍 Results stack page) ----------------
+        var tabSearch = containerStack.add("group");
+        tabSearch.orientation = "column";
+        tabSearch.alignChildren = ["fill", "top"];
+        tabSearch.spacing = 2;
+        tabSearch.margins = 2;
+
+        var searchResultsContainer = tabSearch.add("group");
+        searchResultsContainer.orientation = "column";
+        searchResultsContainer.alignChildren = ["fill", "top"];
+        searchResultsContainer.spacing = 2;
+        addTabSpacer(tabSearch);
+
+        // Master list of all searchable functions
+        var searchableItems = [
+            // Basic Animations
+            { label: "∿ Wiggle", key: "Fast Wiggle", actionFn: runAnim },
+            { label: "⧗ Posterize Time", key: "Posterize Time", actionFn: runAnim },
+            { label: "⏸ Stop Motion", key: "Stop Motion", actionFn: runAnim },
+            { label: "↻ Time Rotation", key: "Time Rotation", actionFn: runAnim },
+            { label: "↕ Up Down", key: "Up Down", actionFn: runAnim },
+            { label: "↔ Left Right", key: "Left Right", actionFn: runAnim },
+            { label: "⇄ Rot PingPong", key: "Rotation PingPong", actionFn: runAnim },
+            { label: "☇ Thunder Flicker", key: "Thunder Flicker", actionFn: runAnim },
+            { label: "☽ Horror Light", key: "Horror Light", actionFn: runAnim },
+            { label: "⤢ Scale Pulse", key: "Scale Pulse", actionFn: runAnim },
+            { label: "↕ V Scale", key: "V Scale", actionFn: runAnim },
+            { label: "⧗ B Posterizer", key: "B Posterizer", actionFn: runAnim },
+            // Complex Animations
+            { label: "≈ Water Float", key: "Water Float", actionFn: runAnim },
+            { label: "✦ Glitter", key: "Glitter", actionFn: runAnim },
+            { label: "⚏ Fish-like", key: "Fish-like", actionFn: runAnim },
+            { label: "≈ Water Distort", key: "Water Distort", actionFn: function() { showWaterDistortionDialog(); } },
+            { label: "✳ Rim Light", key: "Rim Light", actionFn: function() { addRimLightEffects(); } },
+            { label: "⇅ Choppy Flip", key: "Choppy Flip", actionFn: function() { showChoppyFlipDialog(); } },
+            { label: "⤼ Bounce x2", key: "Bounce x2", actionFn: function() { addBounceKeyframes(); } },
+            { label: "⤓ Squash", key: "Squash", actionFn: function() { applySquashAnimation(); } },
+            { label: "◒ Blink", key: "Blink", actionFn: function() { showBlinkDialog(); } },
+            { label: "⇾ Kick Out", key: "Kick Out", actionFn: function() { showKickOutOfFrameDialog(); } },
+            { label: "⇿ Put Here", key: "Put Here", actionFn: function() { showPutHereDialog(); } },
+            { label: "⧉ Tight Crop", key: "Tight Crop", actionFn: function() { runUnprecompDirect(); } },
+            { label: "□ White BG", key: "White BG", actionFn: function() { setPrecompBgWhite(); } },
+            // Utilities
+            { label: "⛨ XLock", key: "XLock", actionFn: function() { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
+            { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
+            { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio comp from main_comp to current comp and sync it" },
+            { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function() { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
+            { label: "⚲ Lips CTRL", key: "Lips CTRL", actionFn: function() { showLipsCtrlDialog(); }, helpTip: "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right" },
+            { label: "♫ Audio Marker", key: "Audio Marker", actionFn: function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, helpTip: "Copy Audio, analyze spikes, and add markers" },
+            { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function() { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
+            { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function() { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
+            { label: "↔ Flip H", key: "Flip H", actionFn: function() { flipHorizontal(); }, helpTip: "Flip layers horizontally (invert X scale)" },
+            { label: "↕ Flip V", key: "Flip V", actionFn: function() { flipVertical(); }, helpTip: "Flip layers vertically (invert Y scale)" },
+            { label: "☒ Hide Layers", key: "Hide Layers", actionFn: function() { hideAllLayersNamedHide(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in main_comp" },
+            { label: "☑ Show Layers", key: "Show Layers", actionFn: function() { showAllLayersNamedHide(); }, helpTip: "Show all layers starting with 'hide' or 'x' in main_comp" },
+            { label: "☒ Hide Layer 2", key: "Hide Layer 2", actionFn: function() { hideAllLayersNamedHide2(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in a user-selected comp" },
+            { label: "⧗ Batch Duration", key: "Batch Duration", actionFn: function() { changeBatchDuration(); }, helpTip: "Change duration of selected precomp source compositions" },
+            { label: "⧗ Batch FPS", key: "Batch FPS", actionFn: function() { showBatchFramerateDialog(); }, helpTip: "Change framerate of selected precomp source compositions in main_comp" },
+            { label: "⧈ X Crop", key: "X Crop", actionFn: function() { openXCropTool(); }, helpTip: "Open X Crop tool for smart composition cropping" },
+            { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function() { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale and rotation values" },
+            { label: "✃ Trim Selected", key: "Trim Selected", actionFn: function() { trimSelectedLayers(); }, helpTip: "Trim selected layers to avoid overlapping" },
+            // Loops
+            { label: "↻ Loop Cycle", key: "Loop Cycle", actionFn: runAnim },
+            { label: "➔ Loop Continue", key: "Loop Continue", actionFn: runAnim },
+            { label: "⇄ Loop PingPong", key: "Loop PingPong", actionFn: runAnim },
+            { label: "∞ Looper", key: "Looper", actionFn: function() { looperTool(); }, helpTip: "Enable time remap loop on selected precomp layer" },
+            // Tools
+            { label: "▢ Create Null", key: "Create Null", actionFn: function() { createNullObject(); }, helpTip: "Creates a null object for the selected layer" },
+            { label: "⇄ Reverse KF", key: "Reverse KF", actionFn: function() { reverseAllKeyframes(); }, helpTip: "Reverse selected keyframes" },
+            { label: "⤢ Batch Scale", key: "Batch Scale", actionFn: function() { showBatchScaleDialog(); }, helpTip: "Batch scale layers with presets" },
+            { label: "⧉ Smart Precomp", key: "Smart Precomp", actionFn: function() { createSmartPrecomp(); }, helpTip: "Create precomp retaining size, scale and position" },
+            { label: "⤎ CP Movement", key: "CP Movement", actionFn: function() { showCPMovementDialog(); }, helpTip: "Copy movement from a layer inside precomp" },
+            { label: "⌕ Auto Zoom", key: "Auto Zoom", actionFn: function() { showAutoZoomDialog(); }, helpTip: "Add zoom in/out keyframes to selected layers" },
+            { label: "⤏ Walk/Run", key: "Walk/Run", actionFn: function() { showWalkRunDialog(); }, helpTip: "Add walking/running arc movement" },
+            { label: "⚯ Attach Leg", key: "Attach Leg", actionFn: function() { showAttachLegDialog(); }, helpTip: "Attach a leg comp to the selected layer" },
+            { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function() { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer" },
+            { label: "⤓ Pinch", key: "Pinch", actionFn: function() { showPinchDialog(); }, helpTip: "Add a pinch preset animation" },
+            { label: "☰ List Jumper", key: "List Jumper", actionFn: function() {
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
+                $.evalFile(new File(scriptFile));
+            }, helpTip: "Open List Jumper - jump to timeline positions based on CSV word data" }
+        ];
+
+        var currentActiveTab = 0;
+        var isSearching = false;
+        var activeTabBeforeSearch = 0;
+
+        // Tab switching function
+        function showTab(index) {
+            currentActiveTab = index;
+            if (isSearching) {
+                searchInput.text = "Search...";
+                isSearching = false;
+            }
+
+            tabBasic.visible = (index === 0);
+            tabComplex.visible = (index === 1);
+            tabUtil.visible = (index === 2);
+            tabLoops.visible = (index === 3);
+            tabTools.visible = (index === 4);
+            tabLayerUtil.visible = (index === 5);
+            tabSearch.visible = false;
+            
+            // Highlight active button using brackets, others clean
+            btnBasic.text = (index === 0) ? "[★]" : "★";
+            btnComplex.text = (index === 1) ? "[✵]" : "✵";
+            btnUtil.text = (index === 2) ? "[⚙]" : "⚙";
+            btnLoops.text = (index === 3) ? "[↻]" : "↻";
+            btnTools.text = (index === 4) ? "[⚒]" : "⚒";
+            btnLayerUtil.text = (index === 5) ? "[☰]" : "☰";
+            
+            myPanel.layout.layout(true);
+        }
+
+        // Live Search Execution
+        function doSearch(query) {
+            // Clean up previous results
+            while (searchResultsContainer.children.length > 0) {
+                searchResultsContainer.remove(searchResultsContainer.children[0]);
+            }
+
+            // Trim and lowercase
+            var cleanQuery = query.toLowerCase().replace(/^\s+|\s+$/g, '');
+            
+            if (cleanQuery === "" || cleanQuery === "search...") {
+                if (isSearching) {
+                    isSearching = false;
+                    showTab(activeTabBeforeSearch);
+                }
+                return;
+            }
+
+            if (!isSearching) {
+                activeTabBeforeSearch = currentActiveTab;
+                isSearching = true;
+            }
+
+            // Hide normal tabs
+            tabBasic.visible = false;
+            tabComplex.visible = false;
+            tabUtil.visible = false;
+            tabLoops.visible = false;
+            tabTools.visible = false;
+            tabLayerUtil.visible = false;
+            tabSearch.visible = true;
+
+            // Remove highlight brackets from tab headers
+            btnBasic.text = "★";
+            btnComplex.text = "✵";
+            btnUtil.text = "⚙";
+            btnLoops.text = "↻";
+            btnTools.text = "⚒";
+            btnLayerUtil.text = "☰";
+
+            // Find matches
+            var matches = [];
+            for (var m = 0; m < searchableItems.length; m++) {
+                var item = searchableItems[m];
+                var labelMatch = item.label.toLowerCase().indexOf(cleanQuery) !== -1;
+                var keyMatch = item.key.toLowerCase().indexOf(cleanQuery) !== -1;
+                var helpMatch = (item.helpTip && item.helpTip.toLowerCase().indexOf(cleanQuery) !== -1);
+                
+                if (labelMatch || keyMatch || helpMatch) {
+                    matches.push(item);
+                }
+            }
+
+            if (matches.length === 0) {
+                var noResult = searchResultsContainer.add("statictext", undefined, "No matches found");
+                noResult.alignment = ["center", "center"];
+            } else {
+                // Add matches in row pairs
+                for (var r = 0; r < matches.length; r += 2) {
+                    var row = searchResultsContainer.add("group");
+                    row.orientation = "row";
+                    row.alignChildren = ["fill", "center"];
+                    row.spacing = 2;
+                    addBtn(row, matches[r].label, matches[r].key, matches[r].actionFn, matches[r].helpTip);
+                    if (r + 1 < matches.length) {
+                        addBtn(row, matches[r+1].label, matches[r+1].key, matches[r+1].actionFn, matches[r+1].helpTip);
+                    }
+                }
+            }
+
+            myPanel.layout.layout(true);
+        }
+
+        // Set click handlers for tab buttons
+        btnBasic.onClick = function() { showTab(0); };
+        btnComplex.onClick = function() { showTab(1); };
+        btnUtil.onClick = function() { showTab(2); };
+        btnLoops.onClick = function() { showTab(3); };
+        btnTools.onClick = function() { showTab(4); };
+        btnLayerUtil.onClick = function() { showTab(5); };
+
+        // Search Input listeners
+        searchInput.onChanging = function() {
+            doSearch(this.text);
         };
 
-        // Add Audio Sync button
-        var audioSyncBtn = utilityGroup.add("button", undefined, "Audio Sync");
-        audioSyncBtn.preferredSize.height = 16;
-        audioSyncBtn.helpTip = "Apply audio sync expression to time remap property";
-        audioSyncBtn.onClick = function () {
-            applyAudioSyncExpression();
+        searchInput.onActivate = function() {
+            if (this.text === "Search...") {
+                this.text = "";
+            }
         };
 
-        // Add Lips CTRL button
-        var lipsCtrlBtn = utilityGroup.add("button", undefined, "Lips CTRL");
-        lipsCtrlBtn.preferredSize.height = 16;
-        lipsCtrlBtn.helpTip = "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right";
-        lipsCtrlBtn.onClick = function () {
-            showLipsCtrlDialog();
+        searchInput.onDeactivate = function() {
+            if (this.text === "") {
+                this.text = "Search...";
+            }
         };
 
-        // Add Audio Marker button
-        var audioMarkersBtn = utilityGroup.add("button", undefined, "Audio Marker");
-        audioMarkersBtn.preferredSize.height = 16;
-        audioMarkersBtn.helpTip = "Copy Audio, analyze spikes, and add markers";
-        audioMarkersBtn.onClick = function () {
-            copyAndSyncAudio();
-            showAudioMarkersDialog();
+        clearSearchBtn.onClick = function() {
+            searchInput.text = "Search...";
+            doSearch("");
         };
 
-        // Add Choppy Flip button
-        var choppyFlipBtn = utilityGroup.add("button", undefined, "Choppy Flip");
-        choppyFlipBtn.preferredSize.height = 16;
-        choppyFlipBtn.helpTip = "Add choppy left-right flip animation to selected layers";
-        choppyFlipBtn.onClick = function () {
-            showChoppyFlipDialog();
-        };
+        // Initialize with the first tab
+        showTab(0);
 
-        // Add Water Distort button
-        var waterDistortBtn = utilityGroup.add("button", undefined, "Water Distort");
-        waterDistortBtn.preferredSize.height = 16;
-        waterDistortBtn.helpTip = "Adds water distortion effect to selected layers";
-        waterDistortBtn.onClick = function () {
-            showWaterDistortionDialog();
-        };
-
-        // Add Rim Light button
-        var rimLightBtn = utilityGroup.add("button", undefined, "Rim Light");
-        rimLightBtn.preferredSize.height = 16;
-        rimLightBtn.helpTip = "Adds Drop Shadow, Set Matte, CC Composite, Glow";
-        rimLightBtn.onClick = function () {
-            addRimLightEffects();
-        };
-
-        // Add Bounce x2 button
-        var bounceX2Btn = utilityGroup.add("button", undefined, "Bounce x2");
-        bounceX2Btn.preferredSize.height = 16;
-        bounceX2Btn.helpTip = "Creates 2 bouncy keyframes: 0→100 (scale only)";
-        bounceX2Btn.onClick = function () {
-            addBounceKeyframes();
-        };
-
-        // Add Squash button
-        var squashBtn = utilityGroup.add("button", undefined, "Squash");
-        squashBtn.preferredSize.height = 16;
-        squashBtn.helpTip = "Squash animation with keyframes on scale";
-        squashBtn.onClick = function () {
-            applySquashAnimation();
-        };
-
-        // Add Puppet→Null button
-        var puppetToNullBtn = utilityGroup.add("button", undefined, "Puppet→Null");
-        puppetToNullBtn.preferredSize.height = 16;
-        puppetToNullBtn.helpTip = "Create null objects for puppet pins on selected layer(s) - supports multiple layers";
-        puppetToNullBtn.onClick = function () {
-            createPuppetNulls();
-        };
-
-        // Add Mask Fit button
-        var maskFitBtn = utilityGroup.add("button", undefined, "Mask Fit");
-        maskFitBtn.preferredSize.height = 16;
-        maskFitBtn.helpTip = "Use selected or first mask to auto-position and scale layer to fit comp";
-        maskFitBtn.onClick = function () {
-            applyMaskAutoFit();
-        };
-
-        // Add Flip H button
-        var flipHorizontalBtn = utilityGroup.add("button", undefined, "Flip H");
-        flipHorizontalBtn.preferredSize.height = 16;
-        flipHorizontalBtn.helpTip = "Flip layers horizontally (invert X scale)";
-        flipHorizontalBtn.onClick = function () {
-            flipHorizontal();
-        };
-
-        // Add Flip V button
-        var flipVerticalBtn = utilityGroup.add("button", undefined, "Flip V");
-        flipVerticalBtn.preferredSize.height = 16;
-        flipVerticalBtn.helpTip = "Flip layers vertically (invert Y scale)";
-        flipVerticalBtn.onClick = function () {
-            flipVertical();
-        };
-
-        // Add Kick Out button
-        var kickOutBtn = utilityGroup.add("button", undefined, "Kick Out");
-        kickOutBtn.preferredSize.height = 16;
-        kickOutBtn.helpTip = "Kick layer out of frame (up or right) with keyframes";
-        kickOutBtn.onClick = function () {
-            showKickOutOfFrameDialog();
-        };
-
-        // Add Put Here button
-        var putHereBtn = utilityGroup.add("button", undefined, "Put Here");
-        putHereBtn.preferredSize.height = 16;
-        putHereBtn.helpTip = "Auto animate layer entering the frame";
-        putHereBtn.onClick = function () {
-            showPutHereDialog();
-        };
-
-        // Add Tight Crop button
-        var unprecompBtn = utilityGroup.add("button", undefined, "Tight Crop");
-        unprecompBtn.preferredSize.height = 16;
-        unprecompBtn.helpTip = "Directly execute Xact Crop (processBoltCrop)";
-        unprecompBtn.onClick = function () {
-            runUnprecompDirect();
-        };
-
-        // Add Blink button
-        var blinkBtn = utilityGroup.add("button", undefined, "Blink");
-        blinkBtn.preferredSize.height = 16;
-        blinkBtn.helpTip = "Add blink animation by manipulating Scale Y (eye open/close) with markers";
-        blinkBtn.onClick = function () {
-            showBlinkDialog();
-        };
-
-        // Add White BG button
-        var whiteBgBtn = utilityGroup.add("button", undefined, "White BG");
-        whiteBgBtn.preferredSize.height = 16;
-        whiteBgBtn.helpTip = "Set background color of all precomps in main_comp to white";
-        whiteBgBtn.onClick = function () {
-            setPrecompBgWhite();
-        };
-
-        // Layer Navigation Section
-        rightCol.add("panel");
-        var layerNavTitle = rightCol.add("statictext", undefined, "Layer Navigation");
-        layerNavTitle.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        layerNavTitle.alignment = "center";
-
-        var layerNavGroup = rightCol.add("group");
-        layerNavGroup.orientation = "row";
-        layerNavGroup.alignChildren = ["fill", "center"];
-        layerNavGroup.spacing = 2;
-
-        // Previous Layer button
-        var prevLayerBtn = layerNavGroup.add("button", undefined, "<");
-        prevLayerBtn.preferredSize.width = 30;
-        prevLayerBtn.preferredSize.height = 20;
-        prevLayerBtn.helpTip = "Jump to previous layer start";
-        prevLayerBtn.onClick = function () {
-            jumpToPreviousLayerDirect();
-        };
-
-        // Next Layer button
-        var nextLayerBtn = layerNavGroup.add("button", undefined, ">");
-        nextLayerBtn.preferredSize.width = 30;
-        nextLayerBtn.preferredSize.height = 20;
-        nextLayerBtn.helpTip = "Jump to next layer start";
-        nextLayerBtn.onClick = function () {
-            jumpToNextLayerDirect();
-        };
-
-        // Status area at the bottom
-        myPanel.add("panel");
+        // ================= GLOBAL FOOTER (STATUS) =================
+        var sep3 = myPanel.add("panel");
+        sep3.alignment = ["fill", "center"];
+        sep3.preferredSize = [10, 2];
 
         var statusGroup = myPanel.add("group");
         statusGroup.orientation = "row";
         statusGroup.alignChildren = ["fill", "center"];
+        statusGroup.spacing = 2;
 
-        var statusLabel = statusGroup.add("statictext", undefined, "Status:");
+        var statusLabel = statusGroup.add("statictext", undefined, "✓ St:");
         statusLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
 
         var statusText = statusGroup.add("statictext", undefined, "Ready");
@@ -995,62 +758,27 @@
         // Store reference for status updates
         myPanel.statusText = statusText;
 
-        // Helper function to add buttons to a group
-        function addButtonsToGroup(group, buttonNames) {
-            for (var i = 0; i < buttonNames.length; i++) {
-                var key = buttonNames[i];
-                if (EXPRESSIONS.hasOwnProperty(key) || key === "Fish-like") {
-                    var btn = group.add("button", undefined, key);
-                    btn.alignment = "fill";
-                    btn.preferredSize.height = 16;
-                    btn.helpTip = key === "Fish-like" ? "Swimming fish animation" : EXPRESSIONS[key];
-
-                    // Create closure for button click
-                    (function (expressionName, expressionCode) {
-                        btn.onClick = function () {
-                            if (expressionName === "Time Rotation") {
-                                showTimeRotationDialog();
-                            } else if (expressionName === "Up Down") {
-                                showUpDownDialog();
-                            } else if (expressionName === "Left Right") {
-                                showLeftRightDialog();
-                            } else if (expressionName === "Water Float") {
-                                showWaterFloatDialog();
-                            } else if (expressionName === "Glitter") {
-                                showGlitterDialog();
-                            } else if (expressionName === "Fish-like") {
-                                showFishDialog();
-                            } else if (expressionName === "Fast Wiggle") {
-                                showWigglePresetsDialog();
-                            } else if (expressionName === "Posterize Time") {
-                                showPosterizeTimeDialog();
-                            } else if (expressionName === "B Posterizer") {
-                                showBPosterizerDialog();
-                            } else if (expressionName === "Rotation PingPong") {
-                                showRotationPingPongDialog();
-                            } else if (expressionName === "Thunder Flicker") {
-                                showThunderFlickerDialog();
-                            } else if (expressionName === "Scale Pulse") {
-                                showScalePulseDialog();
-                            } else if (expressionName === "Walk/Run Arc") {
-                                showWalkRunDialog();
-                            } else {
-                                handleExpressionClick(expressionName, expressionCode);
-                            }
-                        };
-                    })(key, EXPRESSIONS[key]);
-                }
-            }
-        }
-
         // Layout
         myPanel.layout.layout(true);
 
         return myPanel;
     }
+// Consolidated Global Helpers
+    function padNumber(num, width) {
+        var str = num.toString();
+        while (str.length < width) {
+            str = '0' + str;
+        }
+        return str;
+    }
 
-
-    // Audio Sync Expression function (Audio Amplitude)
+    function parseTimeParts(h, m, s, f) {
+        return parseInt(h) * 3600 + // Hours
+            parseInt(m) * 60 + // Minutes
+            parseInt(s) + // Seconds
+            parseFloat(f || 0); // Frames as decimal of a second
+    }
+// Audio Sync Expression function (Audio Amplitude)
     function applyAudioSyncExpression() {
         try {
             var comp = app.project.activeItem;
@@ -1569,13 +1297,7 @@
             var frames = Math.floor((currentTime % 1) * fps);
 
             // Helper function to pad numbers with leading zeros
-            function padNumber(num, width) {
-                var str = num.toString();
-                while (str.length < width) {
-                    str = '0' + str;
-                }
-                return str;
-            }
+            
 
             // Format as HH:MM:SS:FF
             var timeString = padNumber(hours, 2) + ':' +
@@ -8358,13 +8080,7 @@
                 var totalSeconds = 0;
                 var fps = mainComp.frameRate; // Get composition frame rate
 
-                // Helper function to parse time parts
-                function parseTimeParts(h, m, s, f) {
-                    return parseInt(h) * 3600 + // Hours
-                        parseInt(m) * 60 + // Minutes
-                        parseInt(s) + // Seconds
-                        parseFloat(f || 0); // Frames as decimal of a second
-                }
+
 
                 // Try different time formats
                 if (timeStr.indexOf(':') !== -1) {
@@ -8439,13 +8155,7 @@
                 var frames = Math.floor((totalSeconds % 1) * fps);
 
                 // Helper function to pad numbers with leading zeros
-                function padNumber(num, width) {
-                    var str = num.toString();
-                    while (str.length < width) {
-                        str = '0' + str;
-                    }
-                    return str;
-                }
+                
 
                 // Format display time with frames
                 var timeDisplay = (hours > 0 ? padNumber(hours, 2) + ':' : '') +
@@ -9556,7 +9266,7 @@
         var precompStartTime = precompLayer.startTime;  // saved before remove()
 
         var innerCount = srcComp.numLayers;
-        if (innerCount === 0) { dlgStatus.text = "Precomp is empty"; return; }
+        if (innerCount === 0) { if (dlgStatus) dlgStatus.text = "Precomp is empty"; return; }
 
         // Snapshot inner layer start-times (srcComp is unchanged during the copy loop)
         var innerStartTimes = [];
@@ -9636,7 +9346,7 @@
                 //   2. crops that precomp to a tight bounding box via bolt-crop logic
                 processBoltCrop(true, oldName);
 
-                dlgStatus.text = "Done: \"" + oldName + "\" re-precomped with X Crop";
+                if (dlgStatus) dlgStatus.text = "Done: \"" + oldName + "\" re-precomped with X Crop";
                 updateStatus("Unprecomp done: \"" + oldName + "\" with X Crop");
             } else {
                 // Plain re-precompose using AE's built-in precompose (no crop)
@@ -9645,7 +9355,7 @@
                     indices.push(pastedIndices[pi]);
                 }
                 comp.layers.precompose(indices, oldName, true);
-                dlgStatus.text = "Done: \"" + oldName + "\" re-precomped (no X Crop)";
+                if (dlgStatus) dlgStatus.text = "Done: \"" + oldName + "\" re-precomped (no X Crop)";
                 updateStatus("Unprecomp done: \"" + oldName + "\" (no X Crop)");
             }
 
@@ -9653,7 +9363,7 @@
 
         } catch (err) {
             app.endUndoGroup();   // always close -- prevents the undo group mismatch
-            dlgStatus.text = "Error: " + err.toString();
+            if (dlgStatus) dlgStatus.text = "Error: " + err.toString();
             updateStatus("Unprecomp error: " + err.toString());
         }
     }
