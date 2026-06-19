@@ -7681,12 +7681,12 @@
             }
 
         } catch (error) {
-            alert("Error hiding layers: " + error.message);
+alert("Error hiding layers: " + error.message);
             updateStatus("Error: " + error.message);
         }
     }
 
-    // Hide all layers starting with 'hide' or 'x' in a user-selected composition
+    // Hide all layers starting with custom prefixes in a user-selected composition
     function hideAllLayersNamedHide2() {
         try {
             // Collect all compositions in the project
@@ -7706,17 +7706,36 @@
                 return;
             }
 
-            // Create dialog for composition selection
-            var dialog = new Window("dialog", "Hide Layer 2 - Select Composition");
+            // Create dialog for composition selection & target prefix configuration
+            var dialog = new Window("dialog", "Hide Layer 2 - Config & Selection");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
             dialog.spacing = 10;
             dialog.margins = 16;
 
-            dialog.add("statictext", undefined, "Select the composition to hide layers in:");
+            // Warning Banner
+            var cautionGrp = dialog.add("group");
+            cautionGrp.orientation = "column";
+            cautionGrp.alignChildren = ["left", "top"];
+            cautionGrp.spacing = 2;
+            
+            var cautionTxt1 = cautionGrp.add("statictext", undefined, "⚠ CAUTION: Highly Sensitive Tool!");
+            cautionTxt1.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
+            
+            // Try to set red color for warning if supported
+            try {
+                cautionTxt1.graphics.foregroundColor = cautionTxt1.graphics.newPen(dialog.graphics.PenType.SOLID_COLOR, [0.8, 0.1, 0.1, 1], 1);
+            } catch(e) {}
+
+            var cautionTxt2 = cautionGrp.add("statictext", undefined, "Entering a wrong layer name prefix could hide unintended active design layers.");
+            cautionTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+
+            dialog.add("panel");
+
+            dialog.add("statictext", undefined, "Select the composition to process:");
 
             var compDropdown = dialog.add("dropdownlist", undefined, compNames);
-            compDropdown.preferredSize.width = 300;
+            compDropdown.preferredSize.width = 320;
 
             // Default select "main_comp" if it exists, otherwise select first
             var defaultIdx = 0;
@@ -7727,6 +7746,11 @@
                 }
             }
             compDropdown.selection = defaultIdx;
+
+            dialog.add("statictext", undefined, "Layer prefixes/names to hide (comma-separated):");
+            var prefixInput = dialog.add("edittext", undefined, "x, hide");
+            prefixInput.preferredSize.width = 320;
+            prefixInput.helpTip = "Hide layers starting with any of these values (case-insensitive). E.g., 'x, y, hide'";
 
             // Buttons
             var btnGroup = dialog.add("group");
@@ -7754,9 +7778,26 @@
             var targetComp = compItems[selectedIdx];
             var targetName = compNames[selectedIdx];
 
+            // Parse prefixes
+            var prefixes = [];
+            var rawPrefixes = prefixInput.text.split(",");
+            for (var p = 0; p < rawPrefixes.length; p++) {
+                var clean = rawPrefixes[p].replace(/^\s+|\s+$/g, "").toLowerCase();
+                if (clean !== "") {
+                    prefixes.push(clean);
+                }
+            }
+
+            if (prefixes.length === 0) {
+                alert("Please enter at least one layer prefix to hide.");
+                updateStatus("No prefixes specified");
+                return;
+            }
+
             // Now run the hide logic on the selected comp
             var processedComps = {};
             var missingXComps = [];
+            var hiddenLayersLog = [];
 
             function processComp(comp, depth) {
                 if (processedComps[comp.id]) return;
@@ -7773,16 +7814,25 @@
                         processComp(layer.source, depth + 1);
                     }
 
-                    // Check if name starts with "hide" or "x" (case-insensitive)
+                    // Check if name starts with any of the prefixes (case-insensitive)
                     var lowerName = layer.name.toLowerCase();
-                    if (lowerName.indexOf("hide") === 0 || lowerName.indexOf("x") === 0) {
+                    var matchedPrefix = null;
+                    for (var pf = 0; pf < prefixes.length; pf++) {
+                        if (lowerName.indexOf(prefixes[pf]) === 0) {
+                            matchedPrefix = prefixes[pf];
+                            break;
+                        }
+                    }
+
+                    if (matchedPrefix !== null) {
                         layer.enabled = false;
                         layer.visible = false;
                         hasXLayer = true;
+                        hiddenLayersLog.push({ comp: comp.name, layer: layer.name, prefix: matchedPrefix });
                     }
                 }
 
-                // If this is a precomp (not the target comp) and does not have an X or hide layer
+                // If this is a precomp (not the target comp) and does not have any of the target layers
                 // Also ignore any compositions that have "audio" in their name
                 if (!hasXLayer && comp.name !== targetName && comp.name.toLowerCase().indexOf("audio") === -1) {
                     missingXComps.push(comp.name);
@@ -7793,52 +7843,63 @@
             processComp(targetComp, 0);
             app.endUndoGroup();
 
-            var logPathMsg = "";
-            if (missingXComps.length > 0) {
-                var dateStr = new Date().toLocaleString();
-                var reportText = "==================================================\n";
-                reportText += "        MISSING \"X\" LAYERS REPORT\n";
-                reportText += "==================================================\n";
-                reportText += "Date: " + dateStr + "\n";
-                reportText += "Target Comp: " + targetName + "\n\n";
-                reportText += "The following precompositions do NOT contain an\n";
-                reportText += " \"x\" or \"hide\" layer inside them. Please review\n";
-                reportText += " them and manually hide or adjust if necessary.\n\n";
-                reportText += "--------------------------------------------------\n";
-                for (var m = 0; m < missingXComps.length; m++) {
-                    reportText += "[ ] " + missingXComps[m] + "\n";
-                }
-                reportText += "--------------------------------------------------\n";
-                reportText += "Total Missing: " + missingXComps.length + " precomps\n";
-                reportText += "==================================================\n";
+            // Prepare Report
+            var dateStr = new Date().toLocaleString();
+            var reportText = "==================================================\n";
+            reportText += "        HIDE LAYERS REPORT & LOG\n";
+            reportText += "==================================================\n";
+            reportText += "Date: " + dateStr + "\n";
+            reportText += "Target Composition: " + targetName + "\n";
+            reportText += "Targeted Prefixes: " + prefixes.join(", ") + "\n\n";
 
-                var alertMsg = "\u26A0 ACTION REQUIRED \u26A0\n\nFound " + missingXComps.length + " precomps missing an 'x' or 'hide' layer!\n\n";
-                var maxAlertComps = 15;
-                for (var k = 0; k < Math.min(missingXComps.length, maxAlertComps); k++) {
-                    alertMsg += " \u2022 " + missingXComps[k] + "\n";
-                }
-                if (missingXComps.length > maxAlertComps) {
-                    alertMsg += " \u2022 ... and " + (missingXComps.length - maxAlertComps) + " more.\n";
-                }
-                alertMsg += "\nA detailed report has been saved to your project folder.";
-
-                alert(alertMsg);
-
-                if (app.project.file) {
-                    var folder = app.project.file.parent;
-                    var logFile = new File(folder.fsName + "/missing_x_layers_report.txt");
-                    if (logFile.open("w")) {
-                        logFile.encoding = "UTF-8";
-                        logFile.write(reportText);
-                        logFile.close();
-                        logPathMsg = " | Log saved to project folder";
-                    }
-                } else {
-                    logPathMsg = " | (Project not saved, no log created)";
+            reportText += "--------------------------------------------------\n";
+            reportText += "1. HIDDEN LAYERS LOG (" + hiddenLayersLog.length + " layers hidden):\n";
+            reportText += "--------------------------------------------------\n";
+            if (hiddenLayersLog.length === 0) {
+                reportText += "(No layers were hidden)\n";
+            } else {
+                for (var h = 0; h < hiddenLayersLog.length; h++) {
+                    reportText += " - [" + hiddenLayersLog[h].comp + "] layer: \"" + hiddenLayersLog[h].layer + "\" (matched prefix: \"" + hiddenLayersLog[h].prefix + "\")\n";
                 }
             }
 
-            updateStatus("Hidden all 'hide'/'x' layers in '" + targetName + "' and precomps" + logPathMsg);
+            reportText += "\n--------------------------------------------------\n";
+            reportText += "2. MISSING TARGET LAYERS REPORT (" + missingXComps.length + " precomps):\n";
+            reportText += "--------------------------------------------------\n";
+            reportText += "The following precompositions do NOT contain any\n";
+            reportText += "layers matching the targeted prefixes:\n\n";
+            if (missingXComps.length === 0) {
+                reportText += "(None, all precomps contain target layers)\n";
+            } else {
+                for (var m = 0; m < missingXComps.length; m++) {
+                    reportText += "[ ] " + missingXComps[m] + "\n";
+                }
+            }
+            reportText += "==================================================\n";
+
+            // Save log file
+            var logPathMsg = "";
+            if (app.project.file) {
+                var folder = app.project.file.parent;
+                var logFile = new File(folder.fsName + "/hide_layers_report.txt");
+                if (logFile.open("w")) {
+                    logFile.encoding = "UTF-8";
+                    logFile.write(reportText);
+                    logFile.close();
+                    logPathMsg = " | Log saved to project folder";
+                }
+            } else {
+                logPathMsg = " | (Project not saved, no log created)";
+            }
+
+            // Display alert summary
+            var summaryMsg = "✓ Hide Layers Completed!\n\n" +
+                             "Hidden Layers: " + hiddenLayersLog.length + "\n" +
+                             "Precomps missing target layers: " + missingXComps.length + "\n\n" +
+                             "A detailed report/log has been saved as 'hide_layers_report.txt' in your project folder.";
+            alert(summaryMsg);
+
+            updateStatus("Hidden " + hiddenLayersLog.length + " layers in '" + targetName + "' and precomps" + logPathMsg);
 
         } catch (error) {
             alert("Error hiding layers: " + error.message);
