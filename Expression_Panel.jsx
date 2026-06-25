@@ -25,10 +25,10 @@
         "Rotation PingPong": "// Egg crack motion: rapid left-right rotations, then pause, then repeat\nlet amp = 15; // rotation amplitude\nlet pauseDuration = 0.8; // pause duration between bursts\nlet rotationSpeed = 12; // oscillations per second during rotation phase\n\n// Helper functions\nfunction random(seed) {\n  return fract(Math.sin(seed * 91.345) * 47453.321);\n}\nfunction fract(x) {\n  return x - Math.floor(x);\n}\n\n// Use a fixed cycle period (max possible cycle time)\n// This ensures consistent cycle boundaries\nlet maxRotations = 7;\nlet maxRotationDuration = maxRotations / rotationSpeed;\nlet fixedCycleTime = maxRotationDuration + pauseDuration;\n\n// Calculate which cycle we're in\nlet cycleIndex = Math.floor(time / fixedCycleTime);\n\n// Randomize number of rotations for this cycle (4-7 rotations)\nlet randRotations = random(cycleIndex * 7.3);\nlet numRotations = Math.floor(4 + randRotations * 4); // 4, 5, 6, or 7\n\n// Calculate rotation duration for this cycle\nlet rotationDuration = numRotations / rotationSpeed;\n\n// Time within current cycle\nlet t = time - (cycleIndex * fixedCycleTime);\n\n// Output: rotate during rotation phase, pause otherwise\nlet output = (t < rotationDuration)\n  ? Math.sin(t * rotationSpeed * 2 * Math.PI) * amp\n  : 0;\n\noutput;",
         "Thunder Flicker": "seedRandom(index + Math.floor(time), true);\n\nrand = random();  // Random chance per second\nrate = rand > 0.7 ? 20 : rand > 0.4 ? 8 : 2;\n\nt = time * rate;\nflicker = Math.floor(t) % 2 == 0 ? 100 : 0;\n\nflicker",
         "Horror Light": "// Seed randomness per cycle\ncycleIndex = Math.floor(time);\nseedRandom(index + cycleIndex, true);\n\n// Random pause duration (0.3s–1.0s)\npauseDuration = 0.3 + random() * 0.7;\nflickerDuration = 0.4; // duration of flicker before pausing\ncycleTime = pauseDuration + flickerDuration;\n\nt = time % cycleTime;\n\n// If within flicker time, do horror flicker; otherwise, stay dim\nif (t < flickerDuration) {\n  // Seed for flicker randomness\n  seedRandom(index + Math.floor(time * 10), true);\n\n  rate = 10 + random() * 40;\n  flick = (Math.sin(time * rate * 6.2831) * 43758.5453) % 1;\n  flick = flick - Math.floor(flick); // same as fract()\n\n  // Flicker behavior\n  flickerValue = flick < 0.2 ? 100 :\n                 flick < 0.25 ? 70 :\n                 flick < 0.3 ? 40 : \n                 10 + flick * 20; // low-level jitter\n} else {\n  flickerValue = 0; // paused (off)\n}\n\nflickerValue;",
-        "Scale Pulse": "// Settings\nminScale = 90;\nmaxScale = 110;\nspeed = 2; // cycles per second\n\n// Oscillate value using sine\ns = (Math.sin(time * Math.PI * speed) + 1) / 2; // normalized between 0–1\n\n// Interpolate scale using linear easing\nscaleVal = linear(s, 0, 1, minScale, maxScale);\n[scaleVal, scaleVal]",
+        "Scale Pulse": "// Settings\nminScale = 90;\nmaxScale = 110;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleVal = linear(s, 0, 1, minScale, maxScale);\n[scaleVal, scaleVal]",
         "Walk/Run Arc": "// Settings\nspeed = 100; // pixels per second\narcHeight = 20; // arc height in pixels\nfrequency = 2; // steps per second\ndirection = 1; // 1 for right, -1 for left\n\n// Calculate movement\nx = time * speed * direction;\ny = Math.sin(time * frequency * 2 * Math.PI) * arcHeight;\n\nvalue + [x, y]",
         "Audio Sync": "thisComp.layer(\"Audio Amplitude\").effect(\"Both Channels\")(\"Slider\")/75",
-        "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nspeed = 2; // cycles per second\n\n// Oscillate value using sine\ns = (Math.sin(time * Math.PI * speed) + 1) / 2; // normalized between 0–1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n[100, scaleY]",
+        "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n[100, scaleY]",
         "B Posterizer": "Enable time remapping on selected layers and apply posterizeTime"
     };
     // Create the main panel function
@@ -397,6 +397,14 @@
         hideLayer2Btn.helpTip = "Hide all layers starting with 'hide' or 'x' in a specific composition (user-selected)";
         hideLayer2Btn.onClick = function () {
             hideAllLayersNamedHide2();
+        };
+
+        // Add Auto Size button
+        var autoSizeBtn = utilRow3.add("button", undefined, "Auto Size");
+        autoSizeBtn.preferredSize.height = 16;
+        autoSizeBtn.helpTip = "Resize selected layers/precomps to fit the composition";
+        autoSizeBtn.onClick = function () {
+            autoSizeSelectedLayers();
         };
 
         // Main content group with two columns
@@ -823,7 +831,7 @@
         // Add Lips CTRL button
         var lipsCtrlBtn = utilityGroup.add("button", undefined, "Lips CTRL");
         lipsCtrlBtn.preferredSize.height = 16;
-        lipsCtrlBtn.helpTip = "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right";
+        lipsCtrlBtn.helpTip = "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong";
         lipsCtrlBtn.onClick = function () {
             showLipsCtrlDialog();
         };
@@ -1129,7 +1137,7 @@
         var infoTxt = dlg.add("statictext", undefined, "Adds stop/resume markers at playhead:");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        var infoTxt2 = dlg.add("statictext", undefined, "Works with: Audio Sync, Wiggle, Up Down, Left Right");
+        var infoTxt2 = dlg.add("statictext", undefined, "Works with: Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong");
         infoTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
 
         // Buttons row
@@ -2876,8 +2884,20 @@
         dialog.spacing = 10;
         dialog.margins = 16;
 
+        // Input settings in a two-column layout
+        var inputGroup = dialog.add("group");
+        inputGroup.orientation = "row";
+        inputGroup.alignChildren = ["fill", "center"];
+        inputGroup.spacing = 8;
+
+        // Left Column (Scale parameters & speed)
+        var leftCol = inputGroup.add("group");
+        leftCol.orientation = "column";
+        leftCol.alignChildren = ["fill", "center"];
+        leftCol.spacing = 4;
+
         // Scale Settings
-        var scalePanel = dialog.add("panel", undefined, "Scale (X & Y)");
+        var scalePanel = leftCol.add("panel", undefined, "Scale (X & Y)");
         scalePanel.orientation = "column";
         scalePanel.alignChildren = ["fill", "top"];
         scalePanel.spacing = 5;
@@ -2898,46 +2918,120 @@
         maxInput.preferredSize.width = 60;
 
         // Speed Setting
-        var speedGroup = dialog.add("group");
+        var speedGroup = leftCol.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["fill", "center"];
-        speedGroup.add("statictext", undefined, "Speed (cycles/sec):");
-        var speedInput = speedGroup.add("edittext", undefined, "2");
+        speedGroup.add("statictext", undefined, "Pulse every (frames):");
+        var speedInput = speedGroup.add("edittext", undefined, "12");
         speedInput.preferredSize.width = 40;
 
-        var randomSpeedCheck = speedGroup.add("checkbox", undefined, "Cycle Speed (Index Offset)");
-        randomSpeedCheck.helpTip = "If checked, speed will be offset by layer index (e.g. Speed 12 becomes 12, 13, 14, 15)";
+        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Index Offset)");
+        randomSpeedCheck.helpTip = "If checked, duration will be offset by layer index (e.g. 12 frames becomes 12, 13, 14, 15 frames)";
+
+        // Right Column (Stop controls)
+        var rightCol = inputGroup.add("group");
+        rightCol.orientation = "column";
+        rightCol.alignChildren = ["fill", "center"];
+        rightCol.spacing = 4;
+
+        var stopTimeGroup = rightCol.add("group");
+        stopTimeGroup.orientation = "row";
+        stopTimeGroup.alignChildren = ["left", "center"];
+        stopTimeGroup.spacing = 4;
+        stopTimeGroup.add("statictext", undefined, "Stop:");
+        var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
+        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.helpTip = "Leave empty for no stop time.";
+
+        // Stop Here checkbox
+        var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
+        stopHereCheck.onClick = function () {
+            if (stopHereCheck.value) {
+                var currentTime = getCurrentTimeFormatted();
+                if (currentTime) {
+                    stopTimeInput.text = currentTime;
+                }
+            }
+        };
+
+        // Use Markers checkbox
+        var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.onClick = function () {
+            if (useMarkersCheck.value) {
+                stopTimeInput.enabled = false;
+                stopHereCheck.enabled = false;
+            } else {
+                stopTimeInput.enabled = true;
+                stopHereCheck.enabled = true;
+            }
+        };
 
         // Preset buttons
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
-        presetGroup.spacing = 5;
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
+        presetGroup.spacing = 4;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presetLabelGroup = presetGroup.add("group");
+        presetLabelGroup.orientation = "row";
+        presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
 
-        var subtleBtn = presetGroup.add("button", undefined, "Subtle");
-        subtleBtn.preferredSize.width = 60;
-        subtleBtn.onClick = function () {
+        var presetRow1 = presetGroup.add("group");
+        presetRow1.orientation = "row";
+        presetRow1.spacing = 4;
+
+        var btn1 = presetRow1.add("button", undefined, "95, 105, 24");
+        btn1.preferredSize.width = 75;
+        btn1.onClick = function () {
             minInput.text = "95";
             maxInput.text = "105";
-            speedInput.text = "1";
+            speedInput.text = "24";
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
-        normalBtn.preferredSize.width = 60;
-        normalBtn.onClick = function () {
+        var btn2 = presetRow1.add("button", undefined, "90, 110, 12");
+        btn2.preferredSize.width = 75;
+        btn2.onClick = function () {
             minInput.text = "90";
             maxInput.text = "110";
-            speedInput.text = "2";
+            speedInput.text = "12";
         };
 
-        var strongBtn = presetGroup.add("button", undefined, "Strong");
-        strongBtn.preferredSize.width = 60;
-        strongBtn.onClick = function () {
+        var btn3 = presetRow1.add("button", undefined, "85, 115, 8");
+        btn3.preferredSize.width = 75;
+        btn3.onClick = function () {
+            minInput.text = "85";
+            maxInput.text = "115";
+            speedInput.text = "8";
+        };
+
+        var presetRow2 = presetGroup.add("group");
+        presetRow2.orientation = "row";
+        presetRow2.spacing = 4;
+
+        var btn4 = presetRow2.add("button", undefined, "95, 105, 12");
+        btn4.preferredSize.width = 75;
+        btn4.onClick = function () {
+            minInput.text = "95";
+            maxInput.text = "105";
+            speedInput.text = "12";
+        };
+
+        var btn5 = presetRow2.add("button", undefined, "90, 110, 6");
+        btn5.preferredSize.width = 75;
+        btn5.onClick = function () {
+            minInput.text = "90";
+            maxInput.text = "110";
+            speedInput.text = "6";
+        };
+
+        var btn6 = presetRow2.add("button", undefined, "80, 120, 16");
+        btn6.preferredSize.width = 75;
+        btn6.onClick = function () {
             minInput.text = "80";
             maxInput.text = "120";
-            speedInput.text = "3";
+            speedInput.text = "16";
         };
 
         // Buttons
@@ -2950,30 +3044,111 @@
             var minVal = parseFloat(minInput.text);
             var maxVal = parseFloat(maxInput.text);
             var speed = parseFloat(speedInput.text);
+            var stopTimeStr = stopTimeInput.text;
+            var useMarkers = useMarkersCheck.value;
 
             if (isNaN(minVal) || isNaN(maxVal) || isNaN(speed)) {
                 alert("Please enter valid numbers for all fields");
                 return;
             }
 
-            var speedLine;
-            if (randomSpeedCheck.value) {
-                speedLine = "speed = " + speed + " + ((index - 1) % 4); // cycled offset by index";
-            } else {
-                speedLine = "speed = " + speed + "; // cycles per second";
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select a composition.");
+                return;
             }
 
-            var expression = "// Settings\n" +
-                "minScale = " + minVal + ";\n" +
-                "maxScale = " + maxVal + ";\n" +
-                speedLine + "\n\n" +
-                "// Oscillate value using sine\n" +
-                "s = (Math.sin(time * Math.PI * speed) + 1) / 2; // normalized between 0–1\n\n" +
-                "// Interpolate scale using linear easing\n" +
-                "scaleVal = linear(s, 0, 1, minScale, maxScale);\n" +
-                "[scaleVal, scaleVal]";
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("Please select at least one layer.");
+                return;
+            }
 
-            handleExpressionClick("Scale Pulse", expression);
+            var stopTimeComponents = null;
+            if (!useMarkers && stopTimeStr !== "") {
+                var parts = stopTimeStr.split(':');
+                if (parts.length === 4 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1])) && !isNaN(parseInt(parts[2])) && !isNaN(parseInt(parts[3]))) {
+                    stopTimeComponents = {
+                        h: parseInt(parts[0]),
+                        m: parseInt(parts[1]),
+                        s: parseInt(parts[2]),
+                        f: parseInt(parts[3])
+                    };
+                } else {
+                    alert("Invalid time format. Please use H:MM:SS:FF or leave it empty.");
+                    return;
+                }
+            }
+
+            app.beginUndoGroup("Apply Scale Pulse");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (!layer.transform || !layer.transform.scale || layer.locked) continue;
+
+                var framesPerCycleVal = speed;
+                if (randomSpeedCheck.value) {
+                    framesPerCycleVal = speed + (i % 4); // offset by selection order
+                }
+
+                var speedLine = "framesPerCycle = " + framesPerCycleVal + "; // frames per pulse cycle";
+
+                var expression;
+                if (useMarkers) {
+                    expression = "// Settings\n" +
+                        "minScale = " + minVal + ";\n" +
+                        "maxScale = " + maxVal + ";\n" +
+                        speedLine + "\n" +
+                        "var isFrozen = false;\n" +
+                        "if (marker.numKeys > 0) {\n" +
+                        "    for (var j = 1; j <= marker.numKeys; j++) {\n" +
+                        "        var mk = marker.key(j);\n" +
+                        "        if (mk.time <= time) {\n" +
+                        "            var c = mk.comment.toLowerCase();\n" +
+                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                        "        } else { break; }\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "if (isFrozen) {\n" +
+                        "    value;\n" +
+                        "} else {\n" +
+                        "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "    s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n" +
+                        "    scaleVal = linear(s, 0, 1, minScale, maxScale);\n" +
+                        "    [scaleVal, scaleVal];\n" +
+                        "}";
+                } else if (stopTimeComponents) {
+                    var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
+                    expression = "// Settings\n" +
+                        "minScale = " + minVal + ";\n" +
+                        "maxScale = " + maxVal + ";\n" +
+                        speedLine + "\n" +
+                        "stopTime = " + stopTimeCalculation + "\n" +
+                        "t = Math.min(time, stopTime);\n" +
+                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "s = (Math.sin(t * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                        "// Interpolate scale using linear easing\n" +
+                        "scaleVal = linear(s, 0, 1, minScale, maxScale);\n" +
+                        "[scaleVal, scaleVal]";
+                } else {
+                    expression = "// Settings\n" +
+                        "minScale = " + minVal + ";\n" +
+                        "maxScale = " + maxVal + ";\n" +
+                        speedLine + "\n\n" +
+                        "// Calculate oscillation\n" +
+                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                        "// Interpolate scale using linear easing\n" +
+                        "scaleVal = linear(s, 0, 1, minScale, maxScale);\n" +
+                        "[scaleVal, scaleVal]";
+                }
+
+                layer.transform.scale.expression = expression;
+            }
+
+            app.endUndoGroup();
+            updateStatus("Applied Scale Pulse expression to selected layer(s)");
             dialog.close();
         };
 
@@ -2996,8 +3171,20 @@
         dialog.spacing = 10;
         dialog.margins = 16;
 
+        // Input settings in a two-column layout
+        var inputGroup = dialog.add("group");
+        inputGroup.orientation = "row";
+        inputGroup.alignChildren = ["fill", "center"];
+        inputGroup.spacing = 8;
+
+        // Left Column (Scale parameters & speed)
+        var leftCol = inputGroup.add("group");
+        leftCol.orientation = "column";
+        leftCol.alignChildren = ["fill", "center"];
+        leftCol.spacing = 4;
+
         // Y Scale Settings
-        var yScalePanel = dialog.add("panel", undefined, "Vertical Scale (Y)");
+        var yScalePanel = leftCol.add("panel", undefined, "Vertical Scale (Y)");
         yScalePanel.orientation = "column";
         yScalePanel.alignChildren = ["fill", "top"];
         yScalePanel.spacing = 5;
@@ -3023,54 +3210,132 @@
         xHint.alignment = "center";
 
         // Speed Setting
-        var speedGroup = dialog.add("group");
+        var speedGroup = leftCol.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["fill", "center"];
-        speedGroup.add("statictext", undefined, "Speed (cycles/sec):");
-        var speedInput = speedGroup.add("edittext", undefined, "2");
+        speedGroup.add("statictext", undefined, "Pulse every (frames):");
+        var speedInput = speedGroup.add("edittext", undefined, "12");
         speedInput.preferredSize.width = 40;
 
-        var randomSpeedCheck = speedGroup.add("checkbox", undefined, "Cycle Speed (Index Offset)");
-        randomSpeedCheck.helpTip = "If checked, speed will be offset by layer index (e.g. Speed 12 becomes 12, 13, 14, 15)";
+        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Index Offset)");
+        randomSpeedCheck.helpTip = "If checked, duration will be offset by layer index (e.g. 12 frames becomes 12, 13, 14, 15 frames)";
+
+        // Right Column (Stop controls)
+        var rightCol = inputGroup.add("group");
+        rightCol.orientation = "column";
+        rightCol.alignChildren = ["fill", "center"];
+        rightCol.spacing = 4;
+
+        var stopTimeGroup = rightCol.add("group");
+        stopTimeGroup.orientation = "row";
+        stopTimeGroup.alignChildren = ["left", "center"];
+        stopTimeGroup.spacing = 4;
+        stopTimeGroup.add("statictext", undefined, "Stop:");
+        var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
+        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.helpTip = "Leave empty for no stop time.";
+
+        // Stop Here checkbox
+        var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
+        stopHereCheck.onClick = function () {
+            if (stopHereCheck.value) {
+                var currentTime = getCurrentTimeFormatted();
+                if (currentTime) {
+                    stopTimeInput.text = currentTime;
+                }
+            }
+        };
+
+        // Use Markers checkbox
+        var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.onClick = function () {
+            if (useMarkersCheck.value) {
+                stopTimeInput.enabled = false;
+                stopHereCheck.enabled = false;
+            } else {
+                stopTimeInput.enabled = true;
+                stopHereCheck.enabled = true;
+            }
+        };
 
         // Preset buttons
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
-        presetGroup.spacing = 5;
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
+        presetGroup.spacing = 4;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presetLabelGroup = presetGroup.add("group");
+        presetLabelGroup.orientation = "row";
+        presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
 
-        var subtleBtn = presetGroup.add("button", undefined, "Subtle");
-        subtleBtn.preferredSize.width = 60;
-        subtleBtn.onClick = function () {
+        var presetRow1 = presetGroup.add("group");
+        presetRow1.orientation = "row";
+        presetRow1.spacing = 4;
+
+        var btn1 = presetRow1.add("button", undefined, "100, 102, 24");
+        btn1.preferredSize.width = 75;
+        btn1.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "102";
-            speedInput.text = "1";
+            speedInput.text = "24";
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
-        normalBtn.preferredSize.width = 60;
-        normalBtn.onClick = function () {
+        var btn2 = presetRow1.add("button", undefined, "100, 102, 12");
+        btn2.preferredSize.width = 75;
+        btn2.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "102";
-            speedInput.text = "2";
+            speedInput.text = "12";
         };
 
-        var strongBtn = presetGroup.add("button", undefined, "Strong");
-        strongBtn.preferredSize.width = 60;
-        strongBtn.onClick = function () {
+        var btn3 = presetRow1.add("button", undefined, "100, 103, 8");
+        btn3.preferredSize.width = 75;
+        btn3.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "103";
+            speedInput.text = "8";
+        };
+
+        var presetRow2 = presetGroup.add("group");
+        presetRow2.orientation = "row";
+        presetRow2.spacing = 4;
+
+        var btn4 = presetRow2.add("button", undefined, "100, 103, 4");
+        btn4.preferredSize.width = 75;
+        btn4.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "103";
+            speedInput.text = "4";
+        };
+
+        var btn5 = presetRow2.add("button", undefined, "100, 106, 6");
+        btn5.preferredSize.width = 75;
+        btn5.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "106";
             speedInput.text = "6";
         };
 
-        var crazyBtn = presetGroup.add("button", undefined, "Crazy");
-        crazyBtn.preferredSize.width = 60;
-        crazyBtn.onClick = function () {
+        var btn6 = presetRow2.add("button", undefined, "100, 106, 3");
+        btn6.preferredSize.width = 75;
+        btn6.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "106";
-            speedInput.text = "8";
+            speedInput.text = "3";
+        };
+
+        var presetRow3 = presetGroup.add("group");
+        presetRow3.orientation = "row";
+        presetRow3.spacing = 4;
+
+        var btn7 = presetRow3.add("button", undefined, "100, 102, 9");
+        btn7.preferredSize.width = 75;
+        btn7.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "102";
+            speedInput.text = "9";
         };
 
         // Buttons
@@ -3083,97 +3348,174 @@
             var yMin = parseFloat(yMinInput.text);
             var yMax = parseFloat(yMaxInput.text);
             var speed = parseFloat(speedInput.text);
+            var stopTimeStr = stopTimeInput.text;
+            var useMarkers = useMarkersCheck.value;
 
             if (isNaN(yMin) || isNaN(yMax) || isNaN(speed)) {
                 alert("Please enter valid numbers for all fields");
                 return;
             }
 
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select a composition.");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                alert("Please select at least one layer.");
+                return;
+            }
+
+            var stopTimeComponents = null;
+            if (!useMarkers && stopTimeStr !== "") {
+                var parts = stopTimeStr.split(':');
+                if (parts.length === 4 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1])) && !isNaN(parseInt(parts[2])) && !isNaN(parseInt(parts[3]))) {
+                    stopTimeComponents = {
+                        h: parseInt(parts[0]),
+                        m: parseInt(parts[1]),
+                        s: parseInt(parts[2]),
+                        f: parseInt(parts[3])
+                    };
+                } else {
+                    alert("Invalid time format. Please use H:MM:SS:FF or leave it empty.");
+                    return;
+                }
+            }
+
+            app.beginUndoGroup("Apply V Scale");
+
             // Move anchor point to bottom center (keeping visual position)
             try {
-                var comp = app.project.activeItem;
-                if (comp && comp.selectedLayers.length > 0) {
-                    app.beginUndoGroup("V Scale - Move Anchor to Bottom");
-                    for (var i = 0; i < comp.selectedLayers.length; i++) {
-                        try {
-                            var layer = comp.selectedLayers[i];
-                            if (layer.transform && layer.transform.anchorPoint && layer.sourceRectAtTime && !layer.locked) {
-                                var rect = layer.sourceRectAtTime(comp.time, false);
-                                var newAnchorX = rect.left + rect.width / 2;
-                                var newAnchorY = rect.top + rect.height;
-                                var oldAnchor = layer.transform.anchorPoint.value;
+                for (var i = 0; i < selectedLayers.length; i++) {
+                    try {
+                        var layer = selectedLayers[i];
+                        if (layer.transform && layer.transform.anchorPoint && layer.sourceRectAtTime && !layer.locked) {
+                            var rect = layer.sourceRectAtTime(comp.time, false);
+                            var newAnchorX = rect.left + rect.width / 2;
+                            var newAnchorY = rect.top + rect.height;
+                            var oldAnchor = layer.transform.anchorPoint.value;
 
-                                var newAnchorZ = (oldAnchor.length > 2) ? oldAnchor[2] : 0;
-                                var newAnchor = [newAnchorX, newAnchorY, newAnchorZ];
+                            var newAnchorZ = (oldAnchor.length > 2) ? oldAnchor[2] : 0;
+                            var newAnchor = [newAnchorX, newAnchorY, newAnchorZ];
 
-                                var newPos = layer.transform.position.value;
-                                var compensationSuccess = false;
+                            var newPos = layer.transform.position.value;
+                            var compensationSuccess = false;
 
+                            try {
+                                var vec = [newAnchorX, newAnchorY, newAnchorZ];
+                                var worldPos = layer.toComp(vec);
+                                if (layer.parent) {
+                                    newPos = layer.parent.fromComp(worldPos);
+                                } else {
+                                    newPos = worldPos;
+                                }
+                                compensationSuccess = true;
+                            } catch (compErr) {
+                                // toComp failed, try manual math
+                            }
+
+                            if (!compensationSuccess) {
                                 try {
-                                    var vec = [newAnchorX, newAnchorY, newAnchorZ];
-                                    var worldPos = layer.toComp(vec);
-                                    if (layer.parent) {
-                                        newPos = layer.parent.fromComp(worldPos);
+                                    var scale = layer.transform.scale.value;
+                                    var sx = scale[0] / 100;
+                                    var sy = scale[1] / 100;
+
+                                    var dx = (newAnchor[0] - oldAnchor[0]) * sx;
+                                    var dy = (newAnchor[1] - oldAnchor[1]) * sy;
+
+                                    var oldPos = layer.transform.position.value;
+                                    if (oldPos.length === 2) {
+                                        newPos = [oldPos[0] + dx, oldPos[1] + dy];
                                     } else {
-                                        newPos = worldPos;
+                                        newPos = [oldPos[0] + dx, oldPos[1] + dy, oldPos[2]];
                                     }
                                     compensationSuccess = true;
-                                } catch (compErr) {
-                                    // toComp failed, try manual math
+                                } catch (mathErr) {
+                                    // Skip compensation
                                 }
-
-                                if (!compensationSuccess) {
-                                    try {
-                                        var scale = layer.transform.scale.value;
-                                        var sx = scale[0] / 100;
-                                        var sy = scale[1] / 100;
-
-                                        var dx = (newAnchor[0] - oldAnchor[0]) * sx;
-                                        var dy = (newAnchor[1] - oldAnchor[1]) * sy;
-
-                                        var oldPos = layer.transform.position.value;
-                                        if (oldPos.length === 2) {
-                                            newPos = [oldPos[0] + dx, oldPos[1] + dy];
-                                        } else {
-                                            newPos = [oldPos[0] + dx, oldPos[1] + dy, oldPos[2]];
-                                        }
-                                        compensationSuccess = true;
-                                    } catch (mathErr) {
-                                        // Skip compensation
-                                    }
-                                }
-
-                                layer.transform.anchorPoint.setValue(newAnchor);
-                                layer.transform.position.setValue(newPos);
                             }
-                        } catch (layerErr) {
-                            // Skip problematic layer
+
+                            layer.transform.anchorPoint.setValue(newAnchor);
+                            layer.transform.position.setValue(newPos);
                         }
+                    } catch (layerErr) {
+                        // Skip problematic layer
                     }
-                    app.endUndoGroup();
                 }
             } catch (e) {
                 alert("Error setup: " + e.toString());
             }
 
-            var speedLine;
-            if (randomSpeedCheck.value) {
-                speedLine = "speed = " + speed + " + ((index - 1) % 4); // cycled offset by index";
-            } else {
-                speedLine = "speed = " + speed + "; // cycles per second";
+            // Apply V Scale expression to each selected layer
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (!layer.transform || !layer.transform.scale || layer.locked) continue;
+
+                var framesPerCycleVal = speed;
+                if (randomSpeedCheck.value) {
+                    framesPerCycleVal = speed + (i % 4); // offset by selection order
+                }
+
+                var speedLine = "framesPerCycle = " + framesPerCycleVal + "; // frames per pulse cycle";
+
+                var expression;
+                if (useMarkers) {
+                    expression = "// Settings\n" +
+                        "minScaleY = " + yMin + ";\n" +
+                        "maxScaleY = " + yMax + ";\n" +
+                        speedLine + "\n" +
+                        "var isFrozen = false;\n" +
+                        "if (marker.numKeys > 0) {\n" +
+                        "    for (var j = 1; j <= marker.numKeys; j++) {\n" +
+                        "        var mk = marker.key(j);\n" +
+                        "        if (mk.time <= time) {\n" +
+                        "            var c = mk.comment.toLowerCase();\n" +
+                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                        "        } else { break; }\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "if (isFrozen) {\n" +
+                        "    value;\n" +
+                        "} else {\n" +
+                        "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "    s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n" +
+                        "    scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                        "    [100, scaleY];\n" +
+                        "}";
+                } else if (stopTimeComponents) {
+                    var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
+                    expression = "// Settings\n" +
+                        "minScaleY = " + yMin + ";\n" +
+                        "maxScaleY = " + yMax + ";\n" +
+                        speedLine + "\n" +
+                        "stopTime = " + stopTimeCalculation + "\n" +
+                        "t = Math.min(time, stopTime);\n" +
+                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "s = (Math.sin(t * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                        "// Interpolate scale using linear easing\n" +
+                        "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                        "[100, scaleY]";
+                } else {
+                    expression = "// Settings\n" +
+                        "minScaleY = " + yMin + ";\n" +
+                        "maxScaleY = " + yMax + ";\n" +
+                        speedLine + "\n\n" +
+                        "// Calculate oscillation\n" +
+                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                        "s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                        "// Interpolate scale using linear easing\n" +
+                        "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                        "[100, scaleY]";
+                }
+
+                layer.transform.scale.expression = expression;
             }
 
-            var expression = "// Settings\n" +
-                "minScaleY = " + yMin + ";\n" +
-                "maxScaleY = " + yMax + ";\n" +
-                speedLine + "\n\n" +
-                "// Oscillate value using sine\n" +
-                "s = (Math.sin(time * Math.PI * speed) + 1) / 2; // normalized between 0–1\n\n" +
-                "// Interpolate scale using linear easing\n" +
-                "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                "[100, scaleY]";
-
-            handleExpressionClick("V Scale", expression);
+            app.endUndoGroup();
+            updateStatus("Applied V Scale expression to selected layer(s)");
             dialog.close();
         };
 
@@ -6137,6 +6479,20 @@
             }
         };
 
+        // Use Markers checkbox
+        var useMarkersCheck = stopTimeGroup.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.onClick = function () {
+            if (useMarkersCheck.value) {
+                stopTimeInput.enabled = false;
+                stopHereCheck.enabled = false;
+            } else {
+                stopTimeInput.enabled = true;
+                stopHereCheck.enabled = true;
+            }
+            if (typeof updatePreview === 'function') updatePreview();
+        };
+
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
@@ -6176,9 +6532,12 @@
         function updatePreview() {
             var amp = parseFloat(ampInput.text);
             var speed = parseFloat(speedInput.text);
+            var useMarkers = useMarkersCheck.value;
             var hasStopTime = stopTimeInput.text !== "";
             if (!isNaN(amp) && !isNaN(speed)) {
-                if (hasStopTime) {
+                if (useMarkers) {
+                    previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\nvar isFrozen = false;\n// [Marker Stop/Resume logic here]\namp * Math.sin(2 * Math.PI * speed * time);";
+                } else if (hasStopTime) {
                     previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\nvar stopTime = [...];\nvar t = time >= stopTime ? stopTime : time;\namp * Math.sin(2 * Math.PI * speed * t);";
                 } else {
                     previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\n\namp * Math.sin(2 * Math.PI * speed * time);";
@@ -6200,10 +6559,11 @@
             var amp = parseFloat(ampInput.text);
             var speed = parseFloat(speedInput.text);
             var stopTimeStr = stopTimeInput.text;
+            var useMarkers = useMarkersCheck.value;
 
             if (!isNaN(amp) && !isNaN(speed)) {
                 var stopTimeComponents = null;
-                if (stopTimeStr !== "") {
+                if (!useMarkers && stopTimeStr !== "") {
                     var parts = stopTimeStr.split(':');
                     if (parts.length === 4 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1])) && !isNaN(parseInt(parts[2])) && !isNaN(parseInt(parts[3]))) {
                         stopTimeComponents = {
@@ -6219,7 +6579,26 @@
                 }
 
                 var expression;
-                if (stopTimeComponents) {
+                if (useMarkers) {
+                    expression = "var amp   = " + amp + ";   // degrees each direction\n" +
+                        "var speed = " + speed + ";    // cycles per second\n" +
+                        "var isFrozen = false;\n" +
+                        "if (marker.numKeys > 0) {\n" +
+                        "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                        "        var mk = marker.key(i);\n" +
+                        "        if (mk.time <= time) {\n" +
+                        "            var c = mk.comment.toLowerCase();\n" +
+                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                        "        } else { break; }\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "if (isFrozen) {\n" +
+                        "    value;\n" +
+                        "} else {\n" +
+                        "    amp * Math.sin(2 * Math.PI * speed * time);\n" +
+                        "}";
+                } else if (stopTimeComponents) {
                     var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
                     expression = "var amp   = " + amp + ";   // degrees each direction\n" +
                         "var speed = " + speed + ";    // cycles per second\n" +
@@ -7681,7 +8060,7 @@
             }
 
         } catch (error) {
-alert("Error hiding layers: " + error.message);
+            alert("Error hiding layers: " + error.message);
             updateStatus("Error: " + error.message);
         }
     }
@@ -7718,14 +8097,14 @@ alert("Error hiding layers: " + error.message);
             cautionGrp.orientation = "column";
             cautionGrp.alignChildren = ["left", "top"];
             cautionGrp.spacing = 2;
-            
+
             var cautionTxt1 = cautionGrp.add("statictext", undefined, "⚠ CAUTION: Highly Sensitive Tool!");
             cautionTxt1.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-            
+
             // Try to set red color for warning if supported
             try {
                 cautionTxt1.graphics.foregroundColor = cautionTxt1.graphics.newPen(dialog.graphics.PenType.SOLID_COLOR, [0.8, 0.1, 0.1, 1], 1);
-            } catch(e) {}
+            } catch (e) { }
 
             var cautionTxt2 = cautionGrp.add("statictext", undefined, "Entering a wrong layer name prefix could hide unintended active design layers.");
             cautionTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
@@ -7894,9 +8273,9 @@ alert("Error hiding layers: " + error.message);
 
             // Display alert summary
             var summaryMsg = "✓ Hide Layers Completed!\n\n" +
-                             "Hidden Layers: " + hiddenLayersLog.length + "\n" +
-                             "Precomps missing target layers: " + missingXComps.length + "\n\n" +
-                             "A detailed report/log has been saved as 'hide_layers_report.txt' in your project folder.";
+                "Hidden Layers: " + hiddenLayersLog.length + "\n" +
+                "Precomps missing target layers: " + missingXComps.length + "\n\n" +
+                "A detailed report/log has been saved as 'hide_layers_report.txt' in your project folder.";
             alert(summaryMsg);
 
             updateStatus("Hidden " + hiddenLayersLog.length + " layers in '" + targetName + "' and precomps" + logPathMsg);
@@ -9612,8 +9991,8 @@ alert("Error hiding layers: " + error.message);
 
     function doUnprecomp(comp, precompLayer, srcComp, useXCrop, dlgStatus) {
         // -- Snapshot everything we need BEFORE touching the comp --
-        var oldName          = precompLayer.name;
-        var precompIndex     = precompLayer.index;      // used to shift indices later
+        var oldName = precompLayer.name;
+        var precompIndex = precompLayer.index;      // used to shift indices later
         var precompStartTime = precompLayer.startTime;  // saved before remove()
 
         var innerCount = srcComp.numLayers;
@@ -9650,7 +10029,7 @@ alert("Error hiding layers: " + error.message);
             var pastedIndices = [];
             for (var ci = 0; ci < innerCount; ci++) {
                 var idx = layerCountBefore + 1 + ci;   // 1-based index in comp
-                var pl  = comp.layer(idx);
+                var pl = comp.layer(idx);
                 pl.startTime = innerStartTimes[ci] + precompStartTime;
                 pastedIndices.push(idx);
             }
@@ -9776,15 +10155,15 @@ alert("Error hiding layers: " + error.message);
 
         // Industry standard FPS presets
         var fpsPresets = [
-            { label: "23.976 fps  (Film / Streaming)",   value: 24000/1001 },
-            { label: "24 fps      (Cinema)",              value: 24 },
-            { label: "25 fps      (PAL / Europe TV)",     value: 25 },
-            { label: "29.97 fps   (NTSC / USA TV)",       value: 30000/1001 },
-            { label: "30 fps      (Web / YouTube)",       value: 30 },
-            { label: "48 fps      (HFR Cinema)",          value: 48 },
-            { label: "50 fps      (PAL HD / Sports)",     value: 50 },
-            { label: "59.94 fps   (NTSC HD)",             value: 60000/1001 },
-            { label: "60 fps      (Gaming / Motion)",     value: 60 }
+            { label: "23.976 fps  (Film / Streaming)", value: 24000 / 1001 },
+            { label: "24 fps      (Cinema)", value: 24 },
+            { label: "25 fps      (PAL / Europe TV)", value: 25 },
+            { label: "29.97 fps   (NTSC / USA TV)", value: 30000 / 1001 },
+            { label: "30 fps      (Web / YouTube)", value: 30 },
+            { label: "48 fps      (HFR Cinema)", value: 48 },
+            { label: "50 fps      (PAL HD / Sports)", value: 50 },
+            { label: "59.94 fps   (NTSC HD)", value: 60000 / 1001 },
+            { label: "60 fps      (Gaming / Motion)", value: 60 }
         ];
 
         // Radio buttons group
@@ -9795,7 +10174,7 @@ alert("Error hiding layers: " + error.message);
 
         var radioButtons = [];
         for (var r = 0; r < fpsPresets.length; r++) {
-            (function(idx) {
+            (function (idx) {
                 var rb = radioGroup.add("radiobutton", undefined, fpsPresets[idx].label);
                 rb.graphics.font = ScriptUI.newFont("Courier New", "REGULAR", 9);
                 if (idx === 2) rb.value = true; // Default: 25 fps
@@ -9836,11 +10215,11 @@ alert("Error hiding layers: " + error.message);
         var cancelBtn = btnRow.add("button", undefined, "Cancel");
         cancelBtn.preferredSize.height = 26;
 
-        cancelBtn.onClick = function() {
+        cancelBtn.onClick = function () {
             dlg.close();
         };
 
-        applyBtn.onClick = function() {
+        applyBtn.onClick = function () {
             // Find selected FPS
             var selectedFps = -1;
             var selectedLabel = "";
@@ -10308,6 +10687,86 @@ alert("Error hiding layers: " + error.message);
         } catch (err) {
             app.endUndoGroup();
             updateStatus("White BG error: " + err.toString());
+        }
+    }
+
+    // Centering and scaling helper function to fit selected layers to the composition
+    function autoSizeSelectedLayers() {
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                updateStatus("No active composition");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length === 0) {
+                updateStatus("No layers selected");
+                return;
+            }
+
+            app.beginUndoGroup("Auto-Size Selected Layers");
+
+            var count = 0;
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+
+                // Skip if layer does not have Transform scale or position
+                if (!layer.transform || !layer.transform.scale || !layer.transform.position) {
+                    continue;
+                }
+
+                var rect;
+                if (layer.source && (layer.source instanceof CompItem || layer.source instanceof FootageItem)) {
+                    rect = { left: 0, top: 0, width: layer.source.width, height: layer.source.height };
+                } else {
+                    // For shape/text layers or layers without a source, use sourceRectAtTime
+                    rect = layer.sourceRectAtTime(comp.time, false);
+                }
+
+                var w = rect.width;
+                var h = rect.height;
+
+                if (w === 0 || h === 0) {
+                    continue; // Avoid division by zero
+                }
+
+                var scaleX = (comp.width / w) * 100;
+                var scaleY = (comp.height / h) * 100;
+
+                var ap = layer.transform.anchorPoint.value;
+                var apX = ap[0];
+                var apY = ap[1];
+
+                var centerX = rect.left + w / 2;
+                var centerY = rect.top + h / 2;
+
+                var posX = comp.width / 2 + (apX - centerX) * (scaleX / 100);
+                var posY = comp.height / 2 + (apY - centerY) * (scaleY / 100);
+
+                // Set scale
+                var currentScale = layer.transform.scale.value;
+                var newScale = [scaleX, scaleY];
+                if (currentScale.length > 2) {
+                    newScale.push(currentScale[2]);
+                }
+                layer.transform.scale.setValue(newScale);
+
+                // Set position
+                var currentPos = layer.transform.position.value;
+                var newPos = [posX, posY];
+                if (currentPos.length > 2) {
+                    newPos.push(currentPos[2]);
+                }
+                layer.transform.position.setValue(newPos);
+
+                count++;
+            }
+
+            app.endUndoGroup();
+            updateStatus("Auto-sized " + count + " layer(s)");
+        } catch (error) {
+            updateStatus("Auto-size error: " + error.toString());
         }
     }
 
