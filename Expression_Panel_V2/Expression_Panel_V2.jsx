@@ -235,7 +235,10 @@
             ["≈ Water Dist", "Water Distort", function() { showWaterDistortionDialog(); }, "Add water distortion effect"],
             ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }, "Add bounce keyframes"],
             ["✳ Rim Light", "Rim Light", function() { addRimLightEffects(); }, "Add rim light effects"],
-            ["⤓ Squash", "Squash", function() { applySquashAnimation(); }, "Apply squash animation"]
+            ["⤓ Squash", "Squash", function() { applySquashAnimation(); }, "Apply squash animation"],
+            ["✦ Glitter", "Glitter", runAnim, "Apply glitter flashing animation"],
+            ["↻ Time Rot", "Time Rotation", runAnim, "Continuous constant speed rotation"],
+            ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"]
         ];
 
         for (var i = 0; i < favAnimPairs.length; i += 2) {
@@ -255,14 +258,15 @@
         utilLbl.alignment = ["fill", "top"];
 
         var favUtilPairs = [
-            ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
+            ["✃ Trim Sel", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
             ["♦ Add KFs", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale and rotation values"],
             ["☒ Hide Lyrs", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
             ["☑ Show Lyrs", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
             ["♫ Audio Mkr", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
-            ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"]
+            ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
+            ["⇆ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
         ];
 
         for (var i = 0; i < favUtilPairs.length; i += 2) {
@@ -948,31 +952,30 @@
         var dlg = new Window("palette", "Lips CTRL", undefined, { resizeable: false });
         dlg.orientation = "column";
         dlg.alignChildren = ["fill", "top"];
-        dlg.spacing = 6;
-        dlg.margins = 12;
+        dlg.spacing = 4;
+        dlg.margins = 8;
+        dlg.preferredSize.width = 200;
 
         // Info label
-        var infoTxt = dlg.add("statictext", undefined, "Adds stop/resume markers at playhead:");
-        infoTxt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        var infoTxt2 = dlg.add("statictext", undefined, "Works with: Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong");
-        infoTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var infoTxt = dlg.add("statictext", undefined, "Adds stop/resume markers:");
+        infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        infoTxt.helpTip = "Works with: Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong";
 
         // Buttons row
         var btnRow = dlg.add("group");
         btnRow.orientation = "row";
         btnRow.alignChildren = ["fill", "center"];
-        btnRow.spacing = 6;
+        btnRow.spacing = 4;
 
         var stopBtn = btnRow.add("button", undefined, "\u23F9 Stop");
-        stopBtn.preferredSize.height = 28;
+        stopBtn.preferredSize.height = 18;
         stopBtn.helpTip = "Freeze animation at current playhead time (adds \"stop\" marker)";
         stopBtn.onClick = function () {
             addLipsMarker("stop");
         };
 
         var resumeBtn = btnRow.add("button", undefined, "\u25B6 Resume");
-        resumeBtn.preferredSize.height = 28;
+        resumeBtn.preferredSize.height = 18;
         resumeBtn.helpTip = "Resume animation at current playhead time (adds \"sync\" marker)";
         resumeBtn.onClick = function () {
             addLipsMarker("sync");
@@ -1163,84 +1166,65 @@
 
 
     // Show time rotation dialog with custom value
+    // Show time rotation dialog with custom value
     function showTimeRotationDialog() {
         var dialog = new Window("dialog", "Time Rotation Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 220;
 
         // Speed input
         var speedGroup = dialog.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["left", "center"];
-        speedGroup.add("statictext", undefined, "Rotation Speed (°/sec):");
+        var lbl = speedGroup.add("statictext", undefined, "Speed (°/s):");
+        lbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "360");
-        speedInput.preferredSize.width = 60;
+        speedInput.preferredSize = [50, 18];
 
         // Direction checkbox
         var directionCheck = dialog.add("checkbox", undefined, "Reverse Direction");
+        directionCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.spacing = 3;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var slowBtn = presetGroup.add("button", undefined, "Slow");
+        slowBtn.preferredSize = [40, 18];
         slowBtn.onClick = function () {
             speedInput.text = "90";
             directionCheck.value = false;
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
+        var normalBtn = presetGroup.add("button", undefined, "Norm");
+        normalBtn.preferredSize = [40, 18];
         normalBtn.onClick = function () {
             speedInput.text = "360";
             directionCheck.value = false;
         };
 
         var fastBtn = presetGroup.add("button", undefined, "Fast");
+        fastBtn.preferredSize = [40, 18];
         fastBtn.onClick = function () {
             speedInput.text = "720";
             directionCheck.value = false;
         };
 
-        // Preview
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview function
-        function updatePreview() {
-            var speed = parseFloat(speedInput.text);
-            if (!isNaN(speed)) {
-                if (directionCheck.value) {
-                    speed = -speed;
-                }
-                var expression = "// Settings\nspeed = " + speed + "; // degrees per second\n\n// Rotation animation\ntime * speed";
-                previewText.text = expression;
-            }
-        }
-
-        // Add change handlers
-        speedInput.onChanging = updatePreview;
-        directionCheck.onClick = updatePreview;
-
-        // Initial preview update
-        updatePreview();
-
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var speed = parseFloat(speedInput.text);
             if (!isNaN(speed)) {
@@ -1256,6 +1240,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -1269,33 +1254,41 @@
         var dialog = new Window("dialog", name + " Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 220;
 
         // Posterize Time setting
         var posterizeGroup = dialog.add("group");
         posterizeGroup.orientation = "row";
-        posterizeGroup.alignChildren = ["fill", "center"];
+        posterizeGroup.alignChildren = ["left", "center"];
+        posterizeGroup.spacing = 2;
 
-        posterizeGroup.add("statictext", undefined, "posterizeTime(");
+        var lbl1 = posterizeGroup.add("statictext", undefined, "posterizeTime(");
+        lbl1.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var posterizeInput = posterizeGroup.add("edittext", undefined, "1");
-        posterizeInput.preferredSize.width = 50;
-        posterizeGroup.add("statictext", undefined, ")");
+        posterizeInput.preferredSize = [40, 18];
+        var lbl2 = posterizeGroup.add("statictext", undefined, ")");
+        lbl2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Time multiplier setting
         var timeGroup = dialog.add("group");
         timeGroup.orientation = "row";
-        timeGroup.alignChildren = ["fill", "center"];
+        timeGroup.alignChildren = ["left", "center"];
+        timeGroup.spacing = 2;
 
-        timeGroup.add("statictext", undefined, "time * ");
+        var lbl3 = timeGroup.add("statictext", undefined, "time * ");
+        lbl3.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var timeInput = timeGroup.add("edittext", undefined, "360");
-        timeInput.preferredSize.width = 80;
+        timeInput.preferredSize = [50, 18];
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var posterizeValue = posterizeInput.text;
             var timeValue = timeInput.text;
@@ -1310,6 +1303,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -1323,36 +1317,45 @@
         var dialog = new Window("dialog", "Wiggle + Time Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 220;
 
         // Wiggle settings
         var wiggleGroup = dialog.add("group");
         wiggleGroup.orientation = "row";
-        wiggleGroup.alignChildren = ["fill", "center"];
+        wiggleGroup.alignChildren = ["left", "center"];
+        wiggleGroup.spacing = 2;
 
-        wiggleGroup.add("statictext", undefined, "wiggle(");
+        var lbl1 = wiggleGroup.add("statictext", undefined, "wiggle(");
+        lbl1.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var freqInput = wiggleGroup.add("edittext", undefined, "10");
-        freqInput.preferredSize.width = 50;
-        wiggleGroup.add("statictext", undefined, ", ");
+        freqInput.preferredSize = [40, 18];
+        var lbl2 = wiggleGroup.add("statictext", undefined, ", ");
+        lbl2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = wiggleGroup.add("edittext", undefined, "20");
-        ampInput.preferredSize.width = 50;
-        wiggleGroup.add("statictext", undefined, ")");
+        ampInput.preferredSize = [40, 18];
+        var lbl3 = wiggleGroup.add("statictext", undefined, ")");
+        lbl3.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Time settings
         var timeGroup = dialog.add("group");
         timeGroup.orientation = "row";
-        timeGroup.alignChildren = ["fill", "center"];
+        timeGroup.alignChildren = ["left", "center"];
+        timeGroup.spacing = 2;
 
-        timeGroup.add("statictext", undefined, "+ time * ");
+        var lbl4 = timeGroup.add("statictext", undefined, "+ time * ");
+        lbl4.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var timeInput = timeGroup.add("edittext", undefined, "180");
-        timeInput.preferredSize.width = 80;
+        timeInput.preferredSize = [50, 18];
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var freq = freqInput.text;
             var amp = ampInput.text;
@@ -1368,6 +1371,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -1448,56 +1452,59 @@
         var dialog = new Window("dialog", "Up Down Animation Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 8;
-        dialog.margins = 12;
-        dialog.preferredSize.width = 280;
-        dialog.preferredSize.height = 200;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Input settings in a more compact layout
         var inputGroup = dialog.add("group");
         inputGroup.orientation = "row";
         inputGroup.alignChildren = ["fill", "center"];
-        inputGroup.spacing = 8;
+        inputGroup.spacing = 6;
 
         // Left column for amplitude and frames
         var leftCol = inputGroup.add("group");
         leftCol.orientation = "column";
         leftCol.alignChildren = ["fill", "center"];
-        leftCol.spacing = 4;
+        leftCol.spacing = 3;
 
         var ampGroup = leftCol.add("group");
         ampGroup.orientation = "row";
         ampGroup.alignChildren = ["left", "center"];
-        ampGroup.spacing = 4;
-        ampGroup.add("statictext", undefined, "Amp:");
+        ampGroup.spacing = 2;
+        var ampLbl = ampGroup.add("statictext", undefined, "Amp:");
+        ampLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = ampGroup.add("edittext", undefined, "50");
-        ampInput.preferredSize.width = 50;
+        ampInput.preferredSize = [40, 18];
 
         var framesGroup = leftCol.add("group");
         framesGroup.orientation = "row";
         framesGroup.alignChildren = ["left", "center"];
-        framesGroup.spacing = 4;
-        framesGroup.add("statictext", undefined, "Frames:");
+        framesGroup.spacing = 2;
+        var framesLbl = framesGroup.add("statictext", undefined, "Frames:");
+        framesLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var framesInput = framesGroup.add("edittext", undefined, "5");
-        framesInput.preferredSize.width = 50;
+        framesInput.preferredSize = [40, 18];
 
         // Right column for stop time
         var rightCol = inputGroup.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "center"];
-        rightCol.spacing = 4;
+        rightCol.spacing = 3;
 
         var stopTimeGroup = rightCol.add("group");
         stopTimeGroup.orientation = "row";
         stopTimeGroup.alignChildren = ["left", "center"];
-        stopTimeGroup.spacing = 4;
-        stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopTimeGroup.spacing = 2;
+        var stopLbl = stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
-        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.preferredSize = [70, 18];
         stopTimeInput.helpTip = "Leave empty for no stop time.";
 
         // Stop Here checkbox
         var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
         stopHereCheck.onClick = function () {
             if (stopHereCheck.value) {
@@ -1510,6 +1517,7 @@
 
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
@@ -1525,13 +1533,15 @@
         var randomizeGroup = dialog.add("group");
         randomizeGroup.orientation = "column";
         randomizeGroup.alignChildren = ["fill", "top"];
-        randomizeGroup.spacing = 4;
+        randomizeGroup.spacing = 2;
 
         var randomizeCheck = randomizeGroup.add("checkbox", undefined, "Randomize duration");
+        randomizeCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         randomizeCheck.value = false;
         randomizeCheck.helpTip = "When multiple layers selected, randomize frames per cycle between min and max";
 
         var reverseCheck = randomizeGroup.add("checkbox", undefined, "Reverse Direction");
+        reverseCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         reverseCheck.value = false;
         reverseCheck.helpTip = "Inverts the amplitude value (e.g. 50 becomes -50) for all selected layers";
 
@@ -1540,7 +1550,8 @@
         randomizeInputGroup.alignChildren = ["left", "center"];
         randomizeInputGroup.spacing = 4;
 
-        randomizeInputGroup.add("statictext", undefined, "Speed:");
+        var speedLbl = randomizeInputGroup.add("statictext", undefined, "Speed:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedDropdown = randomizeInputGroup.add("dropdownlist", undefined, [
             "Very Fast (3-7)",
             "Fast (7-11)",
@@ -1548,50 +1559,47 @@
             "Slow (14-20)",
             "Very Slow (23-29)"
         ]);
+        speedDropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         speedDropdown.selection = 2; // Default to Normal (12-14)
 
         // Preset buttons in 4x2 grid
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
-        presetGroup.spacing = 3;
+        presetGroup.spacing = 2;
 
         var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
-        presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
+        presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // First row of presets
         var presetRow1 = presetGroup.add("group");
         presetRow1.orientation = "row";
         presetRow1.alignChildren = ["fill", "center"];
-        presetRow1.spacing = 3;
+        presetRow1.spacing = 2;
 
         var subtleBtn = presetRow1.add("button", undefined, "Subtle");
-        subtleBtn.preferredSize.width = 60;
-        subtleBtn.preferredSize.height = 20;
+        subtleBtn.preferredSize = [50, 18];
         subtleBtn.onClick = function () {
             ampInput.text = "12";
             framesInput.text = "12";
         };
 
-        var normalBtn = presetRow1.add("button", undefined, "Normal");
-        normalBtn.preferredSize.width = 60;
-        normalBtn.preferredSize.height = 20;
+        var normalBtn = presetRow1.add("button", undefined, "Norm");
+        normalBtn.preferredSize = [50, 18];
         normalBtn.onClick = function () {
             ampInput.text = "50";
             framesInput.text = "5";
         };
 
         var crazyBtn = presetRow1.add("button", undefined, "Crazy");
-        crazyBtn.preferredSize.width = 60;
-        crazyBtn.preferredSize.height = 20;
+        crazyBtn.preferredSize = [50, 18];
         crazyBtn.onClick = function () {
             ampInput.text = "20";
             framesInput.text = "3";
         };
 
         var preset1Btn = presetRow1.add("button", undefined, "7,9");
-        preset1Btn.preferredSize.width = 60;
-        preset1Btn.preferredSize.height = 20;
+        preset1Btn.preferredSize = [50, 18];
         preset1Btn.onClick = function () {
             ampInput.text = "7";
             framesInput.text = "9";
@@ -1601,65 +1609,58 @@
         var presetRow2 = presetGroup.add("group");
         presetRow2.orientation = "row";
         presetRow2.alignChildren = ["fill", "center"];
-        presetRow2.spacing = 3;
+        presetRow2.spacing = 2;
 
         var preset2Btn = presetRow2.add("button", undefined, "24,24");
-        preset2Btn.preferredSize.width = 60;
-        preset2Btn.preferredSize.height = 20;
+        preset2Btn.preferredSize = [50, 18];
         preset2Btn.onClick = function () {
             ampInput.text = "24";
             framesInput.text = "24";
         };
 
         var preset3Btn = presetRow2.add("button", undefined, "35,24");
-        preset3Btn.preferredSize.width = 60;
-        preset3Btn.preferredSize.height = 20;
+        preset3Btn.preferredSize = [50, 18];
         preset3Btn.onClick = function () {
             ampInput.text = "35";
             framesInput.text = "24";
         };
 
         var preset4Btn = presetRow2.add("button", undefined, "24,12");
-        preset4Btn.preferredSize.width = 60;
-        preset4Btn.preferredSize.height = 20;
+        preset4Btn.preferredSize = [50, 18];
         preset4Btn.onClick = function () {
             ampInput.text = "24";
             framesInput.text = "12";
+        };
+
+        var preset5Btn = presetRow2.add("button", undefined, "50,24");
+        preset5Btn.preferredSize = [50, 18];
+        preset5Btn.onClick = function () {
+            ampInput.text = "50";
+            framesInput.text = "24";
         };
 
         // Third row of presets
         var presetRow3 = presetGroup.add("group");
         presetRow3.orientation = "row";
         presetRow3.alignChildren = ["fill", "center"];
-        presetRow3.spacing = 3;
-
-        var preset5Btn = presetRow3.add("button", undefined, "50,24");
-        preset5Btn.preferredSize.width = 60;
-        preset5Btn.preferredSize.height = 20;
-        preset5Btn.onClick = function () {
-            ampInput.text = "50";
-            framesInput.text = "24";
-        };
+        presetRow3.spacing = 2;
 
         var preset6Btn = presetRow3.add("button", undefined, "35,12");
-        preset6Btn.preferredSize.width = 60;
-        preset6Btn.preferredSize.height = 20;
+        preset6Btn.preferredSize = [50, 18];
         preset6Btn.onClick = function () {
             ampInput.text = "35";
             framesInput.text = "12";
         };
 
         var preset7Btn = presetRow3.add("button", undefined, "12,57");
-        preset7Btn.preferredSize.width = 60;
-        preset7Btn.preferredSize.height = 20;
+        preset7Btn.preferredSize = [50, 18];
         preset7Btn.onClick = function () {
             ampInput.text = "12";
             framesInput.text = "57";
         };
 
         var preset8Btn = presetRow3.add("button", undefined, "24,72");
-        preset8Btn.preferredSize.width = 60;
-        preset8Btn.preferredSize.height = 20;
+        preset8Btn.preferredSize = [50, 18];
         preset8Btn.onClick = function () {
             ampInput.text = "24";
             framesInput.text = "72";
@@ -1668,8 +1669,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             try {
                 var amp = ampInput.text;
@@ -1750,31 +1753,55 @@
                                 }
                             }
 
-                            var currentAmp = (isReversed && i > 0) ? (-parseFloat(amp)).toString() : amp;
+                            // Flip amplitude if reverse is checked
+                            var currentAmp = parseFloat(amp);
+                            if (isReversed) {
+                                currentAmp = -currentAmp;
+                            }
+
                             var expression;
                             if (useMarkers) {
                                 expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
+                                    "// Lips CTRL Stop/Resume Marker Support\n" +
+                                    "var m = thisLayer.marker;\n" +
+                                    "var t = time;\n" +
                                     "var isFrozen = false;\n" +
-                                    "if (marker.numKeys > 0) {\n" +
-                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
-                                    "        var mk = marker.key(i);\n" +
-                                    "        if (mk.time <= time) {\n" +
-                                    "            var c = mk.comment.toLowerCase();\n" +
-                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
-                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
-                                    "        } else { break; }\n" +
+                                    "var stopTimeAccum = 0;\n" +
+                                    "var lastStopVal = 0;\n" +
+                                    "var activeIntervalStart = 0;\n" +
+                                    "if (m.numKeys > 0) {\n" +
+                                    "  var idx = m.nearestKey(time).index;\n" +
+                                    "  if (m.key(idx).time > time) idx--;\n" +
+                                    "  if (idx > 0) {\n" +
+                                    "    for (var k = 1; k <= idx; k++) {\n" +
+                                    "      var keyTime = m.key(k).time;\n" +
+                                    "      var comment = m.key(k).comment.toLowerCase();\n" +
+                                    "      if (comment == 'stop') {\n" +
+                                    "        if (!isFrozen) {\n" +
+                                    "          isFrozen = true;\n" +
+                                    "          lastStopVal = keyTime - activeIntervalStart - stopTimeAccum;\n" +
+                                    "        }\n" +
+                                    "      } else if (comment == 'sync') {\n" +
+                                    "        if (isFrozen) {\n" +
+                                    "          isFrozen = false;\n" +
+                                    "          stopTimeAccum += (keyTime - (lastStopVal + stopTimeAccum + activeIntervalStart));\n" +
+                                    "        }\n" +
+                                    "      }\n" +
                                     "    }\n" +
+                                    "  }\n" +
+                                    "  if (isFrozen) {\n" +
+                                    "    t = lastStopVal;\n" +
+                                    "  } else {\n" +
+                                    "    t = time - stopTimeAccum;\n" +
+                                    "  }\n" +
                                     "}\n" +
-                                    "if (isFrozen) {\n" +
-                                    "    value;\n" +
-                                    "} else {\n" +
-                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                                    "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
-                                    "    value + [0, y_movement];\n" +
-                                    "}";
-                            } else if (stopTimeComponents) {
-                                var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
+                                    "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
+                                    "value + [0, y_movement];";
+                            } else if (stopTimeComponents !== null) {
+                                var frameRate = comp.frameRate;
+                                var stopTimeCalculation = (stopTimeComponents.h * 3600) + (stopTimeComponents.m * 60) + stopTimeComponents.s + (stopTimeComponents.f / frameRate);
                                 expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
                                     "stopTime = " + stopTimeCalculation + "\n" +
@@ -1792,55 +1819,11 @@
                                     "t = time / (framesPerCycle * fps);\n" +
                                     "value + [0, Math.sin(t * 2 * Math.PI) * amp];";
                             }
-                            if (selectedLayers[i].transform && selectedLayers[i].transform.position) {
-                                selectedLayers[i].transform.position.expression = expression;
-                            }
+                            selectedLayers[i].property("Position").expression = expression;
                         }
                     } else if (selectedLayers.length > 1) {
                         // Multiple layers selected but randomize NOT checked - use same frames for all
                         for (var i = 0; i < selectedLayers.length; i++) {
-                            var currentAmp = (isReversed && i > 0) ? (-parseFloat(amp)).toString() : amp;
-                            var expression;
-                            if (useMarkers) {
-                                expression = "amp = " + currentAmp + ";\n" +
-                                    "framesPerCycle = " + frames + ";\n" +
-                                    "var isFrozen = false;\n" +
-                                    "if (marker.numKeys > 0) {\n" +
-                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
-                                    "        var mk = marker.key(i);\n" +
-                                    "        if (mk.time <= time) {\n" +
-                                    "            var c = mk.comment.toLowerCase();\n" +
-                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
-                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
-                                    "        } else { break; }\n" +
-                                    "    }\n" +
-                                    "}\n" +
-                                    "if (isFrozen) {\n" +
-                                    "    value;\n" +
-                                    "} else {\n" +
-                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                                    "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
-                                    "    value + [0, y_movement];\n" +
-                                    "}";
-                            } else if (stopTimeComponents) {
-                                var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                                expression = "amp = " + currentAmp + ";\n" +
-                                    "framesPerCycle = " + frames + ";\n" +
-                                    "stopTime = " + stopTimeCalculation + "\n" +
-                                    "t = time;\n" +
-                                    "if (time >= stopTime) {\n" +
-                                    "  t = stopTime;\n" +
-                                    "}\n" +
-                                    "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                                    "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
-                                    "value + [0, y_movement];";
-                            } else {
-                                expression = "amp = " + currentAmp + ";\n" +
-                                    "framesPerCycle = " + frames + ";\n" +
-                                    "fps = thisComp.frameDuration;\n" +
-                                    "t = time / (framesPerCycle * fps);\n" +
-                                    "value + [0, Math.sin(t * 2 * Math.PI) * amp];";
-                            }
                             if (selectedLayers[i].transform && selectedLayers[i].transform.position) {
                                 selectedLayers[i].transform.position.expression = expression;
                             }
@@ -1900,11 +1883,12 @@
                     alert("Please enter valid numbers for Amplitude and Frames.");
                 }
             } catch (e) {
-                alert("An error occurred in the script.\n\nError: " + e.toString() + "\nLine: " + e.line);
+                alert("An error occurred: " + e.toString());
             }
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -1912,62 +1896,64 @@
         dialog.center();
         dialog.show();
     }
-
-    // Show left right animation dialog
+// Show left right animation dialog
     function showLeftRightDialog() {
         var dialog = new Window("dialog", "Left Right Animation Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 8;
-        dialog.margins = 12;
-        dialog.preferredSize.width = 280;
-        dialog.preferredSize.height = 200;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Input settings in a more compact layout
         var inputGroup = dialog.add("group");
         inputGroup.orientation = "row";
         inputGroup.alignChildren = ["fill", "center"];
-        inputGroup.spacing = 8;
+        inputGroup.spacing = 6;
 
         // Left column for amplitude and frames
         var leftCol = inputGroup.add("group");
         leftCol.orientation = "column";
         leftCol.alignChildren = ["fill", "center"];
-        leftCol.spacing = 4;
+        leftCol.spacing = 3;
 
         var ampGroup = leftCol.add("group");
         ampGroup.orientation = "row";
         ampGroup.alignChildren = ["left", "center"];
-        ampGroup.spacing = 4;
-        ampGroup.add("statictext", undefined, "Amp:");
+        ampGroup.spacing = 2;
+        var ampLbl = ampGroup.add("statictext", undefined, "Amp:");
+        ampLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = ampGroup.add("edittext", undefined, "50");
-        ampInput.preferredSize.width = 50;
+        ampInput.preferredSize = [40, 18];
 
         var framesGroup = leftCol.add("group");
         framesGroup.orientation = "row";
         framesGroup.alignChildren = ["left", "center"];
-        framesGroup.spacing = 4;
-        framesGroup.add("statictext", undefined, "Frames:");
+        framesGroup.spacing = 2;
+        var framesLbl = framesGroup.add("statictext", undefined, "Frames:");
+        framesLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var framesInput = framesGroup.add("edittext", undefined, "5");
-        framesInput.preferredSize.width = 50;
+        framesInput.preferredSize = [40, 18];
 
         // Right column for stop time
         var rightCol = inputGroup.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "center"];
-        rightCol.spacing = 4;
+        rightCol.spacing = 3;
 
         var stopTimeGroup = rightCol.add("group");
         stopTimeGroup.orientation = "row";
         stopTimeGroup.alignChildren = ["left", "center"];
-        stopTimeGroup.spacing = 4;
-        stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopTimeGroup.spacing = 2;
+        var stopLbl = stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
-        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.preferredSize = [70, 18];
         stopTimeInput.helpTip = "Leave empty for no stop time.";
 
         // Stop Here checkbox
         var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
         stopHereCheck.onClick = function () {
             if (stopHereCheck.value) {
@@ -1980,6 +1966,7 @@
 
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
@@ -1991,58 +1978,77 @@
             }
         };
 
-        // Add Reverse Checkbox
-        var alternateGroup = dialog.add("group");
-        alternateGroup.orientation = "column";
-        alternateGroup.alignChildren = ["fill", "top"];
-        alternateGroup.spacing = 4;
+        // Randomize duration section
+        var randomizeGroup = dialog.add("group");
+        randomizeGroup.orientation = "column";
+        randomizeGroup.alignChildren = ["fill", "top"];
+        randomizeGroup.spacing = 2;
 
-        var reverseCheck = alternateGroup.add("checkbox", undefined, "Reverse Direction");
+        var randomizeCheck = randomizeGroup.add("checkbox", undefined, "Randomize duration");
+        randomizeCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        randomizeCheck.value = false;
+        randomizeCheck.helpTip = "When multiple layers selected, randomize frames per cycle between min and max";
+
+        var reverseCheck = randomizeGroup.add("checkbox", undefined, "Reverse Direction");
+        reverseCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         reverseCheck.value = false;
         reverseCheck.helpTip = "Inverts the amplitude value (e.g. 50 becomes -50) for all selected layers";
+
+        var randomizeInputGroup = randomizeGroup.add("group");
+        randomizeInputGroup.orientation = "row";
+        randomizeInputGroup.alignChildren = ["left", "center"];
+        randomizeInputGroup.spacing = 4;
+
+        var speedLbl = randomizeInputGroup.add("statictext", undefined, "Speed:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var speedDropdown = randomizeInputGroup.add("dropdownlist", undefined, [
+            "Very Fast (3-7)",
+            "Fast (7-11)",
+            "Normal (12-14)",
+            "Slow (14-20)",
+            "Very Slow (23-29)"
+        ]);
+        speedDropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        speedDropdown.selection = 2; // Default to Normal (12-14)
 
         // Preset buttons in 4x2 grid
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
-        presetGroup.spacing = 3;
+        presetGroup.spacing = 2;
 
         var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
-        presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
+        presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // First row of presets
         var presetRow1 = presetGroup.add("group");
         presetRow1.orientation = "row";
         presetRow1.alignChildren = ["fill", "center"];
-        presetRow1.spacing = 3;
+        presetRow1.spacing = 2;
 
         var subtleBtn = presetRow1.add("button", undefined, "Subtle");
-        subtleBtn.preferredSize.width = 60;
-        subtleBtn.preferredSize.height = 20;
+        subtleBtn.preferredSize = [50, 18];
         subtleBtn.onClick = function () {
             ampInput.text = "12";
             framesInput.text = "12";
         };
 
-        var normalBtn = presetRow1.add("button", undefined, "Normal");
-        normalBtn.preferredSize.width = 60;
-        normalBtn.preferredSize.height = 20;
+        var normalBtn = presetRow1.add("button", undefined, "Norm");
+        normalBtn.preferredSize = [50, 18];
         normalBtn.onClick = function () {
             ampInput.text = "50";
             framesInput.text = "5";
         };
 
         var crazyBtn = presetRow1.add("button", undefined, "Crazy");
-        crazyBtn.preferredSize.width = 60;
-        crazyBtn.preferredSize.height = 20;
+        crazyBtn.preferredSize = [50, 18];
         crazyBtn.onClick = function () {
             ampInput.text = "20";
             framesInput.text = "3";
         };
 
         var preset1Btn = presetRow1.add("button", undefined, "7,9");
-        preset1Btn.preferredSize.width = 60;
-        preset1Btn.preferredSize.height = 20;
+        preset1Btn.preferredSize = [50, 18];
         preset1Btn.onClick = function () {
             ampInput.text = "7";
             framesInput.text = "9";
@@ -2052,50 +2058,59 @@
         var presetRow2 = presetGroup.add("group");
         presetRow2.orientation = "row";
         presetRow2.alignChildren = ["fill", "center"];
-        presetRow2.spacing = 3;
+        presetRow2.spacing = 2;
 
         var preset2Btn = presetRow2.add("button", undefined, "24,24");
-        preset2Btn.preferredSize.width = 60;
-        preset2Btn.preferredSize.height = 20;
+        preset2Btn.preferredSize = [50, 18];
         preset2Btn.onClick = function () {
             ampInput.text = "24";
             framesInput.text = "24";
         };
 
         var preset3Btn = presetRow2.add("button", undefined, "35,24");
-        preset3Btn.preferredSize.width = 60;
-        preset3Btn.preferredSize.height = 20;
+        preset3Btn.preferredSize = [50, 18];
         preset3Btn.onClick = function () {
             ampInput.text = "35";
             framesInput.text = "24";
         };
 
-        var preset4Btn = presetRow2.add("button", undefined, "70,90");
-        preset4Btn.preferredSize.width = 60;
-        preset4Btn.preferredSize.height = 20;
+        var preset4Btn = presetRow2.add("button", undefined, "24,12");
+        preset4Btn.preferredSize = [50, 18];
         preset4Btn.onClick = function () {
-            ampInput.text = "70";
-            framesInput.text = "90";
+            ampInput.text = "24";
+            framesInput.text = "12";
+        };
+
+        var preset5Btn = presetRow2.add("button", undefined, "50,24");
+        preset5Btn.preferredSize = [50, 18];
+        preset5Btn.onClick = function () {
+            ampInput.text = "50";
+            framesInput.text = "24";
         };
 
         // Third row of presets
         var presetRow3 = presetGroup.add("group");
         presetRow3.orientation = "row";
         presetRow3.alignChildren = ["fill", "center"];
-        presetRow3.spacing = 3;
+        presetRow3.spacing = 2;
 
-        var preset5Btn = presetRow3.add("button", undefined, "12,57");
-        preset5Btn.preferredSize.width = 60;
-        preset5Btn.preferredSize.height = 20;
-        preset5Btn.onClick = function () {
+        var preset6Btn = presetRow3.add("button", undefined, "35,12");
+        preset6Btn.preferredSize = [50, 18];
+        preset6Btn.onClick = function () {
+            ampInput.text = "35";
+            framesInput.text = "12";
+        };
+
+        var preset7Btn = presetRow3.add("button", undefined, "12,57");
+        preset7Btn.preferredSize = [50, 18];
+        preset7Btn.onClick = function () {
             ampInput.text = "12";
             framesInput.text = "57";
         };
 
-        var preset6Btn = presetRow3.add("button", undefined, "24,72");
-        preset6Btn.preferredSize.width = 60;
-        preset6Btn.preferredSize.height = 20;
-        preset6Btn.onClick = function () {
+        var preset8Btn = presetRow3.add("button", undefined, "24,72");
+        preset8Btn.preferredSize = [50, 18];
+        preset8Btn.onClick = function () {
             ampInput.text = "24";
             framesInput.text = "72";
         };
@@ -2103,8 +2118,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             try {
                 var amp = ampInput.text;
@@ -2262,47 +2279,59 @@
         var dialog = new Window("dialog", "Water Float Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 220;
 
         // Frequency setting
         var freqGroup = dialog.add("group");
         freqGroup.orientation = "row";
-        freqGroup.alignChildren = ["fill", "center"];
+        freqGroup.alignChildren = ["left", "center"];
+        freqGroup.spacing = 2;
 
-        freqGroup.add("statictext", undefined, "Frequency (slower < 1 < faster):");
+        var lbl1 = freqGroup.add("statictext", undefined, "Freq:");
+        lbl1.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var freqInput = freqGroup.add("edittext", undefined, "1");
-        freqInput.preferredSize.width = 80;
+        freqInput.preferredSize = [60, 18];
+        freqInput.helpTip = "slower < 1 < faster";
 
         // Amplitude setting
         var ampGroup = dialog.add("group");
         ampGroup.orientation = "row";
-        ampGroup.alignChildren = ["fill", "center"];
+        ampGroup.alignChildren = ["left", "center"];
+        ampGroup.spacing = 2;
 
-        ampGroup.add("statictext", undefined, "Amplitude (movement range):");
+        var lbl2 = ampGroup.add("statictext", undefined, "Amp:");
+        lbl2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = ampGroup.add("edittext", undefined, "50");
-        ampInput.preferredSize.width = 80;
+        ampInput.preferredSize = [60, 18];
+        ampInput.helpTip = "Movement range in pixels";
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.spacing = 3;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var gentleBtn = presetGroup.add("button", undefined, "Gentle");
+        gentleBtn.preferredSize = [45, 18];
         gentleBtn.onClick = function () {
             freqInput.text = "0.5";
             ampInput.text = "30";
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
+        var normalBtn = presetGroup.add("button", undefined, "Norm");
+        normalBtn.preferredSize = [45, 18];
         normalBtn.onClick = function () {
             freqInput.text = "1";
             ampInput.text = "50";
         };
 
         var roughBtn = presetGroup.add("button", undefined, "Rough");
+        roughBtn.preferredSize = [45, 18];
         roughBtn.onClick = function () {
             freqInput.text = "2";
             ampInput.text = "70";
@@ -2311,8 +2340,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var freq = freqInput.text;
             var amp = ampInput.text;
@@ -2327,6 +2358,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -2340,55 +2372,63 @@
         var dialog = new Window("dialog", "Glitter Animation Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Offset setting
         var offsetGroup = dialog.add("group");
         offsetGroup.orientation = "row";
-        offsetGroup.alignChildren = ["fill", "center"];
-
-        offsetGroup.add("statictext", undefined, "Start Delay (seconds):");
+        offsetGroup.alignChildren = ["left", "center"];
+        offsetGroup.spacing = 2;
+        var lblDelay = offsetGroup.add("statictext", undefined, "Delay (s):");
+        lblDelay.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var offsetInput = offsetGroup.add("edittext", undefined, "0.5");
-        offsetInput.preferredSize.width = 80;
+        offsetInput.preferredSize = [60, 18];
 
         // Frames per toggle setting
         var framesGroup = dialog.add("group");
         framesGroup.orientation = "row";
-        framesGroup.alignChildren = ["fill", "center"];
-
-        framesGroup.add("statictext", undefined, "Frames per Toggle:");
+        framesGroup.alignChildren = ["left", "center"];
+        framesGroup.spacing = 2;
+        var lblFrames = framesGroup.add("statictext", undefined, "Frames:");
+        lblFrames.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var framesInput = framesGroup.add("edittext", undefined, "12");
-        framesInput.preferredSize.width = 80;
+        framesInput.preferredSize = [60, 18];
 
         // Value range setting
         var rangeGroup = dialog.add("group");
         rangeGroup.orientation = "row";
-        rangeGroup.alignChildren = ["fill", "center"];
-
-        rangeGroup.add("statictext", undefined, "Toggle Values (min,max):");
+        rangeGroup.alignChildren = ["left", "center"];
+        rangeGroup.spacing = 2;
+        var lblRange = rangeGroup.add("statictext", undefined, "Range:");
+        lblRange.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var minInput = rangeGroup.add("edittext", undefined, "0");
-        minInput.preferredSize.width = 40;
-        rangeGroup.add("statictext", undefined, "to");
+        minInput.preferredSize = [40, 18];
+        var lblTo = rangeGroup.add("statictext", undefined, "to");
+        lblTo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var maxInput = rangeGroup.add("edittext", undefined, "100");
-        maxInput.preferredSize.width = 40;
+        maxInput.preferredSize = [40, 18];
 
         // Smooth checkbox
         var smoothGroup = dialog.add("group");
         smoothGroup.orientation = "row";
         smoothGroup.alignChildren = ["left", "center"];
-
         var smoothCheckbox = smoothGroup.add("checkbox", undefined, "Smooth");
+        smoothCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         smoothCheckbox.value = false;
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var fastBtn = presetGroup.add("button", undefined, "Fast");
+        fastBtn.preferredSize = [35, 18];
         fastBtn.onClick = function () {
             offsetInput.text = "0";
             framesInput.text = "6";
@@ -2396,7 +2436,8 @@
             maxInput.text = "100";
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
+        var normalBtn = presetGroup.add("button", undefined, "Norm");
+        normalBtn.preferredSize = [35, 18];
         normalBtn.onClick = function () {
             offsetInput.text = "0.5";
             framesInput.text = "12";
@@ -2405,6 +2446,7 @@
         };
 
         var slowBtn = presetGroup.add("button", undefined, "Slow");
+        slowBtn.preferredSize = [35, 18];
         slowBtn.onClick = function () {
             offsetInput.text = "1";
             framesInput.text = "24";
@@ -2412,7 +2454,8 @@
             maxInput.text = "100";
         };
 
-        var subtleBtn = presetGroup.add("button", undefined, "Subtle");
+        var subtleBtn = presetGroup.add("button", undefined, "Subt");
+        subtleBtn.preferredSize = [35, 18];
         subtleBtn.onClick = function () {
             offsetInput.text = "0.5";
             framesInput.text = "12";
@@ -2423,8 +2466,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var offset = offsetInput.text;
             var frames = framesInput.text;
@@ -2464,6 +2509,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -2477,28 +2523,29 @@
         var dialog = new Window("dialog", "Fish-like Animation Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Position Settings Group
         var posGroup = dialog.add("panel", undefined, "Position Settings");
         posGroup.orientation = "column";
         posGroup.alignChildren = ["fill", "top"];
-        posGroup.spacing = 5;
-        posGroup.margins = 10;
+        posGroup.spacing = 2;
+        posGroup.margins = 6;
 
         // Direction radio buttons
         var dirGroup = posGroup.add("group");
         dirGroup.orientation = "row";
         dirGroup.alignChildren = ["left", "center"];
-        dirGroup.add("statictext", undefined, "Swim Direction:");
+        dirGroup.spacing = 4;
+        var dirLbl = dirGroup.add("statictext", undefined, "Swim Dir:");
+        dirLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         var leftBtn = dirGroup.add("button", undefined, "<");
-        leftBtn.preferredSize.width = 30;
-        leftBtn.preferredSize.height = 30;
+        leftBtn.preferredSize = [24, 18];
         var rightBtn = dirGroup.add("button", undefined, ">");
-        rightBtn.preferredSize.width = 30;
-        rightBtn.preferredSize.height = 30;
+        rightBtn.preferredSize = [24, 18];
 
         // Default selection
         var selectedDirection = 1; // 1 for right, -1 for left
@@ -2508,71 +2555,82 @@
             selectedDirection = -1; // LEFT direction (negative)
             leftBtn.fillBrush = leftBtn.graphics.newBrush(leftBtn.graphics.BrushType.SOLID_COLOR, [0.3, 0.3, 0.3, 1]);
             rightBtn.fillBrush = rightBtn.graphics.newBrush(rightBtn.graphics.BrushType.SOLID_COLOR, [0.1, 0.1, 0.1, 1]);
-            updatePreview();
         };
 
         rightBtn.onClick = function () {
             selectedDirection = 1; // RIGHT direction (positive)
             rightBtn.fillBrush = rightBtn.graphics.newBrush(rightBtn.graphics.BrushType.SOLID_COLOR, [0.3, 0.3, 0.3, 1]);
             leftBtn.fillBrush = leftBtn.graphics.newBrush(leftBtn.graphics.BrushType.SOLID_COLOR, [0.1, 0.1, 0.1, 1]);
-            updatePreview();
         };
 
         // Forward speed
         var speedGroup = posGroup.add("group");
         speedGroup.orientation = "row";
-        speedGroup.alignChildren = ["fill", "center"];
-        speedGroup.add("statictext", undefined, "Swim Speed (px/sec):");
+        speedGroup.alignChildren = ["left", "center"];
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Speed (px/s):");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "150");
-        speedInput.preferredSize.width = 60;
+        speedInput.preferredSize = [50, 18];
 
         // Tail wiggle frequency
         var freqGroup = posGroup.add("group");
         freqGroup.orientation = "row";
-        freqGroup.alignChildren = ["fill", "center"];
-        freqGroup.add("statictext", undefined, "Tail Wiggle Frequency:");
+        freqGroup.alignChildren = ["left", "center"];
+        freqGroup.spacing = 2;
+        var freqLbl = freqGroup.add("statictext", undefined, "Tail Freq:");
+        freqLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var freqInput = freqGroup.add("edittext", undefined, "1");
-        freqInput.preferredSize.width = 60;
+        freqInput.preferredSize = [50, 18];
 
         // Tail wiggle amplitude
         var ampGroup = posGroup.add("group");
         ampGroup.orientation = "row";
-        ampGroup.alignChildren = ["fill", "center"];
-        ampGroup.add("statictext", undefined, "Tail Wiggle Range (px):");
+        ampGroup.alignChildren = ["left", "center"];
+        ampGroup.spacing = 2;
+        var ampLbl = ampGroup.add("statictext", undefined, "Tail Amp (px):");
+        ampLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = ampGroup.add("edittext", undefined, "5");
-        ampInput.preferredSize.width = 60;
+        ampInput.preferredSize = [50, 18];
 
         // Rotation Settings Group
         var rotGroup = dialog.add("panel", undefined, "Rotation Settings");
         rotGroup.orientation = "column";
         rotGroup.alignChildren = ["fill", "top"];
-        rotGroup.spacing = 5;
-        rotGroup.margins = 10;
+        rotGroup.spacing = 2;
+        rotGroup.margins = 6;
 
         // Rotation frequency
         var rotFreqGroup = rotGroup.add("group");
         rotFreqGroup.orientation = "row";
-        rotFreqGroup.alignChildren = ["fill", "center"];
-        rotFreqGroup.add("statictext", undefined, "Body Sway Frequency:");
+        rotFreqGroup.alignChildren = ["left", "center"];
+        rotFreqGroup.spacing = 2;
+        var rotFreqLbl = rotFreqGroup.add("statictext", undefined, "Sway Freq:");
+        rotFreqLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var rotFreqInput = rotFreqGroup.add("edittext", undefined, "0.5");
-        rotFreqInput.preferredSize.width = 60;
+        rotFreqInput.preferredSize = [50, 18];
 
         // Rotation amplitude
         var rotAmpGroup = rotGroup.add("group");
         rotAmpGroup.orientation = "row";
-        rotAmpGroup.alignChildren = ["fill", "center"];
-        rotAmpGroup.add("statictext", undefined, "Body Sway Angle (°):");
+        rotAmpGroup.alignChildren = ["left", "center"];
+        rotAmpGroup.spacing = 2;
+        var rotAmpLbl = rotAmpGroup.add("statictext", undefined, "Sway Angle (°):");
+        rotAmpLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var rotAmpInput = rotAmpGroup.add("edittext", undefined, "5");
-        rotAmpInput.preferredSize.width = 60;
+        rotAmpInput.preferredSize = [50, 18];
 
         // Presets
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        var slowFishBtn = presetGroup.add("button", undefined, "Slow Fish");
+        var slowFishBtn = presetGroup.add("button", undefined, "Slow");
+        slowFishBtn.preferredSize = [50, 18];
         slowFishBtn.onClick = function () {
             speedInput.text = "100";
             freqInput.text = "0.8";
@@ -2581,7 +2639,8 @@
             rotAmpInput.text = "3";
         };
 
-        var normalFishBtn = presetGroup.add("button", undefined, "Normal");
+        var normalFishBtn = presetGroup.add("button", undefined, "Norm");
+        normalFishBtn.preferredSize = [50, 18];
         normalFishBtn.onClick = function () {
             speedInput.text = "150";
             freqInput.text = "1";
@@ -2590,7 +2649,8 @@
             rotAmpInput.text = "5";
         };
 
-        var fastFishBtn = presetGroup.add("button", undefined, "Fast Fish");
+        var fastFishBtn = presetGroup.add("button", undefined, "Fast");
+        fastFishBtn.preferredSize = [50, 18];
         fastFishBtn.onClick = function () {
             speedInput.text = "250";
             freqInput.text = "1.5";
@@ -2602,8 +2662,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var speed = parseFloat(speedInput.text);
             var freq = parseFloat(freqInput.text);
@@ -2638,6 +2700,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -2692,70 +2755,80 @@
         var dialog = new Window("dialog", "Scale Pulse Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Input settings in a two-column layout
         var inputGroup = dialog.add("group");
         inputGroup.orientation = "row";
         inputGroup.alignChildren = ["fill", "center"];
-        inputGroup.spacing = 8;
+        inputGroup.spacing = 6;
 
         // Left Column (Scale parameters & speed)
         var leftCol = inputGroup.add("group");
         leftCol.orientation = "column";
         leftCol.alignChildren = ["fill", "center"];
-        leftCol.spacing = 4;
+        leftCol.spacing = 3;
 
         // Scale Settings
         var scalePanel = leftCol.add("panel", undefined, "Scale (X & Y)");
         scalePanel.orientation = "column";
         scalePanel.alignChildren = ["fill", "top"];
-        scalePanel.spacing = 5;
-        scalePanel.margins = 10;
+        scalePanel.spacing = 2;
+        scalePanel.margins = 6;
 
         var minGroup = scalePanel.add("group");
         minGroup.orientation = "row";
-        minGroup.alignChildren = ["fill", "center"];
-        minGroup.add("statictext", undefined, "Min Scale (%):");
+        minGroup.alignChildren = ["left", "center"];
+        minGroup.spacing = 2;
+        var minLbl = minGroup.add("statictext", undefined, "Min (%):");
+        minLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var minInput = minGroup.add("edittext", undefined, "90");
-        minInput.preferredSize.width = 60;
+        minInput.preferredSize = [40, 18];
 
         var maxGroup = scalePanel.add("group");
         maxGroup.orientation = "row";
-        maxGroup.alignChildren = ["fill", "center"];
-        maxGroup.add("statictext", undefined, "Max Scale (%):");
+        maxGroup.alignChildren = ["left", "center"];
+        maxGroup.spacing = 2;
+        var maxLbl = maxGroup.add("statictext", undefined, "Max (%):");
+        maxLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var maxInput = maxGroup.add("edittext", undefined, "110");
-        maxInput.preferredSize.width = 60;
+        maxInput.preferredSize = [40, 18];
 
         // Speed Setting
         var speedGroup = leftCol.add("group");
         speedGroup.orientation = "row";
-        speedGroup.alignChildren = ["fill", "center"];
-        speedGroup.add("statictext", undefined, "Pulse every (frames):");
+        speedGroup.alignChildren = ["left", "center"];
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Frames:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "12");
-        speedInput.preferredSize.width = 40;
+        speedInput.preferredSize = [40, 18];
 
-        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Index Offset)");
+        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Offset)");
+        randomSpeedCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         randomSpeedCheck.helpTip = "If checked, duration will be offset by layer index (e.g. 12 frames becomes 12, 13, 14, 15 frames)";
 
         // Right Column (Stop controls)
         var rightCol = inputGroup.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "center"];
-        rightCol.spacing = 4;
+        rightCol.spacing = 3;
 
         var stopTimeGroup = rightCol.add("group");
         stopTimeGroup.orientation = "row";
         stopTimeGroup.alignChildren = ["left", "center"];
-        stopTimeGroup.spacing = 4;
-        stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopTimeGroup.spacing = 2;
+        var stopLbl = stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
-        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.preferredSize = [70, 18];
         stopTimeInput.helpTip = "Leave empty for no stop time.";
 
         // Stop Here checkbox
         var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
         stopHereCheck.onClick = function () {
             if (stopHereCheck.value) {
@@ -2768,6 +2841,7 @@
 
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
@@ -2783,34 +2857,35 @@
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
-        presetGroup.spacing = 4;
+        presetGroup.spacing = 2;
 
         var presetLabelGroup = presetGroup.add("group");
         presetLabelGroup.orientation = "row";
-        presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var presetRow1 = presetGroup.add("group");
         presetRow1.orientation = "row";
-        presetRow1.spacing = 4;
+        presetRow1.spacing = 2;
 
-        var btn1 = presetRow1.add("button", undefined, "95, 105, 24");
-        btn1.preferredSize.width = 75;
+        var btn1 = presetRow1.add("button", undefined, "95,105,24");
+        btn1.preferredSize = [60, 18];
         btn1.onClick = function () {
             minInput.text = "95";
             maxInput.text = "105";
             speedInput.text = "24";
         };
 
-        var btn2 = presetRow1.add("button", undefined, "90, 110, 12");
-        btn2.preferredSize.width = 75;
+        var btn2 = presetRow1.add("button", undefined, "90,110,12");
+        btn2.preferredSize = [60, 18];
         btn2.onClick = function () {
             minInput.text = "90";
             maxInput.text = "110";
             speedInput.text = "12";
         };
 
-        var btn3 = presetRow1.add("button", undefined, "85, 115, 8");
-        btn3.preferredSize.width = 75;
+        var btn3 = presetRow1.add("button", undefined, "85,115,8");
+        btn3.preferredSize = [60, 18];
         btn3.onClick = function () {
             minInput.text = "85";
             maxInput.text = "115";
@@ -2819,26 +2894,26 @@
 
         var presetRow2 = presetGroup.add("group");
         presetRow2.orientation = "row";
-        presetRow2.spacing = 4;
+        presetRow2.spacing = 2;
 
-        var btn4 = presetRow2.add("button", undefined, "95, 105, 12");
-        btn4.preferredSize.width = 75;
+        var btn4 = presetRow2.add("button", undefined, "95,105,12");
+        btn4.preferredSize = [60, 18];
         btn4.onClick = function () {
             minInput.text = "95";
             maxInput.text = "105";
             speedInput.text = "12";
         };
 
-        var btn5 = presetRow2.add("button", undefined, "90, 110, 6");
-        btn5.preferredSize.width = 75;
+        var btn5 = presetRow2.add("button", undefined, "90,110,6");
+        btn5.preferredSize = [60, 18];
         btn5.onClick = function () {
             minInput.text = "90";
             maxInput.text = "110";
             speedInput.text = "6";
         };
 
-        var btn6 = presetRow2.add("button", undefined, "80, 120, 16");
-        btn6.preferredSize.width = 75;
+        var btn6 = presetRow2.add("button", undefined, "80,120,16");
+        btn6.preferredSize = [60, 18];
         btn6.onClick = function () {
             minInput.text = "80";
             maxInput.text = "120";
@@ -2849,8 +2924,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var minVal = parseFloat(minInput.text);
             var maxVal = parseFloat(maxInput.text);
@@ -2897,12 +2974,12 @@
                 var layer = selectedLayers[i];
                 if (!layer.transform || !layer.transform.scale || layer.locked) continue;
 
-                var framesPerCycleVal = speed;
+                var speedLine;
                 if (randomSpeedCheck.value) {
-                    framesPerCycleVal = speed + (i % 4); // offset by selection order
+                    speedLine = "framesPerCycle = " + speed + " + (index - 1); // offset by layer index";
+                } else {
+                    speedLine = "framesPerCycle = " + speed + "; // frames per pulse cycle";
                 }
-
-                var speedLine = "framesPerCycle = " + framesPerCycleVal + "; // frames per pulse cycle";
 
                 var expression;
                 if (useMarkers) {
@@ -2979,75 +3056,80 @@
         var dialog = new Window("dialog", "V Scale Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Input settings in a two-column layout
         var inputGroup = dialog.add("group");
         inputGroup.orientation = "row";
         inputGroup.alignChildren = ["fill", "center"];
-        inputGroup.spacing = 8;
+        inputGroup.spacing = 6;
 
         // Left Column (Scale parameters & speed)
         var leftCol = inputGroup.add("group");
         leftCol.orientation = "column";
         leftCol.alignChildren = ["fill", "center"];
-        leftCol.spacing = 4;
+        leftCol.spacing = 3;
 
-        // Y Scale Settings
+        // Y Scale Settings Panel
         var yScalePanel = leftCol.add("panel", undefined, "Vertical Scale (Y)");
         yScalePanel.orientation = "column";
         yScalePanel.alignChildren = ["fill", "top"];
-        yScalePanel.spacing = 5;
-        yScalePanel.margins = 10;
+        yScalePanel.spacing = 2;
+        yScalePanel.margins = 6;
 
         var yMinGroup = yScalePanel.add("group");
         yMinGroup.orientation = "row";
-        yMinGroup.alignChildren = ["fill", "center"];
-        yMinGroup.add("statictext", undefined, "Min Scale (%):");
+        yMinGroup.alignChildren = ["left", "center"];
+        yMinGroup.spacing = 2;
+        var yMinLbl = yMinGroup.add("statictext", undefined, "Min (%):");
+        yMinLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var yMinInput = yMinGroup.add("edittext", undefined, "100");
-        yMinInput.preferredSize.width = 60;
+        yMinInput.preferredSize = [40, 18];
 
         var yMaxGroup = yScalePanel.add("group");
         yMaxGroup.orientation = "row";
-        yMaxGroup.alignChildren = ["fill", "center"];
-        yMaxGroup.add("statictext", undefined, "Max Scale (%):");
+        yMaxGroup.alignChildren = ["left", "center"];
+        yMaxGroup.spacing = 2;
+        var yMaxLbl = yMaxGroup.add("statictext", undefined, "Max (%):");
+        yMaxLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var yMaxInput = yMaxGroup.add("edittext", undefined, "102");
-        yMaxInput.preferredSize.width = 60;
-
-        // X Scale hint
-        var xHint = yScalePanel.add("statictext", undefined, "X scale stays at 100% (no horizontal change)");
-        xHint.graphics.font = ScriptUI.newFont("Arial", "ITALIC", 9);
-        xHint.alignment = "center";
+        yMaxInput.preferredSize = [40, 18];
 
         // Speed Setting
         var speedGroup = leftCol.add("group");
         speedGroup.orientation = "row";
-        speedGroup.alignChildren = ["fill", "center"];
-        speedGroup.add("statictext", undefined, "Pulse every (frames):");
-        var speedInput = speedGroup.add("edittext", undefined, "12");
-        speedInput.preferredSize.width = 40;
+        speedGroup.alignChildren = ["left", "center"];
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Frames:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var speedInput = speedGroup.add("edittext", undefined, "9");
+        speedInput.preferredSize = [40, 18];
 
-        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Index Offset)");
-        randomSpeedCheck.helpTip = "If checked, duration will be offset by layer index (e.g. 12 frames becomes 12, 13, 14, 15 frames)";
+        var randomSpeedCheck = leftCol.add("checkbox", undefined, "Cycle Speed (Offset)");
+        randomSpeedCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        randomSpeedCheck.helpTip = "If checked, duration will be offset by layer index (e.g. 9 frames becomes 9, 10, 11, 12 frames)";
 
         // Right Column (Stop controls)
         var rightCol = inputGroup.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "center"];
-        rightCol.spacing = 4;
+        rightCol.spacing = 3;
 
         var stopTimeGroup = rightCol.add("group");
         stopTimeGroup.orientation = "row";
         stopTimeGroup.alignChildren = ["left", "center"];
-        stopTimeGroup.spacing = 4;
-        stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopTimeGroup.spacing = 2;
+        var stopLbl = stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
-        stopTimeInput.preferredSize.width = 80;
+        stopTimeInput.preferredSize = [70, 18];
         stopTimeInput.helpTip = "Leave empty for no stop time.";
 
         // Stop Here checkbox
         var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
         stopHereCheck.onClick = function () {
             if (stopHereCheck.value) {
@@ -3060,6 +3142,7 @@
 
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
@@ -3071,79 +3154,24 @@
             }
         };
 
-        // Preset buttons
+        // Preset button
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
-        presetGroup.spacing = 4;
+        presetGroup.spacing = 2;
 
         var presetLabelGroup = presetGroup.add("group");
         presetLabelGroup.orientation = "row";
-        presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        var presetRow1 = presetGroup.add("group");
-        presetRow1.orientation = "row";
-        presetRow1.spacing = 4;
+        var presetRow = presetGroup.add("group");
+        presetRow.orientation = "row";
+        presetRow.spacing = 2;
 
-        var btn1 = presetRow1.add("button", undefined, "100, 102, 24");
-        btn1.preferredSize.width = 75;
+        var btn1 = presetRow.add("button", undefined, "100, 102, 9");
+        btn1.preferredSize = [80, 18];
         btn1.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "102";
-            speedInput.text = "24";
-        };
-
-        var btn2 = presetRow1.add("button", undefined, "100, 102, 12");
-        btn2.preferredSize.width = 75;
-        btn2.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "102";
-            speedInput.text = "12";
-        };
-
-        var btn3 = presetRow1.add("button", undefined, "100, 103, 8");
-        btn3.preferredSize.width = 75;
-        btn3.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "103";
-            speedInput.text = "8";
-        };
-
-        var presetRow2 = presetGroup.add("group");
-        presetRow2.orientation = "row";
-        presetRow2.spacing = 4;
-
-        var btn4 = presetRow2.add("button", undefined, "100, 103, 4");
-        btn4.preferredSize.width = 75;
-        btn4.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "103";
-            speedInput.text = "4";
-        };
-
-        var btn5 = presetRow2.add("button", undefined, "100, 106, 6");
-        btn5.preferredSize.width = 75;
-        btn5.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "106";
-            speedInput.text = "6";
-        };
-
-        var btn6 = presetRow2.add("button", undefined, "100, 106, 3");
-        btn6.preferredSize.width = 75;
-        btn6.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "106";
-            speedInput.text = "3";
-        };
-
-        var presetRow3 = presetGroup.add("group");
-        presetRow3.orientation = "row";
-        presetRow3.spacing = 4;
-
-        var btn7 = presetRow3.add("button", undefined, "100, 102, 9");
-        btn7.preferredSize.width = 75;
-        btn7.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "102";
             speedInput.text = "9";
@@ -3153,8 +3181,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var yMin = parseFloat(yMinInput.text);
             var yMax = parseFloat(yMaxInput.text);
@@ -3264,12 +3294,12 @@
                 var layer = selectedLayers[i];
                 if (!layer.transform || !layer.transform.scale || layer.locked) continue;
 
-                var framesPerCycleVal = speed;
+                var speedLine;
                 if (randomSpeedCheck.value) {
-                    framesPerCycleVal = speed + (i % 4); // offset by selection order
+                    speedLine = "framesPerCycle = " + speed + " + (index - 1); // offset by layer index";
+                } else {
+                    speedLine = "framesPerCycle = " + speed + "; // frames per pulse cycle";
                 }
-
-                var speedLine = "framesPerCycle = " + framesPerCycleVal + "; // frames per pulse cycle";
 
                 var expression;
                 if (useMarkers) {
@@ -3331,6 +3361,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -3524,27 +3555,32 @@
         var dialog = new Window("window", "Expression Code");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
-        dialog.preferredSize.width = 350;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
-        dialog.add("statictext", undefined, "Expression code:");
+        var lbl = dialog.add("statictext", undefined, "Expression code:");
+        lbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var editText = dialog.add("edittext", undefined, expression, { multiline: true, readonly: true });
-        editText.preferredSize.height = 80;
+        editText.preferredSize.height = 60;
+        editText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         editText.active = true;
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var selectBtn = buttonGroup.add("button", undefined, "Select All");
+        selectBtn.preferredSize = [70, 18];
         selectBtn.onClick = function () {
             editText.active = true;
             editText.textselection = editText.text;
         };
 
         var closeBtn = buttonGroup.add("button", undefined, "Close");
+        closeBtn.preferredSize = [60, 18];
         closeBtn.onClick = function () {
             dialog.close();
         };
@@ -3559,35 +3595,36 @@
         var dialog = new Window("dialog", "Batch Scale Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Add description
-        var desc = dialog.add("statictext", undefined, "Select scale preset for selected layers:");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        var desc = dialog.add("statictext", undefined, "Select scale preset:");
+        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // Preset buttons group
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
-        presetGroup.spacing = 10;
+        presetGroup.spacing = 4;
 
         var preset34Btn = presetGroup.add("button", undefined, "34%");
-        preset34Btn.preferredSize.width = 60;
+        preset34Btn.preferredSize = [50, 18];
         preset34Btn.onClick = function () {
             applyBatchScale(34);
             dialog.close();
         };
 
         var preset50Btn = presetGroup.add("button", undefined, "50%");
-        preset50Btn.preferredSize.width = 60;
+        preset50Btn.preferredSize = [50, 18];
         preset50Btn.onClick = function () {
             applyBatchScale(50);
             dialog.close();
         };
 
         var preset100Btn = presetGroup.add("button", undefined, "100%");
-        preset100Btn.preferredSize.width = 60;
+        preset100Btn.preferredSize = [50, 18];
         preset100Btn.onClick = function () {
             applyBatchScale(100);
             dialog.close();
@@ -3597,14 +3634,17 @@
         var customGroup = dialog.add("group");
         customGroup.orientation = "row";
         customGroup.alignChildren = ["left", "center"];
-        customGroup.spacing = 5;
+        customGroup.spacing = 2;
 
-        customGroup.add("statictext", undefined, "Custom:");
+        var customLbl = customGroup.add("statictext", undefined, "Custom:");
+        customLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var customInput = customGroup.add("edittext", undefined, "100");
-        customInput.preferredSize.width = 60;
-        customGroup.add("statictext", undefined, "%");
+        customInput.preferredSize = [40, 18];
+        var pctLbl = customGroup.add("statictext", undefined, "%");
+        pctLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         var customBtn = customGroup.add("button", undefined, "Apply");
+        customBtn.preferredSize = [50, 18];
         customBtn.onClick = function () {
             var customScale = parseFloat(customInput.text);
             if (!isNaN(customScale)) {
@@ -3618,6 +3658,7 @@
         // Cancel button
         var cancelBtn = dialog.add("button", undefined, "Cancel");
         cancelBtn.alignment = "center";
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -3918,109 +3959,65 @@
             }
 
             // Build dialog
-            var dialog = new Window("dialog", "Auto Zoom");
+            var dialog = new Window("dialog", "Auto Zoom Settings");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
-            dialog.preferredSize.width = 300;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             // Info
-            var infoText = dialog.add("statictext", undefined,
-                selectedLayers.length + " layer(s) selected", { multiline: false });
-            infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+            var infoText = dialog.add("statictext", undefined, selectedLayers.length + " layer(s) selected");
+            infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
             infoText.alignment = "center";
 
-            // Description
-            var descPanel = dialog.add("panel", undefined, "How it works");
-            descPanel.orientation = "column";
-            descPanel.alignChildren = ["fill", "top"];
-            descPanel.spacing = 4;
-            descPanel.margins = 10;
+            // Zoom input group
+            var zoomGroup = dialog.add("group");
+            zoomGroup.orientation = "row";
+            zoomGroup.alignChildren = ["left", "center"];
+            zoomGroup.spacing = 2;
 
-            var descText;
-            if (selectedLayers.length === 1) {
-                descText = "Zooms IN from current scale to current + X%\nKeyframes at layer start → layer end.";
-            } else {
-                descText = "Alternates zoom direction (bottom to top):\n" +
-                    "Layer 1 (bottom): Zoom IN\n" +
-                    "Layer 2: Zoom OUT\n" +
-                    "Layer 3: Zoom IN  ...and so on.\n" +
-                    "Keyframes at each layer's start → end.";
-            }
-            var desc = descPanel.add("statictext", undefined, descText, { multiline: true });
-            desc.preferredSize.height = selectedLayers.length === 1 ? 40 : 80;
-            desc.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+            var zoomLbl = zoomGroup.add("statictext", undefined, "Zoom Amount (%):");
+            zoomLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var customInput = zoomGroup.add("edittext", undefined, "10");
+            customInput.preferredSize = [40, 18];
+            customInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-            // Preview current scale
-            var previewPanel = dialog.add("panel", undefined, "Current Scale");
-            previewPanel.orientation = "column";
-            previewPanel.alignChildren = ["fill", "top"];
-            previewPanel.spacing = 3;
-            previewPanel.margins = 10;
+            // Presets group
+            var presetGroup = dialog.add("group");
+            presetGroup.orientation = "row";
+            presetGroup.alignment = "center";
+            presetGroup.spacing = 2;
 
-            // Sort by index descending (bottom layer first) for display
+            var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+            presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+            var btn5 = presetGroup.add("button", undefined, "+5%");
+            btn5.preferredSize = [45, 18];
+            var btn10 = presetGroup.add("button", undefined, "+10%");
+            btn10.preferredSize = [45, 18];
+            var btn20 = presetGroup.add("button", undefined, "+20%");
+            btn20.preferredSize = [45, 18];
+
+            // Action buttons
+            var buttonGroup = dialog.add("group");
+            buttonGroup.orientation = "row";
+            buttonGroup.alignment = "center";
+            buttonGroup.spacing = 4;
+
+            var applyBtn = buttonGroup.add("button", undefined, "Apply");
+            applyBtn.preferredSize = [60, 18];
+            var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
+
+            // Sort layers descending (bottom first)
             var sortedLayers = [];
             for (var s = 0; s < selectedLayers.length; s++) {
                 sortedLayers.push(selectedLayers[s]);
             }
             sortedLayers.sort(function (a, b) {
-                return b.index - a.index; // descending = bottom first
+                return b.index - a.index;
             });
-
-            for (var p = 0; p < sortedLayers.length; p++) {
-                var lyr = sortedLayers[p];
-                var curScale = lyr.transform.scale.value;
-                var direction = (p % 2 === 0) ? "↗ Zoom IN" : "↙ Zoom OUT";
-                var scaleStr = Math.round(curScale[0]) + "%, " + Math.round(curScale[1]) + "%";
-                var previewLine = previewPanel.add("statictext", undefined,
-                    (p + 1) + ". \"" + lyr.name + "\"  [" + scaleStr + "]  →  " + direction);
-                previewLine.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-            }
-
-            // Preset buttons
-            var presetPanel = dialog.add("panel", undefined, "Zoom Amount");
-            presetPanel.orientation = "column";
-            presetPanel.alignChildren = ["fill", "top"];
-            presetPanel.spacing = 6;
-            presetPanel.margins = 10;
-
-            // Custom input row
-            var customRow = presetPanel.add("group");
-            customRow.orientation = "row";
-            customRow.alignChildren = ["left", "center"];
-            customRow.spacing = 6;
-
-            customRow.add("statictext", undefined, "Custom %:");
-            var customInput = customRow.add("edittext", undefined, "10");
-            customInput.preferredSize.width = 50;
-            customInput.helpTip = "Enter a custom zoom percentage";
-
-            // Preset button row
-            var btnRow = presetPanel.add("group");
-            btnRow.orientation = "row";
-            btnRow.alignment = "center";
-            btnRow.spacing = 8;
-
-            var btn5 = btnRow.add("button", undefined, "+5%");
-            btn5.preferredSize.width = 60;
-            var btn10 = btnRow.add("button", undefined, "+10%");
-            btn10.preferredSize.width = 60;
-            var btn20 = btnRow.add("button", undefined, "+20%");
-            btn20.preferredSize.width = 60;
-
-            // Apply custom button
-            var applyRow = presetPanel.add("group");
-            applyRow.orientation = "row";
-            applyRow.alignment = "center";
-            applyRow.spacing = 8;
-
-            var applyCustomBtn = applyRow.add("button", undefined, "Apply Custom");
-            applyCustomBtn.preferredSize.width = 120;
-
-            // Cancel
-            var cancelBtn = dialog.add("button", undefined, "Cancel");
-            cancelBtn.alignment = "center";
 
             // Button handlers
             btn5.onClick = function () {
@@ -4035,7 +4032,7 @@
                 applyAutoZoom(comp, sortedLayers, 20);
                 dialog.close();
             };
-            applyCustomBtn.onClick = function () {
+            applyBtn.onClick = function () {
                 var val = parseFloat(customInput.text);
                 if (isNaN(val) || val <= 0) {
                     alert("Please enter a valid positive number.");
@@ -4048,6 +4045,7 @@
                 dialog.close();
             };
 
+            dialog.center();
             dialog.show();
 
         } catch (error) {
@@ -4147,21 +4145,27 @@
         var searchGroup = parentGroup.add("group");
         searchGroup.orientation = "row";
         searchGroup.alignChildren = ["left", "center"];
+        searchGroup.spacing = 2;
         var searchLabel = searchGroup.add("statictext", undefined, "Search:");
-        searchLabel.preferredSize.width = 50;
+        searchLabel.preferredSize.width = 40;
+        searchLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var searchInput = searchGroup.add("edittext", undefined, "");
-        searchInput.preferredSize.width = 250;
+        searchInput.preferredSize = [160, 18];
+        searchInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         searchInput.helpTip = "Type to filter the list below (case-insensitive)";
 
         // Dropdown (listbox for multi-visible items with search)
         var ddGroup = parentGroup.add("group");
         ddGroup.orientation = "row";
         ddGroup.alignChildren = ["left", "center"];
+        ddGroup.spacing = 2;
         var ddLabel = ddGroup.add("statictext", undefined, labelText);
-        ddLabel.preferredSize.width = 50;
+        ddLabel.preferredSize.width = 40;
+        ddLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var dropdown = ddGroup.add("listbox", undefined, initialItems || [],
-            { numberOfColumns: 1, columnWidths: [240] });
-        dropdown.preferredSize = [250, 100];
+            { numberOfColumns: 1, columnWidths: [150] });
+        dropdown.preferredSize = [160, 60];
+        dropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Count label
         var countLabel = parentGroup.add("statictext", undefined, "");
@@ -4289,25 +4293,25 @@
             var dialog = new Window("dialog", "CP Movement");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
-            dialog.preferredSize.width = 380;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             // --- Source Precomp ---
             var precompPanel = dialog.add("panel", undefined, "Source Precomp");
             precompPanel.orientation = "column";
             precompPanel.alignChildren = ["fill", "top"];
-            precompPanel.spacing = 6;
-            precompPanel.margins = 10;
+            precompPanel.spacing = 3;
+            precompPanel.margins = 6;
 
             var precompSearch = createSearchableDropdown(precompPanel, "Comp:", compNames);
 
             // --- Target Layer ---
-            var layerPanel = dialog.add("panel", undefined, "Target Layer (inside the precomp)");
+            var layerPanel = dialog.add("panel", undefined, "Target Layer");
             layerPanel.orientation = "column";
             layerPanel.alignChildren = ["fill", "top"];
-            layerPanel.spacing = 6;
-            layerPanel.margins = 10;
+            layerPanel.spacing = 3;
+            layerPanel.margins = 6;
 
             var layerSearch = createSearchableDropdown(layerPanel, "Layer:", []);
 
@@ -4343,36 +4347,36 @@
             }
 
             // --- Precomp Layer Name in main comp ---
-            var precompLayerPanel = dialog.add("panel", undefined, "Precomp Layer Name (in this comp)");
+            var precompLayerPanel = dialog.add("panel", undefined, "Precomp Layer Name");
             precompLayerPanel.orientation = "column";
             precompLayerPanel.alignChildren = ["fill", "top"];
-            precompLayerPanel.spacing = 6;
-            precompLayerPanel.margins = 10;
-
-            var precompLayerInfo = precompLayerPanel.add("statictext", undefined,
-                "The name of the precomp layer in the current composition.\nUsually the same as the precomp name.",
-                { multiline: true });
-            precompLayerInfo.preferredSize.height = 36;
-            precompLayerInfo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+            precompLayerPanel.spacing = 3;
+            precompLayerPanel.margins = 6;
 
             var pcLayerGroup = precompLayerPanel.add("group");
             pcLayerGroup.orientation = "row";
             pcLayerGroup.alignChildren = ["left", "center"];
+            pcLayerGroup.spacing = 2;
             var pcLayerLabel = pcLayerGroup.add("statictext", undefined, "Name:");
-            pcLayerLabel.preferredSize.width = 50;
+            pcLayerLabel.preferredSize.width = 40;
+            pcLayerLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             var pcLayerInput = pcLayerGroup.add("edittext", undefined, initialCompName || "");
-            pcLayerInput.preferredSize.width = 250;
+            pcLayerInput.preferredSize = [160, 18];
+            pcLayerInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             pcLayerInput.helpTip = "Layer name of the precomp in the current comp (auto-filled from selection above)";
 
             // --- Buttons ---
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
             btnGroup.alignment = "center";
-            btnGroup.spacing = 10;
+            btnGroup.spacing = 4;
 
-            var applyBtn = btnGroup.add("button", undefined, "Apply Expression");
-            var copyBtn = btnGroup.add("button", undefined, "Copy to Clipboard");
+            var applyBtn = btnGroup.add("button", undefined, "Apply");
+            applyBtn.preferredSize = [50, 18];
+            var copyBtn = btnGroup.add("button", undefined, "Copy");
+            copyBtn.preferredSize = [50, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [55, 18];
 
             // --- Build expression helper ---
             function buildExpression() {
@@ -4487,15 +4491,21 @@
                 var clipDialog = new Window("dialog", "Expression Copied");
                 clipDialog.orientation = "column";
                 clipDialog.alignChildren = ["fill", "top"];
-                clipDialog.margins = 12;
+                clipDialog.spacing = 4;
+                clipDialog.margins = 8;
+                clipDialog.preferredSize.width = 240;
 
-                clipDialog.add("statictext", undefined, "Expression generated. Select all and copy:");
-                var clipText = clipDialog.add("edittext", undefined, expr, { multiline: true });
-                clipText.preferredSize = [400, 120];
+                var clipLbl = clipDialog.add("statictext", undefined, "Select and copy:");
+                clipLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+                var clipText = clipDialog.add("edittext", undefined, expr, { multiline: true, readonly: true });
+                clipText.preferredSize = [220, 60];
+                clipText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
                 var okBtn = clipDialog.add("button", undefined, "OK");
+                okBtn.preferredSize = [50, 18];
                 okBtn.onClick = function () { clipDialog.close(); };
 
+                clipDialog.center();
                 clipDialog.show();
             };
 
@@ -4503,6 +4513,7 @@
                 dialog.close();
             };
 
+            dialog.center();
             dialog.show();
 
         } catch (error) {
@@ -4551,15 +4562,15 @@
             var dialog = new Window("dialog", "Attach Leg");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
-            dialog.preferredSize.width = 380;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             var panel = dialog.add("panel", undefined, "Select Leg Comp");
             panel.orientation = "column";
             panel.alignChildren = ["fill", "top"];
-            panel.spacing = 6;
-            panel.margins = 10;
+            panel.spacing = 3;
+            panel.margins = 6;
 
             var compSearch = createSearchableDropdown(panel, "Leg:", compNames);
 
@@ -4574,16 +4585,19 @@
             var optionsGroup = dialog.add("group");
             optionsGroup.orientation = "row";
             optionsGroup.alignment = "left";
-            optionsGroup.margins = [0, 0, 0, 5];
+            optionsGroup.margins = [0, 0, 0, 2];
             var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Leg (Horizontal)");
+            flipCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
             btnGroup.alignment = "center";
-            btnGroup.spacing = 10;
+            btnGroup.spacing = 4;
 
             var applyBtn = btnGroup.add("button", undefined, "Apply");
+            applyBtn.preferredSize = [60, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
 
             applyBtn.onClick = function () {
                 var legName = compSearch.getSelectedName();
@@ -4662,6 +4676,7 @@
                 dialog.close();
             };
 
+            dialog.center();
             dialog.show();
 
         } catch (error) {
@@ -4710,15 +4725,15 @@
             var dialog = new Window("dialog", "Add Mouth");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
-            dialog.preferredSize.width = 380;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             var panel = dialog.add("panel", undefined, "Select Mouth Comp");
             panel.orientation = "column";
             panel.alignChildren = ["fill", "top"];
-            panel.spacing = 6;
-            panel.margins = 10;
+            panel.spacing = 3;
+            panel.margins = 6;
 
             var compSearch = createSearchableDropdown(panel, "Mouth:", compNames);
 
@@ -4760,16 +4775,19 @@
             var optionsGroup = dialog.add("group");
             optionsGroup.orientation = "row";
             optionsGroup.alignment = "left";
-            optionsGroup.margins = [0, 0, 0, 5];
+            optionsGroup.margins = [0, 0, 0, 2];
             var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Mouth (Horizontal)");
+            flipCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
             btnGroup.alignment = "center";
-            btnGroup.spacing = 10;
+            btnGroup.spacing = 4;
 
             var applyBtn = btnGroup.add("button", undefined, "Apply");
+            applyBtn.preferredSize = [60, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
 
             applyBtn.onClick = function () {
                 var mouthName = compSearch.getSelectedName();
@@ -4828,6 +4846,7 @@
                 dialog.close();
             };
 
+            dialog.center();
             dialog.show();
 
         } catch (error) {
@@ -4837,39 +4856,56 @@
 
     // ===== AUDIO MARKERS =====
     function showAudioMarkersDialog() {
-        var win = new Window("palette", "Audio Markers", undefined, { resizeable: false });
+        var win = new Window("dialog", "Audio Markers");
         win.orientation = "column";
         win.alignChildren = ["fill", "top"];
-        win.spacing = 5;
-        win.margins = 10;
+        win.spacing = 4;
+        win.margins = 8;
+        win.preferredSize.width = 240;
 
         // Threshold
         var threshGroup = win.add("group");
         threshGroup.orientation = "row";
-        threshGroup.add("statictext", undefined, "Threshold (0-100):");
+        threshGroup.alignChildren = ["left", "center"];
+        threshGroup.spacing = 2;
+        var threshLbl = threshGroup.add("statictext", undefined, "Threshold (0-100):");
+        threshLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var threshInput = threshGroup.add("edittext", undefined, "6");
-        threshInput.preferredSize.width = 40;
+        threshInput.preferredSize = [40, 18];
+        threshInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Min Distance
         var distGroup = win.add("group");
         distGroup.orientation = "row";
-        distGroup.add("statictext", undefined, "Min Frames Gap:");
+        distGroup.alignChildren = ["left", "center"];
+        distGroup.spacing = 2;
+        var distLbl = distGroup.add("statictext", undefined, "Min Frames Gap:");
+        distLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var distInput = distGroup.add("edittext", undefined, "8");
-        distInput.preferredSize.width = 40;
+        distInput.preferredSize = [40, 18];
+        distInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Target Selection
         var targetGroup = win.add("panel", undefined, "Target");
         targetGroup.orientation = "column";
         targetGroup.alignChildren = ["left", "top"];
+        targetGroup.spacing = 3;
+        targetGroup.margins = 6;
         var radioComp = targetGroup.add("radiobutton", undefined, "On Current Composition");
+        radioComp.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var radioLayer = targetGroup.add("radiobutton", undefined, "On Selected Layers");
+        radioLayer.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         radioComp.value = true;
 
         // Buttons
         var btnGroup = win.add("group");
-        btnGroup.alignment = ["center", "bottom"];
+        btnGroup.orientation = "row";
+        btnGroup.alignment = "center";
+        btnGroup.spacing = 4;
         var btnGenerate = btnGroup.add("button", undefined, "Generate", { name: "ok" });
+        btnGenerate.preferredSize = [65, 18];
         var btnCancel = btnGroup.add("button", undefined, "Cancel", { name: "cancel" });
+        btnCancel.preferredSize = [60, 18];
 
         btnCancel.onClick = function () { win.close(); };
 
@@ -5375,41 +5411,60 @@
         var dialog = new Window("dialog", "Water Distortion Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
+
+        var inputPanel = dialog.add("panel", undefined, "Parameters");
+        inputPanel.orientation = "column";
+        inputPanel.alignChildren = ["fill", "top"];
+        inputPanel.spacing = 2;
+        inputPanel.margins = 6;
 
         // Amount setting
-        var amountGroup = dialog.add("group");
+        var amountGroup = inputPanel.add("group");
         amountGroup.orientation = "row";
         amountGroup.alignChildren = ["left", "center"];
-        amountGroup.add("statictext", undefined, "Distortion Amount:");
+        amountGroup.spacing = 2;
+        var amtLbl = amountGroup.add("statictext", undefined, "Amount:");
+        amtLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var amountInput = amountGroup.add("edittext", undefined, "10");
-        amountInput.preferredSize.width = 60;
+        amountInput.preferredSize = [40, 18];
+        amountInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Size setting
-        var sizeGroup = dialog.add("group");
+        var sizeGroup = inputPanel.add("group");
         sizeGroup.orientation = "row";
         sizeGroup.alignChildren = ["left", "center"];
-        sizeGroup.add("statictext", undefined, "Wave Size:");
+        sizeGroup.spacing = 2;
+        var sizeLbl = sizeGroup.add("statictext", undefined, "Size:");
+        sizeLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var sizeInput = sizeGroup.add("edittext", undefined, "100");
-        sizeInput.preferredSize.width = 60;
+        sizeInput.preferredSize = [40, 18];
+        sizeInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Evolution Speed
-        var speedGroup = dialog.add("group");
+        var speedGroup = inputPanel.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["left", "center"];
-        speedGroup.add("statictext", undefined, "Evolution Speed:");
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Speed:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "100");
-        speedInput.preferredSize.width = 60;
+        speedInput.preferredSize = [40, 18];
+        speedInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var subtleBtn = presetGroup.add("button", undefined, "Subtle");
+        subtleBtn.preferredSize = [42, 18];
         subtleBtn.onClick = function () {
             amountInput.text = "25";
             sizeInput.text = "150";
@@ -5417,6 +5472,7 @@
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Normal");
+        normalBtn.preferredSize = [45, 18];
         normalBtn.onClick = function () {
             amountInput.text = "50";
             sizeInput.text = "150";
@@ -5424,6 +5480,7 @@
         };
 
         var strongBtn = presetGroup.add("button", undefined, "Strong");
+        strongBtn.preferredSize = [45, 18];
         strongBtn.onClick = function () {
             amountInput.text = "25";
             sizeInput.text = "75";
@@ -5431,6 +5488,7 @@
         };
 
         var fireBtn = presetGroup.add("button", undefined, "Fire");
+        fireBtn.preferredSize = [35, 18];
         fireBtn.onClick = function () {
             amountInput.text = "90";
             sizeInput.text = "35";
@@ -5440,8 +5498,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var amount = parseFloat(amountInput.text);
             var size = parseFloat(sizeInput.text);
@@ -5476,6 +5536,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -5500,43 +5561,63 @@
             }
 
             // Build dialog
-            var dialog = new Window("dialog", "Pinch Scale");
+            var dialog = new Window("dialog", "Pinch Scale Settings");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
-            var infoText = dialog.add("statictext", undefined, selectedLayers.length + " layer(s) selected", { multiline: false });
+            var infoText = dialog.add("statictext", undefined, selectedLayers.length + " layer(s) selected");
+            infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
             infoText.alignment = "center";
 
             var presetPanel = dialog.add("panel", undefined, "Pinch Amount");
             presetPanel.orientation = "column";
-            presetPanel.spacing = 6;
-            presetPanel.margins = 10;
+            presetPanel.spacing = 2;
+            presetPanel.margins = 6;
 
             var customRow = presetPanel.add("group");
             customRow.orientation = "row";
-            customRow.add("statictext", undefined, "Custom %:");
+            customRow.alignChildren = ["left", "center"];
+            customRow.spacing = 2;
+            var pctLbl = customRow.add("statictext", undefined, "Custom (%):");
+            pctLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             var customInput = customRow.add("edittext", undefined, "12");
-            customInput.preferredSize.width = 50;
+            customInput.preferredSize = [40, 18];
+            customInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             var inBtnRow = presetPanel.add("group");
             inBtnRow.orientation = "row";
+            inBtnRow.spacing = 2;
 
-            var btnIn12 = inBtnRow.add("button", undefined, "In +12%");
-            var btnIn15 = inBtnRow.add("button", undefined, "In +15%");
-            var btnIn20 = inBtnRow.add("button", undefined, "In +20%");
+            var btnIn12 = inBtnRow.add("button", undefined, "In +12");
+            btnIn12.preferredSize = [50, 18];
+            var btnIn15 = inBtnRow.add("button", undefined, "In +15");
+            btnIn15.preferredSize = [50, 18];
+            var btnIn20 = inBtnRow.add("button", undefined, "In +20");
+            btnIn20.preferredSize = [50, 18];
 
             var outBtnRow = presetPanel.add("group");
             outBtnRow.orientation = "row";
+            outBtnRow.spacing = 2;
 
-            var btnOut12 = outBtnRow.add("button", undefined, "Out -12%");
-            var btnOut15 = outBtnRow.add("button", undefined, "Out -15%");
-            var btnOut20 = outBtnRow.add("button", undefined, "Out -20%");
+            var btnOut12 = outBtnRow.add("button", undefined, "Out -12");
+            btnOut12.preferredSize = [50, 18];
+            var btnOut15 = outBtnRow.add("button", undefined, "Out -15");
+            btnOut15.preferredSize = [50, 18];
+            var btnOut20 = outBtnRow.add("button", undefined, "Out -20");
+            btnOut20.preferredSize = [50, 18];
 
-            var applyCustomBtn = presetPanel.add("button", undefined, "Apply Custom");
+            var buttonGroup = dialog.add("group");
+            buttonGroup.orientation = "row";
+            buttonGroup.alignment = "center";
+            buttonGroup.spacing = 4;
 
-            var cancelBtn = dialog.add("button", undefined, "Cancel");
+            var applyCustomBtn = buttonGroup.add("button", undefined, "Apply Custom");
+            applyCustomBtn.preferredSize = [80, 18];
+            var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
 
             btnIn12.onClick = function () { applyPinch(comp, selectedLayers, 12); dialog.close(); };
             btnIn15.onClick = function () { applyPinch(comp, selectedLayers, 15); dialog.close(); };
@@ -5551,6 +5632,7 @@
             };
             cancelBtn.onClick = function () { dialog.close(); };
 
+            dialog.center();
             dialog.show();
 
         } catch (error) {
@@ -5723,39 +5805,48 @@
 
     // Show choppy flip dialog
     function showChoppyFlipDialog() {
-        var dialog = new Window("dialog", "Choppy Left-Right Flip Settings");
+        var dialog = new Window("dialog", "Choppy Flip Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Flip every setting
         var flipGroup = dialog.add("group");
         flipGroup.orientation = "row";
-        flipGroup.alignChildren = ["fill", "center"];
-        flipGroup.add("statictext", undefined, "Flip Every (frames):");
+        flipGroup.alignChildren = ["left", "center"];
+        flipGroup.spacing = 2;
+        var flipLbl = flipGroup.add("statictext", undefined, "Flip Every (frames):");
+        flipLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var flipInput = flipGroup.add("edittext", undefined, "3");
-        flipInput.preferredSize.width = 60;
+        flipInput.preferredSize = [40, 18];
+        flipInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         flipInput.helpTip = "Number of frames to hold before flipping";
 
         // Presets
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        var fastBtn = presetGroup.add("button", undefined, "Fast (2f)");
+        var fastBtn = presetGroup.add("button", undefined, "2f");
+        fastBtn.preferredSize = [40, 18];
         fastBtn.onClick = function () {
             flipInput.text = "2";
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal (3f)");
+        var normalBtn = presetGroup.add("button", undefined, "3f");
+        normalBtn.preferredSize = [40, 18];
         normalBtn.onClick = function () {
             flipInput.text = "3";
         };
 
-        var slowBtn = presetGroup.add("button", undefined, "Slow (5f)");
+        var slowBtn = presetGroup.add("button", undefined, "5f");
+        slowBtn.preferredSize = [40, 18];
         slowBtn.onClick = function () {
             flipInput.text = "5";
         };
@@ -5763,8 +5854,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var flipEvery = parseInt(flipInput.text);
 
@@ -5788,6 +5881,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -5845,20 +5939,53 @@
         var dialog = new Window("dialog", "Wiggle Presets");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
+
+        // Custom values group
+        var customGroup = dialog.add("panel", undefined, "Custom Values");
+        customGroup.orientation = "column";
+        customGroup.alignChildren = ["fill", "top"];
+        customGroup.spacing = 2;
+        customGroup.margins = 6;
+
+        // Frequency input
+        var freqGroup = customGroup.add("group");
+        freqGroup.orientation = "row";
+        freqGroup.alignChildren = ["left", "center"];
+        freqGroup.spacing = 2;
+        var freqLbl = freqGroup.add("statictext", undefined, "Freq:");
+        freqLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var freqInput = freqGroup.add("edittext", undefined, "4");
+        freqInput.preferredSize = [40, 18];
+        freqInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        // Amplitude input
+        var ampGroup = customGroup.add("group");
+        ampGroup.orientation = "row";
+        ampGroup.alignChildren = ["left", "center"];
+        ampGroup.spacing = 2;
+        var ampLbl = ampGroup.add("statictext", undefined, "Amp:");
+        ampLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var ampInput = ampGroup.add("edittext", undefined, "25");
+        ampInput.preferredSize = [40, 18];
+        ampInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        // Use Markers checkbox
+        var useMarkersCheck = dialog.add("checkbox", undefined, "Use Markers (stop/resume)");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        useMarkersCheck.helpTip = "Use layer markers to stop/resume wiggle. Add markers via Lips CTRL.";
 
         // Preset buttons group
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "column";
-        presetGroup.alignChildren = ["fill", "top"];
-        presetGroup.spacing = 5;
+        presetGroup.orientation = "row";
+        presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        // Add description
-        var desc = dialog.add("statictext", undefined, "Select a wiggle intensity preset:");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        // Wiggle presets
         var presets = {
             "Gentle": { freq: 2, amp: 35 },
             "Normal": { freq: 25, amp: 5 },
@@ -5866,32 +5993,10 @@
             "Crazy": { freq: 75, amp: 20 }
         };
 
-        // Custom values group
-        var customGroup = dialog.add("panel", undefined, "Custom Values");
-        customGroup.orientation = "column";
-        customGroup.alignChildren = ["fill", "top"];
-        customGroup.spacing = 5;
-        customGroup.margins = 10;
-
-        // Frequency input
-        var freqGroup = customGroup.add("group");
-        freqGroup.orientation = "row";
-        freqGroup.alignChildren = ["left", "center"];
-        freqGroup.add("statictext", undefined, "Frequency:");
-        var freqInput = freqGroup.add("edittext", undefined, "4");
-        freqInput.preferredSize.width = 60;
-
-        // Amplitude input
-        var ampGroup = customGroup.add("group");
-        ampGroup.orientation = "row";
-        ampGroup.alignChildren = ["left", "center"];
-        ampGroup.add("statictext", undefined, "Amplitude:");
-        var ampInput = ampGroup.add("edittext", undefined, "25");
-        ampInput.preferredSize.width = 60;
-
         // Add preset buttons
         for (var presetName in presets) {
-            var btn = dialog.add("button", undefined, presetName);
+            var btn = presetGroup.add("button", undefined, presetName);
+            btn.preferredSize = [45, 18];
             btn.preset = presets[presetName];
             btn.onClick = function () {
                 var preset = this.preset;
@@ -5900,39 +6005,14 @@
             };
         }
 
-        // Use Markers checkbox
-        var useMarkersCheck = dialog.add("checkbox", undefined, "Use Markers (stop/resume)");
-        useMarkersCheck.helpTip = "Use layer markers to stop/resume wiggle. Add markers via Lips CTRL.";
-
-        // Preview text
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Expression Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "wiggle(4,25)");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview when values change
-        function updatePreview() {
-            var freq = parseFloat(freqInput.text);
-            var amp = parseFloat(ampInput.text);
-            if (!isNaN(freq) && !isNaN(amp)) {
-                previewText.text = "wiggle(" + freq + "," + amp + ")";
-            }
-        }
-
-        freqInput.onChanging = updatePreview;
-        ampInput.onChanging = updatePreview;
-
         // Buttons
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var freq = parseFloat(freqInput.text);
             var amp = parseFloat(ampInput.text);
@@ -5968,6 +6048,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -5978,30 +6059,32 @@
 
     // Show posterize time dialog
     function showPosterizeTimeDialog() {
-        var dialog = new Window("dialog", "Posterize Time Settings");
+        var dialog = new Window("dialog", "Posterize Time");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
-
-        // Add description
-        var desc = dialog.add("statictext", undefined, "Set frames per second (lower = more choppy):");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // FPS input
         var fpsGroup = dialog.add("group");
         fpsGroup.orientation = "row";
         fpsGroup.alignChildren = ["left", "center"];
-        fpsGroup.add("statictext", undefined, "Frames per second:");
+        fpsGroup.spacing = 2;
+        var fpsLbl = fpsGroup.add("statictext", undefined, "FPS:");
+        fpsLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var fpsInput = fpsGroup.add("edittext", undefined, "12");
-        fpsInput.preferredSize.width = 60;
+        fpsInput.preferredSize = [40, 18];
+        fpsInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var presets = [
             { name: "6", fps: 6 },
@@ -6013,45 +6096,26 @@
 
         for (var i = 0; i < presets.length; i++) {
             var btn = presetGroup.add("button", undefined, presets[i].name);
-            btn.preferredSize.width = 35;
+            btn.preferredSize = [25, 18];
             btn.fps = presets[i].fps;
             btn.onClick = function () {
                 fpsInput.text = this.fps.toString();
-                updatePreview();
             };
         }
 
         // Add checkbox for applying to existing expression
         var appendCheck = dialog.add("checkbox", undefined, "Add to existing expression");
+        appendCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         appendCheck.value = true;
-
-        // Preview
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Expression Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "posterizeTime(12);\nvalue");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview when values change
-        function updatePreview() {
-            var fps = parseFloat(fpsInput.text);
-            if (!isNaN(fps)) {
-                previewText.text = "posterizeTime(" + fps + ");\nvalue";
-            }
-        }
-
-        fpsInput.onChanging = updatePreview;
 
         // Buttons
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var fps = parseFloat(fpsInput.text);
 
@@ -6064,6 +6128,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -6126,30 +6191,32 @@
 
     // Show B Posterizer dialog
     function showBPosterizerDialog() {
-        var dialog = new Window("dialog", "B Posterizer Settings");
+        var dialog = new Window("dialog", "B Posterizer");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
-
-        // Add description
-        var desc = dialog.add("statictext", undefined, "Set frames per second:");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // FPS input
         var fpsGroup = dialog.add("group");
         fpsGroup.orientation = "row";
         fpsGroup.alignChildren = ["left", "center"];
-        fpsGroup.add("statictext", undefined, "Frames per second:");
+        fpsGroup.spacing = 2;
+        var fpsLbl = fpsGroup.add("statictext", undefined, "FPS:");
+        fpsLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var fpsInput = fpsGroup.add("edittext", undefined, "6");
-        fpsInput.preferredSize.width = 60;
+        fpsInput.preferredSize = [40, 18];
+        fpsInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var presets = [
             { name: "6", fps: 6 },
@@ -6161,7 +6228,7 @@
 
         for (var i = 0; i < presets.length; i++) {
             var btn = presetGroup.add("button", undefined, presets[i].name);
-            btn.preferredSize.width = 40;
+            btn.preferredSize = [25, 18];
             btn.fps = presets[i].fps;
             btn.onClick = function () {
                 fpsInput.text = this.fps.toString();
@@ -6172,8 +6239,10 @@
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var fps = parseFloat(fpsInput.text);
 
@@ -6186,6 +6255,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -6246,52 +6316,81 @@
         var dialog = new Window("dialog", "Rotation PingPong Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
-        // Add description
-        var desc = dialog.add("statictext", undefined, "Set rotation pingpong parameters:");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        // Input settings in a two-column layout
+        var inputGroup = dialog.add("group");
+        inputGroup.orientation = "row";
+        inputGroup.alignChildren = ["fill", "center"];
+        inputGroup.spacing = 6;
 
-        // Amplitude input
-        var ampGroup = dialog.add("group");
+        // Left Column (Amplitude & speed)
+        var leftCol = inputGroup.add("group");
+        leftCol.orientation = "column";
+        leftCol.alignChildren = ["fill", "center"];
+        leftCol.spacing = 3;
+
+        var paramsPanel = leftCol.add("panel", undefined, "Parameters");
+        paramsPanel.orientation = "column";
+        paramsPanel.alignChildren = ["fill", "top"];
+        paramsPanel.spacing = 2;
+        paramsPanel.margins = 6;
+
+        var ampGroup = paramsPanel.add("group");
         ampGroup.orientation = "row";
         ampGroup.alignChildren = ["left", "center"];
-        ampGroup.add("statictext", undefined, "Amplitude (degrees):");
+        ampGroup.spacing = 2;
+        var ampLbl = ampGroup.add("statictext", undefined, "Amp (°):");
+        ampLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var ampInput = ampGroup.add("edittext", undefined, "5");
-        ampInput.preferredSize.width = 60;
+        ampInput.preferredSize = [40, 18];
+        ampInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Speed input
-        var speedGroup = dialog.add("group");
+        var speedGroup = paramsPanel.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["left", "center"];
-        speedGroup.add("statictext", undefined, "Speed (cycles/sec):");
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Speed:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "1");
-        speedInput.preferredSize.width = 60;
+        speedInput.preferredSize = [40, 18];
+        speedInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Stop time input
-        var stopTimeGroup = dialog.add("group");
+        // Right Column (Stop controls)
+        var rightCol = inputGroup.add("group");
+        rightCol.orientation = "column";
+        rightCol.alignChildren = ["fill", "center"];
+        rightCol.spacing = 3;
+
+        var stopTimeGroup = rightCol.add("group");
         stopTimeGroup.orientation = "row";
         stopTimeGroup.alignChildren = ["left", "center"];
-        stopTimeGroup.add("statictext", undefined, "Stop Time:");
+        stopTimeGroup.spacing = 2;
+        var stopLbl = stopTimeGroup.add("statictext", undefined, "Stop:");
+        stopLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var stopTimeInput = stopTimeGroup.add("edittext", undefined, "");
-        stopTimeInput.preferredSize.width = 80;
-        stopTimeInput.helpTip = "Leave empty for no stop time. Format H:MM:SS:FF";
+        stopTimeInput.preferredSize = [70, 18];
+        stopTimeInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        stopTimeInput.helpTip = "Leave empty for no stop time.";
 
-        var stopHereCheck = stopTimeGroup.add("checkbox", undefined, "Stop Here");
+        // Stop Here checkbox
+        var stopHereCheck = rightCol.add("checkbox", undefined, "Stop Here");
+        stopHereCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         stopHereCheck.helpTip = "Check to fill stop time with current playhead position";
         stopHereCheck.onClick = function () {
             if (stopHereCheck.value) {
                 var currentTime = getCurrentTimeFormatted();
                 if (currentTime) {
                     stopTimeInput.text = currentTime;
-                    if (typeof updatePreview === 'function') updatePreview();
                 }
             }
         };
 
         // Use Markers checkbox
-        var useMarkersCheck = stopTimeGroup.add("checkbox", undefined, "Use Markers");
+        var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
+        useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
@@ -6301,15 +6400,16 @@
                 stopTimeInput.enabled = true;
                 stopHereCheck.enabled = true;
             }
-            if (typeof updatePreview === 'function') updatePreview();
         };
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var presets = [
             { name: "Gentle", amp: 2, speed: 1 },
@@ -6320,52 +6420,22 @@
 
         for (var i = 0; i < presets.length; i++) {
             var btn = presetGroup.add("button", undefined, presets[i].name);
+            btn.preferredSize = [42, 18];
             btn.preset = presets[i];
             btn.onClick = function () {
                 ampInput.text = this.preset.amp.toString();
                 speedInput.text = this.preset.speed.toString();
-                updatePreview();
             };
         }
-
-        // Preview
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Expression Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "var amp = 5;\nvar speed = 1;\n\namp * Math.sin(2 * Math.PI * speed * time);");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview when values change
-        function updatePreview() {
-            var amp = parseFloat(ampInput.text);
-            var speed = parseFloat(speedInput.text);
-            var useMarkers = useMarkersCheck.value;
-            var hasStopTime = stopTimeInput.text !== "";
-            if (!isNaN(amp) && !isNaN(speed)) {
-                if (useMarkers) {
-                    previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\nvar isFrozen = false;\n// [Marker Stop/Resume logic here]\namp * Math.sin(2 * Math.PI * speed * time);";
-                } else if (hasStopTime) {
-                    previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\nvar stopTime = [...];\nvar t = time >= stopTime ? stopTime : time;\namp * Math.sin(2 * Math.PI * speed * t);";
-                } else {
-                    previewText.text = "var amp = " + amp + ";\nvar speed = " + speed + ";\n\namp * Math.sin(2 * Math.PI * speed * time);";
-                }
-            }
-        }
-
-        ampInput.onChanging = updatePreview;
-        speedInput.onChanging = updatePreview;
-        stopTimeInput.onChanging = updatePreview;
 
         // Buttons
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var amp = parseFloat(ampInput.text);
             var speed = parseFloat(speedInput.text);
@@ -6433,6 +6503,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -6446,75 +6517,101 @@
         var dialog = new Window("dialog", "Thunder Flicker Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
-        // Add description
-        var desc = dialog.add("statictext", undefined, "Customize thunder/laser flicker effect:");
-        desc.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+        // Input settings in a two-column layout
+        var inputGroup = dialog.add("group");
+        inputGroup.orientation = "row";
+        inputGroup.alignChildren = ["fill", "top"];
+        inputGroup.spacing = 6;
 
-        // Rate thresholds
-        var thresholdGroup = dialog.add("panel", undefined, "Rate Thresholds");
-        thresholdGroup.orientation = "column";
-        thresholdGroup.alignChildren = ["fill", "top"];
-        thresholdGroup.spacing = 5;
-        thresholdGroup.margins = 10;
+        // Left Column (Thresholds)
+        var leftCol = inputGroup.add("group");
+        leftCol.orientation = "column";
+        leftCol.alignChildren = ["fill", "center"];
+        leftCol.spacing = 3;
 
-        // High threshold
-        var highGroup = thresholdGroup.add("group");
+        var thresholdPanel = leftCol.add("panel", undefined, "Thresholds");
+        thresholdPanel.orientation = "column";
+        thresholdPanel.alignChildren = ["fill", "top"];
+        thresholdPanel.spacing = 2;
+        thresholdPanel.margins = 6;
+
+        var highGroup = thresholdPanel.add("group");
         highGroup.orientation = "row";
         highGroup.alignChildren = ["left", "center"];
-        highGroup.add("statictext", undefined, "High Threshold (0-1):");
+        highGroup.spacing = 2;
+        var highLbl = highGroup.add("statictext", undefined, "High:");
+        highLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var highInput = highGroup.add("edittext", undefined, "0.7");
-        highInput.preferredSize.width = 60;
+        highInput.preferredSize = [40, 18];
+        highInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Mid threshold
-        var midGroup = thresholdGroup.add("group");
+        var midGroup = thresholdPanel.add("group");
         midGroup.orientation = "row";
         midGroup.alignChildren = ["left", "center"];
-        midGroup.add("statictext", undefined, "Mid Threshold (0-1):");
+        midGroup.spacing = 2;
+        var midLbl = midGroup.add("statictext", undefined, "Mid:");
+        midLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var midInput = midGroup.add("edittext", undefined, "0.4");
-        midInput.preferredSize.width = 60;
+        midInput.preferredSize = [40, 18];
+        midInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Rates
-        var rateGroup = dialog.add("panel", undefined, "Flicker Rates");
-        rateGroup.orientation = "column";
-        rateGroup.alignChildren = ["fill", "top"];
-        rateGroup.spacing = 5;
-        rateGroup.margins = 10;
+        // Right Column (Rates)
+        var rightCol = inputGroup.add("group");
+        rightCol.orientation = "column";
+        rightCol.alignChildren = ["fill", "center"];
+        rightCol.spacing = 3;
 
-        // High rate
-        var highRateGroup = rateGroup.add("group");
+        var ratePanel = rightCol.add("panel", undefined, "Rates");
+        ratePanel.orientation = "column";
+        ratePanel.alignChildren = ["fill", "top"];
+        ratePanel.spacing = 2;
+        ratePanel.margins = 6;
+
+        var highRateGroup = ratePanel.add("group");
         highRateGroup.orientation = "row";
         highRateGroup.alignChildren = ["left", "center"];
-        highRateGroup.add("statictext", undefined, "High Rate:");
+        highRateGroup.spacing = 2;
+        var highRateLbl = highRateGroup.add("statictext", undefined, "High:");
+        highRateLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var highRateInput = highRateGroup.add("edittext", undefined, "20");
-        highRateInput.preferredSize.width = 60;
+        highRateInput.preferredSize = [40, 18];
+        highRateInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Mid rate
-        var midRateGroup = rateGroup.add("group");
+        var midRateGroup = ratePanel.add("group");
         midRateGroup.orientation = "row";
         midRateGroup.alignChildren = ["left", "center"];
-        midRateGroup.add("statictext", undefined, "Mid Rate:");
+        midRateGroup.spacing = 2;
+        var midRateLbl = midRateGroup.add("statictext", undefined, "Mid:");
+        midRateLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var midRateInput = midRateGroup.add("edittext", undefined, "8");
-        midRateInput.preferredSize.width = 60;
+        midRateInput.preferredSize = [40, 18];
+        midRateInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Low rate
-        var lowRateGroup = rateGroup.add("group");
+        var lowRateGroup = ratePanel.add("group");
         lowRateGroup.orientation = "row";
         lowRateGroup.alignChildren = ["left", "center"];
-        lowRateGroup.add("statictext", undefined, "Low Rate:");
+        lowRateGroup.spacing = 2;
+        var lowRateLbl = lowRateGroup.add("statictext", undefined, "Low:");
+        lowRateLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var lowRateInput = lowRateGroup.add("edittext", undefined, "2");
-        lowRateInput.preferredSize.width = 60;
+        lowRateInput.preferredSize = [40, 18];
+        lowRateInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var thunderBtn = presetGroup.add("button", undefined, "Thunder");
+        thunderBtn.preferredSize = [50, 18];
         thunderBtn.onClick = function () {
             highInput.text = "0.7";
             midInput.text = "0.4";
@@ -6524,6 +6621,7 @@
         };
 
         var laserBtn = presetGroup.add("button", undefined, "Laser");
+        laserBtn.preferredSize = [45, 18];
         laserBtn.onClick = function () {
             highInput.text = "0.8";
             midInput.text = "0.5";
@@ -6533,6 +6631,7 @@
         };
 
         var strobeBtn = presetGroup.add("button", undefined, "Strobe");
+        strobeBtn.preferredSize = [45, 18];
         strobeBtn.onClick = function () {
             highInput.text = "0.9";
             midInput.text = "0.6";
@@ -6541,54 +6640,14 @@
             lowRateInput.text = "10";
         };
 
-        // Preview
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Expression Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview function
-        function updatePreview() {
-            var highThreshold = parseFloat(highInput.text);
-            var midThreshold = parseFloat(midInput.text);
-            var highRate = parseFloat(highRateInput.text);
-            var midRate = parseFloat(midRateInput.text);
-            var lowRate = parseFloat(lowRateInput.text);
-
-            if (!isNaN(highThreshold) && !isNaN(midThreshold) &&
-                !isNaN(highRate) && !isNaN(midRate) && !isNaN(lowRate)) {
-                var expression = "seedRandom(index + Math.floor(time), true);\n\n" +
-                    "rand = random();  // Random chance per second\n" +
-                    "rate = rand > " + highThreshold + " ? " + highRate + " : " +
-                    "rand > " + midThreshold + " ? " + midRate + " : " + lowRate + ";\n\n" +
-                    "t = time * rate;\n" +
-                    "flicker = Math.floor(t) % 2 == 0 ? 100 : 0;\n\n" +
-                    "flicker";
-                previewText.text = expression;
-            }
-        }
-
-        // Add change handlers
-        highInput.onChanging = updatePreview;
-        midInput.onChanging = updatePreview;
-        highRateInput.onChanging = updatePreview;
-        midRateInput.onChanging = updatePreview;
-        lowRateInput.onChanging = updatePreview;
-
-        // Initial preview update
-        updatePreview();
-
         // Buttons
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var highThreshold = parseFloat(highInput.text);
             var midThreshold = parseFloat(midInput.text);
@@ -6613,6 +6672,7 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
@@ -6625,24 +6685,25 @@
 
     // Show walking/running arc dialog
     function showWalkRunDialog() {
-        var dialog = new Window("dialog", "Walk/Run Arc Movement");
+        var dialog = new Window("dialog", "Walk/Run Arc Settings");
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Direction radio buttons
         var dirGroup = dialog.add("group");
         dirGroup.orientation = "row";
         dirGroup.alignChildren = ["left", "center"];
-        dirGroup.add("statictext", undefined, "Direction:");
+        dirGroup.spacing = 4;
+        var dirLbl = dirGroup.add("statictext", undefined, "Direction:");
+        dirLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         var leftBtn = dirGroup.add("button", undefined, "<");
-        leftBtn.preferredSize.width = 30;
-        leftBtn.preferredSize.height = 30;
+        leftBtn.preferredSize = [20, 18];
         var rightBtn = dirGroup.add("button", undefined, ">");
-        rightBtn.preferredSize.width = 30;
-        rightBtn.preferredSize.height = 30;
+        rightBtn.preferredSize = [20, 18];
 
         // Default selection
         var selectedDirection = 1; // 1 for right, -1 for left
@@ -6652,118 +6713,103 @@
             selectedDirection = -1; // LEFT direction (negative)
             leftBtn.fillBrush = leftBtn.graphics.newBrush(leftBtn.graphics.BrushType.SOLID_COLOR, [0.3, 0.3, 0.3, 1]);
             rightBtn.fillBrush = rightBtn.graphics.newBrush(rightBtn.graphics.BrushType.SOLID_COLOR, [0.1, 0.1, 0.1, 1]);
-            updatePreview();
         };
 
         rightBtn.onClick = function () {
             selectedDirection = 1; // RIGHT direction (positive)
             rightBtn.fillBrush = rightBtn.graphics.newBrush(rightBtn.graphics.BrushType.SOLID_COLOR, [0.3, 0.3, 0.3, 1]);
             leftBtn.fillBrush = leftBtn.graphics.newBrush(leftBtn.graphics.BrushType.SOLID_COLOR, [0.1, 0.1, 0.1, 1]);
-            updatePreview();
         };
 
+        // Parameters Panel
+        var paramsPanel = dialog.add("panel", undefined, "Parameters");
+        paramsPanel.orientation = "column";
+        paramsPanel.alignChildren = ["fill", "top"];
+        paramsPanel.spacing = 2;
+        paramsPanel.margins = 6;
+
         // Speed setting
-        var speedGroup = dialog.add("group");
+        var speedGroup = paramsPanel.add("group");
         speedGroup.orientation = "row";
         speedGroup.alignChildren = ["left", "center"];
-        speedGroup.add("statictext", undefined, "Speed (pixels/sec):");
+        speedGroup.spacing = 2;
+        var speedLbl = speedGroup.add("statictext", undefined, "Speed:");
+        speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "100");
-        speedInput.preferredSize.width = 60;
+        speedInput.preferredSize = [40, 18];
+        speedInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Arc height setting
-        var arcGroup = dialog.add("group");
+        var arcGroup = paramsPanel.add("group");
         arcGroup.orientation = "row";
         arcGroup.alignChildren = ["left", "center"];
-        arcGroup.add("statictext", undefined, "Arc Height (pixels):");
+        arcGroup.spacing = 2;
+        var arcLbl = arcGroup.add("statictext", undefined, "Arc H:");
+        arcLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var arcInput = arcGroup.add("edittext", undefined, "20");
-        arcInput.preferredSize.width = 60;
+        arcInput.preferredSize = [40, 18];
+        arcInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Frequency setting
-        var freqGroup = dialog.add("group");
+        var freqGroup = paramsPanel.add("group");
         freqGroup.orientation = "row";
         freqGroup.alignChildren = ["left", "center"];
-        freqGroup.add("statictext", undefined, "Steps per second:");
+        freqGroup.spacing = 2;
+        var freqLbl = freqGroup.add("statictext", undefined, "Freq:");
+        freqLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var freqInput = freqGroup.add("edittext", undefined, "2");
-        freqInput.preferredSize.width = 60;
+        freqInput.preferredSize = [40, 18];
+        freqInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "row";
         presetGroup.alignment = "center";
+        presetGroup.spacing = 2;
 
-        presetGroup.add("statictext", undefined, "Presets:");
+        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var walkBtn = presetGroup.add("button", undefined, "Walk");
+        walkBtn.preferredSize = [35, 18];
         walkBtn.onClick = function () {
             speedInput.text = "300";
             arcInput.text = "15";
             freqInput.text = "1.5";
-            updatePreview();
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Normal");
+        normalBtn.preferredSize = [45, 18];
         normalBtn.onClick = function () {
             speedInput.text = "500";
             arcInput.text = "15";
             freqInput.text = "2";
-            updatePreview();
         };
 
         var runBtn = presetGroup.add("button", undefined, "Run");
+        runBtn.preferredSize = [30, 18];
         runBtn.onClick = function () {
             speedInput.text = "700";
             arcInput.text = "15";
             freqInput.text = "4";
-            updatePreview();
         };
 
         var sprintBtn = presetGroup.add("button", undefined, "Sprint");
+        sprintBtn.preferredSize = [40, 18];
         sprintBtn.onClick = function () {
             speedInput.text = "1500";
             arcInput.text = "15";
             freqInput.text = "4";
-            updatePreview();
         };
-
-        // Preview
-        var previewGroup = dialog.add("group");
-        previewGroup.orientation = "column";
-        previewGroup.alignChildren = ["fill", "top"];
-
-        var previewLabel = previewGroup.add("statictext", undefined, "Preview:");
-        previewLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-
-        var previewText = previewGroup.add("statictext", undefined, "");
-        previewText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
-
-        // Update preview function
-        function updatePreview() {
-            var speed = parseFloat(speedInput.text);
-            var arcHeight = parseFloat(arcInput.text);
-            var frequency = parseFloat(freqInput.text);
-            var direction = selectedDirection === 1 ? 1 : -1;
-
-            if (!isNaN(speed) && !isNaN(arcHeight) && !isNaN(frequency)) {
-                var expression = "// Settings\nspeed = " + speed + "; // pixels per second\narcHeight = " + arcHeight + "; // arc height in pixels\nfrequency = " + frequency + "; // steps per second\ndirection = " + direction + "; // " + (direction === 1 ? "right" : "left") + "\n\n// Calculate movement\nx = time * speed * direction;\ny = Math.sin(time * frequency * 2 * Math.PI) * arcHeight;\n\nvalue + [x, y]";
-                previewText.text = expression;
-            }
-        }
-
-        // Add change handlers
-        speedInput.onChanging = updatePreview;
-        arcInput.onChanging = updatePreview;
-        freqInput.onChanging = updatePreview;
-        // Direction buttons already have their onClick handlers set above
-
-        // Initial preview update
-        updatePreview();
 
         // Buttons
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
         buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
             var speed = parseFloat(speedInput.text);
             var arcHeight = parseFloat(arcInput.text);
@@ -6780,12 +6826,13 @@
         };
 
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () {
             dialog.close();
         };
 
-        dialog.center();
-        dialog.show();
+        dialog.center();
+        dialog.show();
     }
 
     // Apply walk/run animation to position property
@@ -7195,8 +7242,9 @@
         var dialog = new Window("palette", "Kick Out of Frame", undefined, { closeButton: true });
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         // Keep window always on top
         if (dialog.show) {
@@ -7205,60 +7253,64 @@
 
         // Info text
         var infoText = dialog.add("statictext", undefined, "Choose direction to kick layer out:");
-        infoText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 11);
+        infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // Composition info
         var compInfo = dialog.add("statictext", undefined, "Comp: " + comp.width + " x " + comp.height + " px");
-        compInfo.graphics.font = ScriptUI.newFont("Arial", "ITALIC", 10);
+        compInfo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Direction buttons - arranged in cross pattern
-        var topRow = dialog.add("group");
+        var crossGroup = dialog.add("group");
+        crossGroup.orientation = "column";
+        crossGroup.alignChildren = ["center", "center"];
+        crossGroup.spacing = 2;
+
+        var topRow = crossGroup.add("group");
         topRow.orientation = "row";
         topRow.alignChildren = ["center", "center"];
 
         var kickUpBtn = topRow.add("button", undefined, "^");
-        kickUpBtn.preferredSize.width = 50;
-        kickUpBtn.preferredSize.height = 35;
+        kickUpBtn.preferredSize = [40, 20];
         kickUpBtn.helpTip = "Kick Up";
 
-        var middleRow = dialog.add("group");
+        var middleRow = crossGroup.add("group");
         middleRow.orientation = "row";
         middleRow.alignChildren = ["center", "center"];
-        middleRow.spacing = 10;
+        middleRow.spacing = 4;
 
         var kickLeftBtn = middleRow.add("button", undefined, "<");
-        kickLeftBtn.preferredSize.width = 50;
-        kickLeftBtn.preferredSize.height = 35;
+        kickLeftBtn.preferredSize = [40, 20];
         kickLeftBtn.helpTip = "Kick Left";
 
         var kickRightBtn = middleRow.add("button", undefined, ">");
-        kickRightBtn.preferredSize.width = 50;
-        kickRightBtn.preferredSize.height = 35;
+        kickRightBtn.preferredSize = [40, 20];
         kickRightBtn.helpTip = "Kick Right";
 
-        var bottomRow = dialog.add("group");
+        var bottomRow = crossGroup.add("group");
         bottomRow.orientation = "row";
         bottomRow.alignChildren = ["center", "center"];
 
         var kickDownBtn = bottomRow.add("button", undefined, "v");
-        kickDownBtn.preferredSize.width = 50;
-        kickDownBtn.preferredSize.height = 35;
+        kickDownBtn.preferredSize = [40, 20];
         kickDownBtn.helpTip = "Kick Down";
 
         // Additional options
         var optionsPanel = dialog.add("panel", undefined, "Options");
         optionsPanel.alignChildren = ["fill", "top"];
-        optionsPanel.spacing = 5;
-        optionsPanel.margins = 10;
+        optionsPanel.spacing = 2;
+        optionsPanel.margins = 6;
+        optionsPanel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // Margin input
         var marginGroup = optionsPanel.add("group");
         marginGroup.orientation = "row";
         marginGroup.alignChildren = ["left", "center"];
+        marginGroup.spacing = 2;
 
-        marginGroup.add("statictext", undefined, "Extra margin (px):");
+        var marginLbl = marginGroup.add("statictext", undefined, "Extra margin (px):");
+        marginLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var marginInput = marginGroup.add("edittext", undefined, "50");
-        marginInput.preferredSize.width = 60;
+        marginInput.preferredSize = [40, 18];
         marginInput.helpTip = "Extra distance beyond the frame edge";
 
         // Close button
@@ -7399,72 +7451,79 @@
         var dialog = new Window("palette", "Put Here", undefined, { closeButton: true });
         dialog.orientation = "column";
         dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 16;
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
 
         if (dialog.show) {
             dialog.active = true;
         }
 
         var infoText = dialog.add("statictext", undefined, "Choose start origin direction:");
-        infoText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 11);
+        infoText.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var compInfo = dialog.add("statictext", undefined, "Comp: " + comp.width + " x " + comp.height + " px");
-        compInfo.graphics.font = ScriptUI.newFont("Arial", "ITALIC", 10);
+        compInfo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        var topRow = dialog.add("group");
+        var crossGroup = dialog.add("group");
+        crossGroup.orientation = "column";
+        crossGroup.alignChildren = ["center", "center"];
+        crossGroup.spacing = 2;
+
+        var topRow = crossGroup.add("group");
         topRow.orientation = "row";
         topRow.alignChildren = ["center", "center"];
 
         var upBtn = topRow.add("button", undefined, "^");
-        upBtn.preferredSize.width = 50;
-        upBtn.preferredSize.height = 35;
+        upBtn.preferredSize = [40, 20];
         upBtn.helpTip = "Start from Up";
 
-        var middleRow = dialog.add("group");
+        var middleRow = crossGroup.add("group");
         middleRow.orientation = "row";
         middleRow.alignChildren = ["center", "center"];
-        middleRow.spacing = 10;
+        middleRow.spacing = 4;
 
         var leftBtn = middleRow.add("button", undefined, "<");
-        leftBtn.preferredSize.width = 50;
-        leftBtn.preferredSize.height = 35;
+        leftBtn.preferredSize = [40, 20];
         leftBtn.helpTip = "Start from Left";
 
         var rightBtn = middleRow.add("button", undefined, ">");
-        rightBtn.preferredSize.width = 50;
-        rightBtn.preferredSize.height = 35;
+        rightBtn.preferredSize = [40, 20];
         rightBtn.helpTip = "Start from Right";
 
-        var bottomRow = dialog.add("group");
+        var bottomRow = crossGroup.add("group");
         bottomRow.orientation = "row";
         bottomRow.alignChildren = ["center", "center"];
 
         var downBtn = bottomRow.add("button", undefined, "v");
-        downBtn.preferredSize.width = 50;
-        downBtn.preferredSize.height = 35;
+        downBtn.preferredSize = [40, 20];
         downBtn.helpTip = "Start from Down";
 
         // Margin input
         var optionsPanel = dialog.add("panel", undefined, "Options");
         optionsPanel.alignChildren = ["fill", "top"];
-        optionsPanel.spacing = 5;
-        optionsPanel.margins = 10;
+        optionsPanel.spacing = 2;
+        optionsPanel.margins = 6;
+        optionsPanel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         var marginGroup = optionsPanel.add("group");
         marginGroup.orientation = "row";
         marginGroup.alignChildren = ["left", "center"];
+        marginGroup.spacing = 2;
 
-        marginGroup.add("statictext", undefined, "Extra margin (px):");
+        var marginLbl = marginGroup.add("statictext", undefined, "Extra margin (px):");
+        marginLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var marginInput = marginGroup.add("edittext", undefined, "50");
-        marginInput.preferredSize.width = 60;
+        marginInput.preferredSize = [40, 18];
         marginInput.helpTip = "Extra distance beyond the frame edge";
 
         // Walk option
         var walkGroup = optionsPanel.add("group");
         walkGroup.orientation = "row";
         walkGroup.alignChildren = ["left", "center"];
+        walkGroup.spacing = 2;
         var walkCheckbox = walkGroup.add("checkbox", undefined, "Walk");
+        walkCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         walkCheckbox.value = false;
         walkCheckbox.helpTip = "Add walking oscillation before stopping";
 
@@ -7897,35 +7956,31 @@
             }
 
             // Create dialog for composition selection & target prefix configuration
-            var dialog = new Window("dialog", "Hide Layer 2 - Config & Selection");
+            var dialog = new Window("dialog", "Hide Layer 2 Settings");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             // Warning Banner
             var cautionGrp = dialog.add("group");
             cautionGrp.orientation = "column";
             cautionGrp.alignChildren = ["left", "top"];
-            cautionGrp.spacing = 2;
+            cautionGrp.spacing = 1;
             
-            var cautionTxt1 = cautionGrp.add("statictext", undefined, "⚠ CAUTION: Highly Sensitive Tool!");
-            cautionTxt1.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
-            
-            // Try to set red color for warning if supported
+            var cautionTxt1 = cautionGrp.add("statictext", undefined, "⚠ CAUTION: Sensitive Action!");
+            cautionTxt1.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
             try {
                 cautionTxt1.graphics.foregroundColor = cautionTxt1.graphics.newPen(dialog.graphics.PenType.SOLID_COLOR, [0.8, 0.1, 0.1, 1], 1);
             } catch(e) {}
 
-            var cautionTxt2 = cautionGrp.add("statictext", undefined, "Entering a wrong layer name prefix could hide unintended active design layers.");
-            cautionTxt2.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
-
-            dialog.add("panel");
-
-            dialog.add("statictext", undefined, "Select the composition to process:");
+            var lblComp = dialog.add("statictext", undefined, "Select composition:");
+            lblComp.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             var compDropdown = dialog.add("dropdownlist", undefined, compNames);
-            compDropdown.preferredSize.width = 320;
+            compDropdown.preferredSize = [224, 18];
+            compDropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             // Default select "main_comp" if it exists, otherwise select first
             var defaultIdx = 0;
@@ -7937,19 +7992,24 @@
             }
             compDropdown.selection = defaultIdx;
 
-            dialog.add("statictext", undefined, "Layer prefixes/names to hide (comma-separated):");
+            var lblPrefix = dialog.add("statictext", undefined, "Prefixes to hide (comma-separated):");
+            lblPrefix.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
             var prefixInput = dialog.add("edittext", undefined, "x, hide");
-            prefixInput.preferredSize.width = 320;
-            prefixInput.helpTip = "Hide layers starting with any of these values (case-insensitive). E.g., 'x, y, hide'";
+            prefixInput.preferredSize = [224, 18];
+            prefixInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            prefixInput.helpTip = "E.g., x, hide. CAUTION: Entering a wrong prefix could hide active design layers.";
 
             // Buttons
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
             btnGroup.alignment = "center";
-            btnGroup.spacing = 10;
+            btnGroup.spacing = 4;
 
             var okBtn = btnGroup.add("button", undefined, "Hide Layers");
+            okBtn.preferredSize = [80, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
 
             cancelBtn.onClick = function () {
                 dialog.close(0);
@@ -8315,40 +8375,43 @@
             }
 
             // Create dialog instead of prompt
-            var dialog = new Window("dialog", "Batch Duration Settings");
+            var dialog = new Window("dialog", "Batch Duration");
             dialog.orientation = "column";
             dialog.alignChildren = ["fill", "top"];
-            dialog.spacing = 10;
-            dialog.margins = 16;
+            dialog.spacing = 4;
+            dialog.margins = 8;
+            dialog.preferredSize.width = 240;
 
             // Duration input
             var durGroup = dialog.add("group");
             durGroup.orientation = "row";
             durGroup.alignChildren = ["left", "center"];
-            durGroup.spacing = 5;
+            durGroup.spacing = 2;
 
-            durGroup.add("statictext", undefined, "Duration (seconds):");
+            var durLbl = durGroup.add("statictext", undefined, "Duration (s):");
+            durLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             var durInput = durGroup.add("edittext", undefined, "10");
-            durInput.preferredSize.width = 60;
-
-            // Separator
-            dialog.add("panel");
+            durInput.preferredSize = [40, 18];
+            durInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             // Batch Scale checkbox + input
             var scaleGroup = dialog.add("group");
             scaleGroup.orientation = "row";
             scaleGroup.alignChildren = ["left", "center"];
-            scaleGroup.spacing = 5;
+            scaleGroup.spacing = 2;
 
             var scaleCheck = scaleGroup.add("checkbox", undefined, "Batch Scale:");
+            scaleCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             scaleCheck.value = false;
             scaleCheck.helpTip = "Also scale selected layers to this percentage";
 
             var scaleInput = scaleGroup.add("edittext", undefined, "100");
-            scaleInput.preferredSize.width = 50;
+            scaleInput.preferredSize = [40, 18];
+            scaleInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             scaleInput.enabled = false;
 
-            scaleGroup.add("statictext", undefined, "%");
+            var percentLbl = scaleGroup.add("statictext", undefined, "%");
+            percentLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
             // Toggle scale input enabled state
             scaleCheck.onClick = function () {
@@ -8359,10 +8422,12 @@
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
             btnGroup.alignment = "center";
-            btnGroup.spacing = 10;
+            btnGroup.spacing = 4;
 
             var okBtn = btnGroup.add("button", undefined, "Apply");
+            okBtn.preferredSize = [60, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
+            cancelBtn.preferredSize = [60, 18];
 
             cancelBtn.onClick = function () {
                 dialog.close(0);
@@ -9737,42 +9802,40 @@
         var dlg = new Window("dialog", "Unprecomp", undefined, { resizeable: false });
         dlg.orientation = "column";
         dlg.alignChildren = ["fill", "top"];
-        dlg.spacing = 8;
-        dlg.margins = 14;
+        dlg.spacing = 4;
+        dlg.margins = 8;
+        dlg.preferredSize.width = 240;
 
         var infoTxt = dlg.add("statictext", undefined,
-            "Dissolve: \"" + precompLayer.name + "\"  (" + srcComp.numLayers + " layers inside)");
+            "Dissolve: \"" + precompLayer.name + "\"");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         infoTxt.alignment = ["center", "top"];
 
-        dlg.add("panel");
+        var subTxt = dlg.add("statictext", undefined,
+            "(" + srcComp.numLayers + " layers inside)");
+        subTxt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        subTxt.alignment = ["center", "top"];
 
-        var optGroup = dlg.add("group");
-        optGroup.orientation = "column";
-        optGroup.alignChildren = ["left", "top"];
-        optGroup.spacing = 5;
-
-        var chkXCrop = optGroup.add("checkbox", undefined, "Re-precomp with X Crop (tight bounding box)");
+        var chkXCrop = dlg.add("checkbox", undefined, "Re-precomp with X Crop");
+        chkXCrop.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         chkXCrop.value = true;
         chkXCrop.helpTip = "After pasting layers, re-precomp them using X Crop so the bounding box is tight";
-
-        dlg.add("panel");
 
         var dlgStatus = dlg.add("statictext", undefined, "Ready");
         dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         dlgStatus.alignment = ["fill", "center"];
-        dlgStatus.preferredSize.width = 300;
+        dlgStatus.preferredSize.width = 224;
 
         var btnRow = dlg.add("group");
         btnRow.orientation = "row";
-        btnRow.alignChildren = ["fill", "center"];
-        btnRow.spacing = 6;
+        btnRow.alignment = "center";
+        btnRow.spacing = 4;
 
         var applyBtn = btnRow.add("button", undefined, "Unprecomp");
-        applyBtn.preferredSize.height = 26;
+        applyBtn.preferredSize = [80, 18];
 
         var cancelBtn = btnRow.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize.height = 26;
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () { dlg.close(); };
 
         applyBtn.onClick = function () {
@@ -9913,7 +9976,6 @@
             updateStatus("main_comp not found");
             return;
         }
-
         var selectedLayers = mainComp.selectedLayers;
         if (selectedLayers.length === 0) {
             updateStatus("No layers selected in main_comp");
@@ -9938,15 +10000,14 @@
         var dlg = new Window("dialog", "Batch FPS Changer", undefined, { resizeable: false });
         dlg.orientation = "column";
         dlg.alignChildren = ["fill", "top"];
-        dlg.spacing = 8;
-        dlg.margins = 14;
+        dlg.spacing = 4;
+        dlg.margins = 8;
+        dlg.preferredSize.width = 240;
 
         // Info
-        var infoTxt = dlg.add("statictext", undefined, precompLayers.length + " precomp layer(s) selected in main_comp");
+        var infoTxt = dlg.add("statictext", undefined, precompLayers.length + " precomp(s) selected");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         infoTxt.alignment = ["center", "top"];
-
-        dlg.add("panel");
 
         // FPS presets label
         var fpsLabel = dlg.add("statictext", undefined, "Select target framerate:");
@@ -9954,86 +10015,63 @@
 
         // Industry standard FPS presets
         var fpsPresets = [
-            { label: "23.976 fps  (Film / Streaming)",   value: 24000/1001 },
-            { label: "24 fps      (Cinema)",              value: 24 },
-            { label: "25 fps      (PAL / Europe TV)",     value: 25 },
-            { label: "29.97 fps   (NTSC / USA TV)",       value: 30000/1001 },
-            { label: "30 fps      (Web / YouTube)",       value: 30 },
-            { label: "48 fps      (HFR Cinema)",          value: 48 },
-            { label: "50 fps      (PAL HD / Sports)",     value: 50 },
-            { label: "59.94 fps   (NTSC HD)",             value: 60000/1001 },
-            { label: "60 fps      (Gaming / Motion)",     value: 60 }
+            { label: "23.976 fps (Film/Streaming)", value: 24000/1001 },
+            { label: "24 fps (Cinema)",             value: 24 },
+            { label: "25 fps (PAL/Europe TV)",    value: 25 },
+            { label: "29.97 fps (NTSC/USA TV)",      value: 30000/1001 },
+            { label: "30 fps (Web/YouTube)",      value: 30 },
+            { label: "48 fps (HFR Cinema)",         value: 48 },
+            { label: "50 fps (PAL HD/Sports)",    value: 50 },
+            { label: "59.94 fps (NTSC HD)",            value: 60000/1001 },
+            { label: "60 fps (Gaming/Motion)",    value: 60 }
         ];
 
-        // Radio buttons group
-        var radioGroup = dlg.add("group");
-        radioGroup.orientation = "column";
-        radioGroup.alignChildren = ["left", "top"];
-        radioGroup.spacing = 3;
-
-        var radioButtons = [];
+        var fpsLabels = [];
         for (var r = 0; r < fpsPresets.length; r++) {
-            (function(idx) {
-                var rb = radioGroup.add("radiobutton", undefined, fpsPresets[idx].label);
-                rb.graphics.font = ScriptUI.newFont("Courier New", "REGULAR", 9);
-                if (idx === 2) rb.value = true; // Default: 25 fps
-                radioButtons.push(rb);
-            })(r);
+            fpsLabels.push(fpsPresets[r].label);
         }
 
-        dlg.add("panel");
+        var fpsDropdown = dlg.add("dropdownlist", undefined, fpsLabels);
+        fpsDropdown.preferredSize = [224, 18];
+        fpsDropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        fpsDropdown.selection = 2; // Default: 25 fps
 
         // Options
-        var optGroup = dlg.add("group");
-        optGroup.orientation = "column";
-        optGroup.alignChildren = ["left", "top"];
-        optGroup.spacing = 4;
-
-        var chkConformDuration = optGroup.add("checkbox", undefined, "Preserve comp duration (adjust frame count)");
+        var chkConformDuration = dlg.add("checkbox", undefined, "Preserve duration (adjust frames)");
+        chkConformDuration.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         chkConformDuration.value = true;
         chkConformDuration.helpTip = "When checked, the comp duration in seconds stays the same";
-
-        dlg.add("panel");
 
         // Status label
         var dlgStatus = dlg.add("statictext", undefined, "Ready");
         dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         dlgStatus.alignment = ["fill", "center"];
-        dlgStatus.preferredSize.width = 280;
+        dlgStatus.preferredSize.width = 224;
 
         // Buttons row
         var btnRow = dlg.add("group");
         btnRow.orientation = "row";
-        btnRow.alignChildren = ["fill", "center"];
-        btnRow.spacing = 6;
+        btnRow.alignment = "center";
+        btnRow.spacing = 4;
 
         var applyBtn = btnRow.add("button", undefined, "Apply");
-        applyBtn.preferredSize.height = 26;
+        applyBtn.preferredSize = [80, 18];
         applyBtn.helpTip = "Apply the selected framerate to all selected precomp source compositions";
 
         var cancelBtn = btnRow.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize.height = 26;
-
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function() {
             dlg.close();
         };
 
-        applyBtn.onClick = function() {
-            // Find selected FPS
-            var selectedFps = -1;
-            var selectedLabel = "";
-            for (var ri = 0; ri < radioButtons.length; ri++) {
-                if (radioButtons[ri].value) {
-                    selectedFps = fpsPresets[ri].value;
-                    selectedLabel = fpsPresets[ri].label;
-                    break;
-                }
-            }
-
-            if (selectedFps < 0) {
+                applyBtn.onClick = function() {
+            var selectedIdx = fpsDropdown.selection ? fpsDropdown.selection.index : -1;
+            if (selectedIdx === -1) {
                 dlgStatus.text = "Please select a framerate.";
                 return;
             }
+            var selectedFps = fpsPresets[selectedIdx].value;
+            var selectedLabel = fpsPresets[selectedIdx].label;
 
             try {
                 app.beginUndoGroup("Batch FPS Change");
@@ -10087,164 +10125,185 @@
     function showBlinkDialog() {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
-            alert("Please open a composition first.");
-            return;
-        }
-        var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0) {
-            alert("Please select at least one layer.");
+            updateStatus("No active composition");
             return;
         }
 
-        var dlg = new Window("palette", "Blink Animation", undefined, { resizeable: false });
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+
+        var dlg = new Window("palette", "Blink Settings", undefined, { resizeable: false });
         dlg.orientation = "column";
         dlg.alignChildren = ["fill", "top"];
-        dlg.spacing = 8;
-        dlg.margins = 14;
+        dlg.spacing = 4;
+        dlg.margins = 8;
+        dlg.preferredSize.width = 240;
 
         // Info
         var infoTxt = dlg.add("statictext", undefined, selectedLayers.length + " layer(s) selected");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         infoTxt.alignment = ["center", "top"];
 
-        dlg.add("panel");
-
-        // Blink Mode
-        var modeLabel = dlg.add("statictext", undefined, "Blink Mode:");
-        modeLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-
+        // Blink Mode Dropdown
         var modeGroup = dlg.add("group");
-        modeGroup.orientation = "column";
-        modeGroup.alignChildren = ["left", "top"];
-        modeGroup.spacing = 3;
+        modeGroup.orientation = "row";
+        modeGroup.alignChildren = ["left", "center"];
+        modeGroup.spacing = 2;
 
-        var modeNormal = modeGroup.add("radiobutton", undefined, "Normal  –  blink, pause 2-6s, repeat");
-        modeNormal.value = true;
-        var modeCringe = modeGroup.add("radiobutton", undefined, "Cringe  –  3× rapid blinks, long pause, 1× blink");
-        var modeRapid = modeGroup.add("radiobutton", undefined, "Rapid  –  fast continuous blinking (0.3-0.8s)");
-        var modeCustom = modeGroup.add("radiobutton", undefined, "Custom  –  set your own intervals below");
+        var modeLabel = modeGroup.add("statictext", undefined, "Mode:");
+        modeLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var modeDropdown = modeGroup.add("dropdownlist", undefined, [
+            "Normal (blink, pause 2-6s)",
+            "Cringe (3x rapid, long pause, 1x)",
+            "Rapid (fast continuous 0.3-0.8s)",
+            "Custom (set intervals below)"
+        ]);
+        modeDropdown.preferredSize = [180, 18];
+        modeDropdown.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        modeDropdown.selection = 0;
 
-        dlg.add("panel");
+        // Row 1: Blink Duration & Transition frames
+        var row1 = dlg.add("group");
+        row1.orientation = "row";
+        row1.alignChildren = ["left", "center"];
+        row1.spacing = 6;
 
-        // Blink Duration (how long the eye stays closed)
-        var blinkDurGroup = dlg.add("group");
-        blinkDurGroup.orientation = "row";
-        blinkDurGroup.alignChildren = ["left", "center"];
-        var blinkDurLabel = blinkDurGroup.add("statictext", undefined, "Blink duration (frames):");
-        blinkDurLabel.preferredSize.width = 140;
-        var blinkDurInput = blinkDurGroup.add("edittext", undefined, "2");
-        blinkDurInput.preferredSize.width = 50;
-        blinkDurInput.helpTip = "How many frames the eye stays closed (Scale Y = 0%)";
+        var durGroup = row1.add("group");
+        durGroup.orientation = "row";
+        durGroup.alignChildren = ["left", "center"];
+        durGroup.spacing = 2;
+        var durLbl = durGroup.add("statictext", undefined, "Dur (f):");
+        durLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var blinkDurInput = durGroup.add("edittext", undefined, "2");
+        blinkDurInput.preferredSize = [35, 18];
+        blinkDurInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        blinkDurInput.helpTip = "How many frames the eye stays closed";
 
-        // Close speed (transition frames)
-        var transGroup = dlg.add("group");
+        var transGroup = row1.add("group");
         transGroup.orientation = "row";
         transGroup.alignChildren = ["left", "center"];
-        var transLabel = transGroup.add("statictext", undefined, "Transition frames:");
-        transLabel.preferredSize.width = 140;
+        transGroup.spacing = 2;
+        var transLbl = transGroup.add("statictext", undefined, "Trans (f):");
+        transLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var transInput = transGroup.add("edittext", undefined, "1");
-        transInput.preferredSize.width = 50;
-        transInput.helpTip = "Frames for the closing/opening transition (0 = instant)";
+        transInput.preferredSize = [35, 18];
+        transInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        transInput.helpTip = "Frames for closing/opening transition (0 = instant)";
 
-        dlg.add("panel");
+        // Custom settings panel
+        var customPanel = dlg.add("panel", undefined, "Custom Mode");
+        customPanel.alignChildren = ["fill", "top"];
+        customPanel.spacing = 2;
+        customPanel.margins = 6;
+        customPanel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        // Custom settings group
-        var customLabel = dlg.add("statictext", undefined, "Custom Mode Settings:");
-        customLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        // Custom Row 1: Min Interval & Max Interval
+        var custRow1 = customPanel.add("group");
+        custRow1.orientation = "row";
+        custRow1.alignChildren = ["left", "center"];
+        custRow1.spacing = 6;
 
-        var customGroup = dlg.add("group");
-        customGroup.orientation = "column";
-        customGroup.alignChildren = ["fill", "top"];
-        customGroup.spacing = 4;
-
-        // Min interval
-        var minIntGroup = customGroup.add("group");
+        var minIntGroup = custRow1.add("group");
         minIntGroup.orientation = "row";
         minIntGroup.alignChildren = ["left", "center"];
-        var minIntLabel = minIntGroup.add("statictext", undefined, "Min interval (sec):");
-        minIntLabel.preferredSize.width = 140;
+        minIntGroup.spacing = 2;
+        var minIntLabel = minIntGroup.add("statictext", undefined, "Min (s):");
+        minIntLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var minIntInput = minIntGroup.add("edittext", undefined, "2");
-        minIntInput.preferredSize.width = 50;
+        minIntInput.preferredSize = [35, 18];
+        minIntInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Max interval
-        var maxIntGroup = customGroup.add("group");
+        var maxIntGroup = custRow1.add("group");
         maxIntGroup.orientation = "row";
         maxIntGroup.alignChildren = ["left", "center"];
-        var maxIntLabel = maxIntGroup.add("statictext", undefined, "Max interval (sec):");
-        maxIntLabel.preferredSize.width = 140;
+        maxIntGroup.spacing = 2;
+        var maxIntLabel = maxIntGroup.add("statictext", undefined, "Max (s):");
+        maxIntLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var maxIntInput = maxIntGroup.add("edittext", undefined, "6");
-        maxIntInput.preferredSize.width = 50;
+        maxIntInput.preferredSize = [35, 18];
+        maxIntInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Blinks per burst
-        var burstGroup = customGroup.add("group");
+        // Custom Row 2: Blinks per burst & Burst gap
+        var custRow2 = customPanel.add("group");
+        custRow2.orientation = "row";
+        custRow2.alignChildren = ["left", "center"];
+        custRow2.spacing = 6;
+
+        var burstGroup = custRow2.add("group");
         burstGroup.orientation = "row";
         burstGroup.alignChildren = ["left", "center"];
-        var burstLabel = burstGroup.add("statictext", undefined, "Blinks per burst:");
-        burstLabel.preferredSize.width = 140;
+        burstGroup.spacing = 2;
+        var burstLabel = burstGroup.add("statictext", undefined, "Count:");
+        burstLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var burstInput = burstGroup.add("edittext", undefined, "1");
-        burstInput.preferredSize.width = 50;
-        burstInput.helpTip = "Number of blinks in quick succession before pausing";
+        burstInput.preferredSize = [35, 18];
+        burstInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        burstInput.helpTip = "Blinks in quick succession per burst";
 
-        // Burst gap
-        var burstGapGroup = customGroup.add("group");
+        var burstGapGroup = custRow2.add("group");
         burstGapGroup.orientation = "row";
         burstGapGroup.alignChildren = ["left", "center"];
-        var burstGapLabel = burstGapGroup.add("statictext", undefined, "Gap between bursts (f):");
-        burstGapLabel.preferredSize.width = 140;
+        burstGapGroup.spacing = 2;
+        var burstGapLabel = burstGapGroup.add("statictext", undefined, "Gap (f):");
+        burstGapLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var burstGapInput = burstGapGroup.add("edittext", undefined, "4");
-        burstGapInput.preferredSize.width = 50;
-        burstGapInput.helpTip = "Frames between blinks inside a burst";
+        burstGapInput.preferredSize = [35, 18];
+        burstGapInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        burstGapInput.helpTip = "Frames between blinks in a burst";
 
-        // Enable/disable custom fields based on mode
+        // Row 3: Offset & Add Markers
+        var row3 = dlg.add("group");
+        row3.orientation = "row";
+        row3.alignChildren = ["left", "center"];
+        row3.spacing = 6;
+
+        var offsetGrp = row3.add("group");
+        offsetGrp.orientation = "row";
+        offsetGrp.alignChildren = ["left", "center"];
+        offsetGrp.spacing = 2;
+        var offsetLabel = offsetGrp.add("statictext", undefined, "Offset (s):");
+        offsetLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var offsetInput = offsetGrp.add("edittext", undefined, "0.5");
+        offsetInput.preferredSize = [35, 18];
+        offsetInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        offsetInput.helpTip = "Time offset per layer (index x value)";
+
+        var addMarkersChk = row3.add("checkbox", undefined, "Markers");
+        addMarkersChk.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        addMarkersChk.value = true;
+        addMarkersChk.helpTip = "Add timeline markers at each blink";
+
+        // Enable/disable custom fields based on mode selection
         function updateCustomEnabled() {
-            var enabled = modeCustom.value;
+            var enabled = (modeDropdown.selection && modeDropdown.selection.index === 3);
             minIntInput.enabled = enabled;
             maxIntInput.enabled = enabled;
             burstInput.enabled = enabled;
             burstGapInput.enabled = enabled;
         }
-        modeNormal.onClick = updateCustomEnabled;
-        modeCringe.onClick = updateCustomEnabled;
-        modeRapid.onClick = updateCustomEnabled;
-        modeCustom.onClick = updateCustomEnabled;
+        modeDropdown.onChange = updateCustomEnabled;
         updateCustomEnabled();
-
-        dlg.add("panel");
-
-        // Multi-layer offset
-        var offsetGroup = dlg.add("group");
-        offsetGroup.orientation = "row";
-        offsetGroup.alignChildren = ["left", "center"];
-        var offsetLabel = offsetGroup.add("statictext", undefined, "Layer offset (sec):");
-        offsetLabel.preferredSize.width = 140;
-        var offsetInput = offsetGroup.add("edittext", undefined, "0.5");
-        offsetInput.preferredSize.width = 50;
-        offsetInput.helpTip = "Time offset between layers so they don't blink in sync. Each layer is shifted by (index × this value).";
-
-        // Add markers checkbox
-        var addMarkersChk = dlg.add("checkbox", undefined, "Add markers at each blink");
-        addMarkersChk.value = true;
-        addMarkersChk.helpTip = "Add layer markers at each blink for easy manual adjustment";
-
-        dlg.add("panel");
 
         // Status
         var dlgStatus = dlg.add("statictext", undefined, "Ready");
         dlgStatus.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         dlgStatus.alignment = ["fill", "center"];
-        dlgStatus.preferredSize.width = 280;
+        dlgStatus.preferredSize.width = 224;
 
         // Buttons
         var btnRow = dlg.add("group");
         btnRow.orientation = "row";
-        btnRow.alignChildren = ["fill", "center"];
-        btnRow.spacing = 6;
+        btnRow.alignment = "center";
+        btnRow.spacing = 4;
 
         var applyBtn = btnRow.add("button", undefined, "Apply");
-        applyBtn.preferredSize.height = 26;
+        applyBtn.preferredSize = [80, 18];
 
         var cancelBtn = btnRow.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize.height = 26;
+        cancelBtn.preferredSize = [60, 18];
         cancelBtn.onClick = function () { dlg.close(); };
 
         applyBtn.onClick = function () {
@@ -10258,19 +10317,20 @@
                 // Determine blink schedule parameters based on mode
                 var minInterval, maxInterval, blinksPerBurst, burstGapFrames;
 
-                if (modeNormal.value) {
+                var modeIdx = modeDropdown.selection ? modeDropdown.selection.index : 0;
+                if (modeIdx === 0) {
                     // Normal: single blinks, 2-6s random pause
                     minInterval = 2;
                     maxInterval = 6;
                     blinksPerBurst = 1;
                     burstGapFrames = 4;
-                } else if (modeCringe.value) {
+                } else if (modeIdx === 1) {
                     // Cringe: 3 rapid blinks, long pause (4-8s), then 1 single blink
                     minInterval = 4;
                     maxInterval = 8;
                     blinksPerBurst = 3;
                     burstGapFrames = 3;
-                } else if (modeRapid.value) {
+                } else if (modeIdx === 2) {
                     // Rapid: fast continuous blinking
                     minInterval = 0.3;
                     maxInterval = 0.8;
@@ -10283,8 +10343,7 @@
                     blinksPerBurst = parseInt(burstInput.text) || 1;
                     burstGapFrames = parseInt(burstGapInput.text) || 4;
                 }
-
-                if (minInterval > maxInterval) {
+if (minInterval > maxInterval) {
                     var tmp = minInterval;
                     minInterval = maxInterval;
                     maxInterval = tmp;
@@ -10576,3 +10635,4 @@
         panel.show();
     }
 })(this);
+
