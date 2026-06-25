@@ -3154,7 +3154,7 @@
             }
         };
 
-        // Preset button
+        // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
@@ -3165,13 +3165,69 @@
         var presLbl = presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
-        var presetRow = presetGroup.add("group");
-        presetRow.orientation = "row";
-        presetRow.spacing = 2;
+        var presetRow1 = presetGroup.add("group");
+        presetRow1.orientation = "row";
+        presetRow1.spacing = 2;
 
-        var btn1 = presetRow.add("button", undefined, "100, 102, 9");
-        btn1.preferredSize = [80, 18];
+        var btn1 = presetRow1.add("button", undefined, "100,102,24");
+        btn1.preferredSize = [60, 18];
         btn1.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "102";
+            speedInput.text = "24";
+        };
+
+        var btn2 = presetRow1.add("button", undefined, "100,102,12");
+        btn2.preferredSize = [60, 18];
+        btn2.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "102";
+            speedInput.text = "12";
+        };
+
+        var btn3 = presetRow1.add("button", undefined, "100,103,8");
+        btn3.preferredSize = [60, 18];
+        btn3.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "103";
+            speedInput.text = "8";
+        };
+
+        var presetRow2 = presetGroup.add("group");
+        presetRow2.orientation = "row";
+        presetRow2.spacing = 2;
+
+        var btn4 = presetRow2.add("button", undefined, "100,103,4");
+        btn4.preferredSize = [60, 18];
+        btn4.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "103";
+            speedInput.text = "4";
+        };
+
+        var btn5 = presetRow2.add("button", undefined, "100,106,6");
+        btn5.preferredSize = [60, 18];
+        btn5.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "106";
+            speedInput.text = "6";
+        };
+
+        var btn6 = presetRow2.add("button", undefined, "100,106,3");
+        btn6.preferredSize = [60, 18];
+        btn6.onClick = function () {
+            yMinInput.text = "100";
+            yMaxInput.text = "106";
+            speedInput.text = "3";
+        };
+
+        var presetRow3 = presetGroup.add("group");
+        presetRow3.orientation = "row";
+        presetRow3.spacing = 2;
+
+        var btn7 = presetRow3.add("button", undefined, "100,102,9");
+        btn7.preferredSize = [60, 18];
+        btn7.onClick = function () {
             yMinInput.text = "100";
             yMaxInput.text = "102";
             speedInput.text = "9";
@@ -8811,6 +8867,48 @@
     }
 
     // Show layer navigation window
+
+    // Function to jump by seconds
+    function jumpByTime(seconds) {
+        try {
+            var comp = app.project.activeItem;
+            if (comp && comp instanceof CompItem) {
+                var newTime = comp.time + seconds;
+                // Clamp to composition duration
+                newTime = Math.max(0, Math.min(newTime, comp.duration));
+                comp.time = newTime;
+
+                // Update status with the new time
+                var timeInFrames = Math.floor(newTime * comp.frameRate);
+                updateStatus("Jumped to frame " + timeInFrames + " (" + newTime.toFixed(2) + "s)");
+            }
+        } catch (error) {
+            updateStatus("Error: " + error.toString());
+        }
+    }
+
+    // Function to jump by frames
+    function jumpByFrames(frames) {
+        try {
+            if (isNaN(frames)) {
+                updateStatus("Please enter a valid frame number");
+                return;
+            }
+
+            var comp = app.project.activeItem;
+            if (comp && comp instanceof CompItem) {
+                var seconds = frames / comp.frameRate;
+                var newTime = comp.time + seconds;
+                // Clamp to composition duration
+                newTime = Math.max(0, Math.min(newTime, comp.duration));
+                comp.time = newTime;
+
+                updateStatus("Jumped " + frames + " frames to " + newTime.toFixed(2) + "s");
+            }
+        } catch (error) {
+            updateStatus("Error: " + error.toString());
+        }
+    }
 
     // Direct function to jump to next layer
     function jumpToNextLayerDirect() {
