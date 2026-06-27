@@ -50,62 +50,57 @@
         headerGroup.spacing = 1;
         headerGroup.margins = [0, 0, 0, 1];
 
-        // Timeline controls row 1 (6 jump buttons)
+        // Timeline controls row (8 jump & nav buttons)
         var jumpRow = headerGroup.add("group");
         jumpRow.orientation = "row";
         jumpRow.alignChildren = ["center", "center"];
-        jumpRow.spacing = 2;
+        jumpRow.spacing = 1;
+
+        var prevLayerBtn = jumpRow.add("button", undefined, "◀");
+        prevLayerBtn.preferredSize.width = 18;
+        prevLayerBtn.preferredSize.height = 18;
+        prevLayerBtn.helpTip = "Jump to previous layer start";
+        prevLayerBtn.onClick = function () { jumpToPreviousLayerDirect(); };
 
         var jumpBack1s = jumpRow.add("button", undefined, "-1");
-        jumpBack1s.preferredSize.width = 22;
+        jumpBack1s.preferredSize.width = 18;
         jumpBack1s.preferredSize.height = 18;
         jumpBack1s.helpTip = "Jump backward 1 second";
         jumpBack1s.onClick = function () { jumpByTime(-1); };
 
         var jumpBack05s = jumpRow.add("button", undefined, "-.5");
-        jumpBack05s.preferredSize.width = 22;
+        jumpBack05s.preferredSize.width = 18;
         jumpBack05s.preferredSize.height = 18;
         jumpBack05s.helpTip = "Jump backward 0.5 seconds";
         jumpBack05s.onClick = function () { jumpByTime(-0.5); };
 
         var jumpBack4f = jumpRow.add("button", undefined, "-4");
-        jumpBack4f.preferredSize.width = 22;
+        jumpBack4f.preferredSize.width = 18;
         jumpBack4f.preferredSize.height = 18;
         jumpBack4f.helpTip = "Jump backward 4 frames";
         jumpBack4f.onClick = function () { jumpByFrames(-4); };
 
         var jumpForward4f = jumpRow.add("button", undefined, "+4");
-        jumpForward4f.preferredSize.width = 22;
+        jumpForward4f.preferredSize.width = 18;
         jumpForward4f.preferredSize.height = 18;
         jumpForward4f.helpTip = "Jump forward 4 frames";
         jumpForward4f.onClick = function () { jumpByFrames(4); };
 
         var jumpForward05s = jumpRow.add("button", undefined, "+.5");
-        jumpForward05s.preferredSize.width = 22;
+        jumpForward05s.preferredSize.width = 18;
         jumpForward05s.preferredSize.height = 18;
         jumpForward05s.helpTip = "Jump forward 0.5 seconds";
         jumpForward05s.onClick = function () { jumpByTime(0.5); };
 
         var jumpForward1s = jumpRow.add("button", undefined, "+1");
-        jumpForward1s.preferredSize.width = 22;
+        jumpForward1s.preferredSize.width = 18;
         jumpForward1s.preferredSize.height = 18;
         jumpForward1s.helpTip = "Jump forward 1 second";
         jumpForward1s.onClick = function () { jumpByTime(1); };
 
-        // Layer Navigation row
-        var layerNavRow = headerGroup.add("group");
-        layerNavRow.orientation = "row";
-        layerNavRow.alignChildren = ["center", "center"];
-        layerNavRow.alignment = ["center", "center"];
-        layerNavRow.spacing = 1;
-
-        var prevLayerBtn = layerNavRow.add("button", undefined, "◀ Lay");
-        prevLayerBtn.preferredSize = [69, 18];
-        prevLayerBtn.helpTip = "Jump to previous layer start";
-        prevLayerBtn.onClick = function () { jumpToPreviousLayerDirect(); };
-
-        var nextLayerBtn = layerNavRow.add("button", undefined, "Lay ▶");
-        nextLayerBtn.preferredSize = [69, 18];
+        var nextLayerBtn = jumpRow.add("button", undefined, "▶");
+        nextLayerBtn.preferredSize.width = 18;
+        nextLayerBtn.preferredSize.height = 18;
         nextLayerBtn.helpTip = "Jump to next layer start";
         nextLayerBtn.onClick = function () { jumpToNextLayerDirect(); };
 
@@ -231,6 +226,7 @@
             ["↕ Up Down", "Up Down", runAnim, "Continuous sinusoidal up-down vertical movement"],
             ["↔ Left Right", "Left Right", runAnim, "Continuous sinusoidal left-right horizontal movement"],
             ["↕ V Scale", "V Scale", runAnim, "Pulse vertical scale (Y-axis only) with bottom-centered anchor"],
+            ["⤢ Scale Pulse", "Scale Pulse", runAnim, "Pulse scale symmetrically"],
             ["≈ Water Float", "Water Float", runAnim, "Continuous floating drift animation"],
             ["≈ Water Dist", "Water Distort", function() { showWaterDistortionDialog(); }, "Add water distortion effect"],
             ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }, "Add bounce keyframes"],
@@ -258,8 +254,8 @@
         utilLbl.alignment = ["fill", "top"];
 
         var favUtilPairs = [
+            ["♦ Add KFs", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
             ["✃ Trim Sel", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
-            ["♦ Add KFs", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale and rotation values"],
             ["☒ Hide Lyrs", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
             ["☑ Show Lyrs", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
@@ -290,7 +286,11 @@
             ["➔ Loop Cont", "Loop Continue", runAnim, "Loop continue expression"],
             ["⇄ Loop Ping", "Loop PingPong", runAnim, "Loop pingpong expression"],
             ["⚯ Link", "Link", function() { linkerLayers(); }, "Parent selected layers to the last selected layer"],
-            ["↓ Bellow", "Bellow", function() { Bellow(); }, "Move selected layers below the last selected layer"]
+            ["↓ Bellow", "Bellow", function() { Bellow(); }, "Move selected layers below the last selected layer"],
+            ["☰ List Jumper", "List Jumper", function() {
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
+                $.evalFile(new File(scriptFile));
+            }, "Open List Jumper - jump to timeline positions based on CSV word data"]
         ];
 
         for (var i = 0; i < favLoopPairs.length; i += 2) {
@@ -398,7 +398,7 @@
             ["⧗ Batch Duration", "Batch Duration", function() { changeBatchDuration(); }, "Change duration of selected precomp source compositions"],
             ["⧗ Batch FPS", "Batch FPS", function() { showBatchFramerateDialog(); }, "Change framerate of selected precomp source compositions in main_comp"],
             ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
-            ["♦ Add Keyframes", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale and rotation values"],
+            ["♦ Add Keyframes", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
             ["✃ Trim Selected", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
             ["⧈ Auto Size", "Auto Size", function() { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"]
         ];
@@ -673,7 +673,7 @@
             { label: "⧗ Batch Duration", key: "Batch Duration", actionFn: function() { changeBatchDuration(); }, helpTip: "Change duration of selected precomp source compositions" },
             { label: "⧗ Batch FPS", key: "Batch FPS", actionFn: function() { showBatchFramerateDialog(); }, helpTip: "Change framerate of selected precomp source compositions in main_comp" },
             { label: "⧈ X Crop", key: "X Crop", actionFn: function() { openXCropTool(); }, helpTip: "Open X Crop tool for smart composition cropping" },
-            { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function() { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale and rotation values" },
+            { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function() { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale, rotation and opacity values" },
             { label: "✃ Trim Selected", key: "Trim Selected", actionFn: function() { trimSelectedLayers(); }, helpTip: "Trim selected layers to avoid overlapping" },
             { label: "⧈ Auto Size", key: "Auto Size", actionFn: function() { autoSizeSelectedLayers(); }, helpTip: "Resize selected layers/precomps to fit the composition" },
             // Loops
@@ -5761,10 +5761,10 @@
         }
     }
 
-    // Add keyframes for current position and scale
+    // Add keyframes for current position, scale, rotation and opacity
     function addCurrentKeyframes() {
         try {
-            app.beginUndoGroup("Add Current Position, Scale & Rotation Keyframes");
+            app.beginUndoGroup("Add Current Position, Scale, Rotation & Opacity Keyframes");
 
             var comp = app.project.activeItem;
             if (comp && comp instanceof CompItem && comp.selectedLayers.length > 0) {
@@ -5792,6 +5792,13 @@
                     if (layer.transform.rotation.canSetExpression) {
                         var currentRotation = layer.transform.rotation.value;
                         layer.transform.rotation.setValueAtTime(currentTime, currentRotation);
+                        addedCount++;
+                    }
+
+                    // Add opacity keyframe
+                    if (layer.transform.opacity && layer.transform.opacity.canSetExpression) {
+                        var currentOpacity = layer.transform.opacity.value;
+                        layer.transform.opacity.setValueAtTime(currentTime, currentOpacity);
                         addedCount++;
                     }
                 }
