@@ -43,6 +43,22 @@
         myPanel.margins = 2;
         myPanel.preferredSize.width = 160;
 
+        // Prevent buttons from retaining focus and stealing Spacebar shortcut
+        myPanel.addEventListener("mouseup", function (e) {
+            if (e && e.target && e.target.type === "button") {
+                app.activate();
+            }
+        });
+
+        myPanel.addEventListener("keydown", function (e) {
+            if (e && e.target && e.target.type === "button") {
+                if (e.keyName === "Space" || e.keyName === "space" || e.keyName === " ") {
+                    e.preventDefault();
+                    app.activate();
+                }
+            }
+        });
+
         // ================= GLOBAL HEADER (TIMELINE & LAYER CONTROLS) =================
         var headerGroup = myPanel.add("group");
         headerGroup.orientation = "column";
