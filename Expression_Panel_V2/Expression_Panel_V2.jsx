@@ -278,6 +278,7 @@
             ["♫ Audio Mkr", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
             ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
+            ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
             ["⇆ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
         ];
 
@@ -416,7 +417,8 @@
             ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
             ["♦ Add Keyframes", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
             ["✃ Trim Selected", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
-            ["⧈ Auto Size", "Auto Size", function() { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"]
+            ["⧈ Auto Size", "Auto Size", function() { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"],
+            ["☒ Clean Tabs", "Clean Tabs Open", function() { cleanTabsOpen(); }, "Close all open viewers/tabs except main_comp and Render Queue"]
         ];
 
         for (var i = 0; i < utilItems.length; i += 2) {
@@ -692,6 +694,7 @@
             { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function() { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale, rotation and opacity values" },
             { label: "✃ Trim Selected", key: "Trim Selected", actionFn: function() { trimSelectedLayers(); }, helpTip: "Trim selected layers to avoid overlapping" },
             { label: "⧈ Auto Size", key: "Auto Size", actionFn: function() { autoSizeSelectedLayers(); }, helpTip: "Resize selected layers/precomps to fit the composition" },
+            { label: "☒ Clean Tabs", key: "Clean Tabs Open", actionFn: function() { cleanTabsOpen(); }, helpTip: "Close all open viewers/tabs except main_comp and Render Queue" },
             // Loops
             { label: "↻ Loop Cycle", key: "Loop Cycle", actionFn: runAnim },
             { label: "➔ Loop Continue", key: "Loop Continue", actionFn: runAnim },
@@ -1155,25 +1158,72 @@
                 return;
             }
 
-            app.beginUndoGroup("Create Null Object");
+            var selectedLayers = [];
+            for (var i = 0; i < comp.selectedLayers.length; i++) {
+                selectedLayers.push(comp.selectedLayers[i]);
+            }
+
+            var nullName = prompt("Enter a name for the Null object:", "Control_null");
+            if (nullName === null) {
+                return; // User cancelled
+            }
+            if (nullName.replace(/^\s+|\s+$/g, "") === "") {
+                nullName = "Control_null";
+            }
+
+            app.beginUndoGroup("Create and Parent Null Object");
+
+            // Calculate average position of selected layers
+            var posX = 0;
+            var posY = 0;
+            var posCount = 0;
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer.transform && layer.transform.position) {
+                    var p = layer.transform.position.value;
+                    posX += p[0];
+                    posY += p[1];
+                    posCount++;
+                }
+            }
+            var nullPos = (posCount > 0) ? [posX / posCount, posY / posCount] : [comp.width / 2, comp.height / 2];
 
             // Create null object
             var nullLayer = comp.layers.addNull();
-            nullLayer.name = "Control_null";
+            nullLayer.name = nullName;
 
             // Set null properties
-            // Anchor Point: 50, 50
+            // Anchor Point: 50, 50 (standard 100x100 null)
             nullLayer.transform.anchorPoint.setValue([50, 50]);
 
-            // Scale: 500%, 500%
-            nullLayer.transform.scale.setValue([500, 500]);
+            // Scale: 250%, 250% (makes 100x100 null exactly 250x250 px)
+            nullLayer.transform.scale.setValue([250, 250]);
 
-            // Position null at specific coordinates
-            nullLayer.transform.position.setValue([2880, 1620]);
+            // Position null at the calculated position
+            var curPosVal = nullLayer.transform.position.value;
+            if (curPosVal.length > 2) {
+                nullLayer.transform.position.setValue([nullPos[0], nullPos[1], curPosVal[2]]);
+            } else {
+                nullLayer.transform.position.setValue([nullPos[0], nullPos[1]]);
+            }
+
+            // Parent selected layers to the newly created Null
+            var parentedCount = 0;
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer !== nullLayer) {
+                    layer.parent = nullLayer;
+                    parentedCount++;
+                }
+            }
 
             app.endUndoGroup();
 
-            updateStatus("Created null object");
+            if (parentedCount > 0) {
+                updateStatus("Created null '" + nullName + "' and parented " + parentedCount + " layer(s)");
+            } else {
+                updateStatus("Created null '" + nullName + "'");
+            }
 
         } catch (error) {
             alert("Error creating null object: " + error.message);
@@ -6978,6 +7028,26 @@
                 return Math.floor(Math.random() * (max - min + 1)) + min;
             }
 
+            // Helper function to resolve layer name conflicts in the comp
+            function getUniqueLayerName(comp, baseName) {
+                var name = baseName;
+                var suffix = 1;
+                while (true) {
+                    var found = false;
+                    for (var i = 1; i <= comp.numLayers; i++) {
+                        if (comp.layer(i).name === name) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        return name;
+                    }
+                    name = baseName + "_" + suffix;
+                    suffix++;
+                }
+            }
+
             // Scan for all puppet pins from all selected layers
             var pinData = [];
             var totalPins = 0;
@@ -7161,7 +7231,7 @@
 
                                 // Create a new null layer at the calculated position
                                 var myNull = comp.layers.addNull();
-                                myNull.name = pinInfo.displayName;
+                                myNull.name = getUniqueLayerName(comp, pinInfo.displayName);
                                 myNull.transform.position.setValue(pos);
                                 myNull.source.width = 350;
                                 myNull.source.height = 350;
@@ -10277,7 +10347,7 @@
         var modeLabel = modeGroup.add("statictext", undefined, "Mode:");
         modeLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var modeDropdown = modeGroup.add("dropdownlist", undefined, [
-            "Normal (blink, pause 2-6s)",
+            "Normal (blink, pause 1.5-4s)",
             "Cringe (3x rapid, long pause, 1x)",
             "Rapid (fast continuous 0.3-0.8s)",
             "Custom (set intervals below)"
@@ -10298,7 +10368,7 @@
         durGroup.spacing = 2;
         var durLbl = durGroup.add("statictext", undefined, "Dur (f):");
         durLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        var blinkDurInput = durGroup.add("edittext", undefined, "2");
+        var blinkDurInput = durGroup.add("edittext", undefined, "1");
         blinkDurInput.preferredSize = [35, 18];
         blinkDurInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         blinkDurInput.helpTip = "How many frames the eye stays closed";
@@ -10309,7 +10379,7 @@
         transGroup.spacing = 2;
         var transLbl = transGroup.add("statictext", undefined, "Trans (f):");
         transLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        var transInput = transGroup.add("edittext", undefined, "1");
+        var transInput = transGroup.add("edittext", undefined, "2");
         transInput.preferredSize = [35, 18];
         transInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         transInput.helpTip = "Frames for closing/opening transition (0 = instant)";
@@ -10430,19 +10500,18 @@
         applyBtn.onClick = function () {
             try {
                 var fps = comp.frameRate;
-                var blinkDurFrames = parseInt(blinkDurInput.text) || 2;
-                var transFrames = parseInt(transInput.text) || 1;
+                var blinkDurFrames = parseInt(blinkDurInput.text) || 1;
+                var transFrames = parseInt(transInput.text) || 2;
                 var layerOffset = parseFloat(offsetInput.text) || 0.5;
-                var doMarkers = addMarkersChk.value;
 
                 // Determine blink schedule parameters based on mode
                 var minInterval, maxInterval, blinksPerBurst, burstGapFrames;
 
                 var modeIdx = modeDropdown.selection ? modeDropdown.selection.index : 0;
                 if (modeIdx === 0) {
-                    // Normal: single blinks, 2-6s random pause
-                    minInterval = 2;
-                    maxInterval = 6;
+                    // Normal: single blinks, 1.5-4s random pause
+                    minInterval = 1.5;
+                    maxInterval = 4;
                     blinksPerBurst = 1;
                     burstGapFrames = 4;
                 } else if (modeIdx === 1) {
@@ -10464,7 +10533,7 @@
                     blinksPerBurst = parseInt(burstInput.text) || 1;
                     burstGapFrames = parseInt(burstGapInput.text) || 4;
                 }
-if (minInterval > maxInterval) {
+                if (minInterval > maxInterval) {
                     var tmp = minInterval;
                     minInterval = maxInterval;
                     maxInterval = tmp;
@@ -10495,9 +10564,10 @@ if (minInterval > maxInterval) {
                         return seed / 233280;
                     }
 
-                    // Generate blink schedule
+                    // Generate blink schedule times
                     var blinkTimes = [];
-                    var currentTime = layerIn + startOffset;
+                    // Start with a random initial pause to avoid blinking immediately on layer start
+                    var currentTime = layerIn + startOffset + minInterval + seededRandom() * (maxInterval - minInterval);
 
                     // For cringe mode, alternate between burst-of-3 and single blink
                     var cringePhase = 0; // 0 = burst of 3, 1 = single blink
@@ -10505,7 +10575,7 @@ if (minInterval > maxInterval) {
                     while (currentTime < layerOut) {
                         var activeBurst = blinksPerBurst;
 
-                        if (modeCringe.value) {
+                        if (modeIdx === 1) {
                             // Cringe alternates: 3 rapid blinks, then 1 single blink
                             activeBurst = (cringePhase === 0) ? 3 : 1;
                             cringePhase = (cringePhase + 1) % 2;
@@ -10514,7 +10584,12 @@ if (minInterval > maxInterval) {
                         // Add each blink in this burst
                         for (var b = 0; b < activeBurst; b++) {
                             if (currentTime >= layerOut) break;
-                            blinkTimes.push(currentTime);
+
+                            // Make sure the blink fits within the layer boundaries
+                            var blinkEnd = currentTime + (blinkDurFrames + transFrames * 2) / fps;
+                            if (blinkEnd <= layerOut) {
+                                blinkTimes.push(currentTime);
+                            }
 
                             if (b < activeBurst - 1) {
                                 // Gap between blinks inside a burst
@@ -10527,74 +10602,78 @@ if (minInterval > maxInterval) {
                         currentTime += pause;
                     }
 
-                    // Get current scale value to preserve X
-                    var currentScale = scaleProp.value;
-                    var scaleX = currentScale[0];
-
-                    // Set initial open keyframe
-                    var blinkDurSec = blinkDurFrames / fps;
-                    var transSec = transFrames / fps;
-
-                    // Apply keyframes for each blink
-                    for (var bi = 0; bi < blinkTimes.length; bi++) {
-                        var blinkStart = blinkTimes[bi];
-
-                        // Clamp all times within layer range
-                        var tClose = blinkStart;
-                        var tClosed = tClose + transSec;
-                        var tOpen = tClosed + blinkDurSec;
-                        var tOpened = tOpen + transSec;
-
-                        if (tOpened > layerOut) continue;
-
-                        // Before blink: eye open (add keyframe slightly before close)
-                        var tBeforeClose = Math.max(layerIn, tClose - (1 / fps));
-                        var k1 = scaleProp.addKey(tBeforeClose);
-                        scaleProp.setValueAtKey(k1, [scaleX, 100]);
-
-                        if (transFrames > 0) {
-                            // Transition close
-                            var k2 = scaleProp.addKey(tClosed);
-                            scaleProp.setValueAtKey(k2, [scaleX, 0]);
-                        } else {
-                            // Instant close at blink start
-                            var k2 = scaleProp.addKey(tClose);
-                            scaleProp.setValueAtKey(k2, [scaleX, 0]);
-                        }
-
-                        // Eye closed hold
-                        var k3 = scaleProp.addKey(tOpen);
-                        scaleProp.setValueAtKey(k3, [scaleX, 0]);
-
-                        if (transFrames > 0) {
-                            // Transition open
-                            var k4 = scaleProp.addKey(tOpened);
-                            scaleProp.setValueAtKey(k4, [scaleX, 100]);
-                        } else {
-                            // Instant open
-                            var k4 = scaleProp.addKey(tOpen + (1 / fps));
-                            scaleProp.setValueAtKey(k4, [scaleX, 100]);
-                        }
-
-                        // Add marker
-                        if (doMarkers) {
-                            var markerComment = "Blink";
-                            if (modeCringe.value) {
-                                markerComment = (bi % 4 < 3) ? "Blink (burst)" : "Blink (single)";
-                            } else if (modeRapid.value) {
-                                markerComment = "Blink (rapid)";
+                    // Clean existing "B" / "Blink" markers from this layer
+                    var markerProp = layer.property("Marker");
+                    if (markerProp && markerProp.numKeys > 0) {
+                        for (var mIdx = markerProp.numKeys; mIdx >= 1; mIdx--) {
+                            var comment = markerProp.keyValue(mIdx).comment.toUpperCase();
+                            if (comment === "B" || comment === "BLINK") {
+                                markerProp.removeKey(mIdx);
                             }
-                            var mv = new MarkerValue(markerComment);
-                            layer.property("Marker").setValueAtTime(tClose, mv);
                         }
+                    }
 
+                    // Add the "B" markers
+                    for (var bi = 0; bi < blinkTimes.length; bi++) {
+                        var mv = new MarkerValue("B");
+                        layer.property("Marker").setValueAtTime(blinkTimes[bi], mv);
                         totalBlinks++;
                     }
+
+                    // Get current scale value to preserve X scale
+                    var currentScale = scaleProp.value;
+
+                    // Remove existing keyframes on scale
+                    while (scaleProp.numKeys > 0) {
+                        scaleProp.removeKey(1);
+                    }
+                    scaleProp.setValue(currentScale);
+
+                    // Apply the scale expression
+                    var exprCode = [
+                        'try {',
+                        '    var transFrames = ' + transFrames + ';',
+                        '    var holdFrames = ' + blinkDurFrames + ';',
+                        '    var fps = 1.0 / thisComp.frameDuration;',
+                        '    var transSec = transFrames / fps;',
+                        '    var holdSec = holdFrames / fps;',
+                        '    var totalSec = transSec * 2 + holdSec;',
+                        '    ',
+                        '    var scaleY = value[1];',
+                        '    if (marker.numKeys > 0) {',
+                        '        var idx = marker.nearestKey(time).index;',
+                        '        if (marker.key(idx).time > time) {',
+                        '            idx--;',
+                        '        }',
+                        '        if (idx > 0) {',
+                        '            var mk = marker.key(idx);',
+                        '            var c = mk.comment.toUpperCase();',
+                        '            if (c === "B" || c === "BLINK") {',
+                        '                var t = time - mk.time;',
+                        '                if (t >= 0 && t < totalSec) {',
+                        '                    if (t < transSec) {',
+                        '                        scaleY = linear(t, 0, transSec, value[1], 0);',
+                        '                    } else if (t < transSec + holdSec) {',
+                        '                        scaleY = 0;',
+                        '                    } else {',
+                        '                        scaleY = linear(t, transSec + holdSec, totalSec, 0, value[1]);',
+                        '                    }',
+                        '                }',
+                        '            }',
+                        '        }',
+                        '    }',
+                        '    [value[0], scaleY];',
+                        '} catch(err) {',
+                        '    value;',
+                        '}'
+                    ].join('\n');
+
+                    scaleProp.expression = exprCode;
                 }
 
                 app.endUndoGroup();
 
-                var modeStr = modeNormal.value ? "Normal" : modeCringe.value ? "Cringe" : modeRapid.value ? "Rapid" : "Custom";
+                var modeStr = modeIdx === 0 ? "Normal" : modeIdx === 1 ? "Cringe" : modeIdx === 2 ? "Rapid" : "Custom";
                 dlgStatus.text = "Added " + totalBlinks + " blinks (" + modeStr + ") to " + selectedLayers.length + " layer(s)";
                 updateStatus("Blink: " + totalBlinks + " blinks (" + modeStr + ") on " + selectedLayers.length + " layer(s)");
 
@@ -10666,6 +10745,55 @@ if (minInterval > maxInterval) {
         } catch (err) {
             app.endUndoGroup();
             updateStatus("White BG error: " + err.toString());
+        }
+    }
+
+    function cleanTabsOpen() {
+        try {
+            var closeCmdId = app.findMenuCommandId("Close");
+            if (!closeCmdId) {
+                closeCmdId = 2038;
+            }
+
+            // Find a composition to open to ensure the viewer panel is focused
+            var tempComp = null;
+            for (var j = 1; j <= app.project.numItems; j++) {
+                var item = app.project.item(j);
+                if (item instanceof CompItem) {
+                    tempComp = item;
+                    if (item.name === "main_comp") {
+                        break;
+                    }
+                }
+            }
+            if (tempComp) {
+                tempComp.openInViewer();
+            }
+
+            // Close all active viewers one by one
+            var maxAttempts = 100;
+            var attempts = 0;
+            while (app.activeViewer !== null && attempts < maxAttempts) {
+                app.executeCommand(closeCmdId);
+                attempts++;
+            }
+
+            // Finally, re-open main_comp if it exists in the project
+            var mainComp = null;
+            for (var k = 1; k <= app.project.numItems; k++) {
+                var item = app.project.item(k);
+                if (item instanceof CompItem && item.name === "main_comp") {
+                    mainComp = item;
+                    break;
+                }
+            }
+            if (mainComp) {
+                mainComp.openInViewer();
+            }
+
+            updateStatus("Cleaned open tabs");
+        } catch (error) {
+            updateStatus("Error closing tabs: " + error.toString());
         }
     }
 
