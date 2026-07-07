@@ -248,6 +248,7 @@
             ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }, "Add bounce keyframes"],
             ["✳ Rim Light", "Rim Light", function() { addRimLightEffects(); }, "Add rim light effects"],
             ["⤓ Squash", "Squash", function() { applySquashAnimation(); }, "Apply squash animation"],
+            ["⤓ Squash 2", "Squash 2", function() { applySquash2Animation(); }, "Apply squash 2 (staggered transition) animation"],
             ["✦ Glitter", "Glitter", runAnim, "Apply glitter flashing animation"],
             ["↻ Time Rot", "Time Rotation", runAnim, "Continuous constant speed rotation"],
             ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"]
@@ -372,6 +373,7 @@
             ["⇅ Choppy Flip", "Choppy Flip", function() { showChoppyFlipDialog(); }],
             ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }],
             ["⤓ Squash", "Squash", function() { applySquashAnimation(); }],
+            ["⤓ Squash 2", "Squash 2", function() { applySquash2Animation(); }],
             ["◒ Blink", "Blink", function() { showBlinkDialog(); }],
             ["⇾ Kick Out", "Kick Out", function() { showKickOutOfFrameDialog(); }],
             ["⇿ Put Here", "Put Here", function() { showPutHereDialog(); }],
@@ -403,7 +405,7 @@
             ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
             ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio comp from main_comp to current comp and sync it"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
-            ["⚲ Lips CTRL", "Lips CTRL", function() { showLipsCtrlDialog(); }, "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong"],
+            ["⚲ MK CTRL", "MK CTRL", function() { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End) for animations"],
             ["♫ Audio Marker", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
             ["⚯ Puppet→Null", "Puppet→Null", function() { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
@@ -483,7 +485,8 @@
             ["⤏ Walk/Run", "Walk/Run", function() { showWalkRunDialog(); }, "Add walking/running arc movement"],
             ["⚯ Attach Leg", "Attach Leg", function() { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
             ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer"],
-            ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"]
+            ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"],
+            ["⧗ Counter", "Text Counter", function() { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"]
         ];
 
         for (var i = 0; i < toolPairs.length; i += 2) {
@@ -669,6 +672,7 @@
             { label: "⇅ Choppy Flip", key: "Choppy Flip", actionFn: function() { showChoppyFlipDialog(); } },
             { label: "⤼ Bounce x2", key: "Bounce x2", actionFn: function() { addBounceKeyframes(); } },
             { label: "⤓ Squash", key: "Squash", actionFn: function() { applySquashAnimation(); } },
+            { label: "⤓ Squash 2", key: "Squash 2", actionFn: function() { applySquash2Animation(); }, helpTip: "Apply squash 2 (staggered transition) animation" },
             { label: "◒ Blink", key: "Blink", actionFn: function() { showBlinkDialog(); } },
             { label: "⇾ Kick Out", key: "Kick Out", actionFn: function() { showKickOutOfFrameDialog(); } },
             { label: "⇿ Put Here", key: "Put Here", actionFn: function() { showPutHereDialog(); } },
@@ -679,7 +683,7 @@
             { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
             { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio comp from main_comp to current comp and sync it" },
             { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function() { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
-            { label: "⚲ Lips CTRL", key: "Lips CTRL", actionFn: function() { showLipsCtrlDialog(); }, helpTip: "Add Stop/Resume markers for Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong" },
+            { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function() { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End) for animations" },
             { label: "♫ Audio Marker", key: "Audio Marker", actionFn: function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, helpTip: "Copy Audio, analyze spikes, and add markers" },
             { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function() { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
             { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function() { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
@@ -711,6 +715,7 @@
             { label: "⚯ Attach Leg", key: "Attach Leg", actionFn: function() { showAttachLegDialog(); }, helpTip: "Attach a leg comp to the selected layer" },
             { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function() { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer" },
             { label: "⤓ Pinch", key: "Pinch", actionFn: function() { showPinchDialog(); }, helpTip: "Add a pinch preset animation" },
+            { label: "⧗ Counter", key: "Text Counter", actionFn: function() { showTextCounterDialog(); }, helpTip: "Create a text counter with dynamic formatting and custom slider limits" },
             { label: "☰ List Jumper", key: "List Jumper", actionFn: function() {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
                 $.evalFile(new File(scriptFile));
@@ -966,9 +971,9 @@
         }
     }
 
-    // Lips CTRL dialog — add Stop / Resume comp markers at current playhead
-    function showLipsCtrlDialog() {
-        var dlg = new Window("palette", "Lips CTRL", undefined, { resizeable: false });
+    // MK CTRL dialog - add expression control markers at current playhead
+    function showMKCtrlDialog() {
+        var dlg = new Window("palette", "MK CTRL", undefined, { resizeable: false });
         dlg.orientation = "column";
         dlg.alignChildren = ["fill", "top"];
         dlg.spacing = 4;
@@ -976,28 +981,42 @@
         dlg.preferredSize.width = 200;
 
         // Info label
-        var infoTxt = dlg.add("statictext", undefined, "Adds stop/resume markers:");
+        var infoTxt = dlg.add("statictext", undefined, "Add marker string value:");
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-        infoTxt.helpTip = "Works with: Audio Sync, Wiggle, Up Down, Left Right, Scale Pulse, V Scale, Rotation PingPong";
+        infoTxt.helpTip = "Works with: Audio Sync, Wiggle, Up Down, Squash 2, etc.";
 
-        // Buttons row
-        var btnRow = dlg.add("group");
-        btnRow.orientation = "row";
-        btnRow.alignChildren = ["fill", "center"];
-        btnRow.spacing = 4;
+        // Dropdown and input row
+        var row1 = dlg.add("group");
+        row1.orientation = "row";
+        row1.alignChildren = ["left", "center"];
+        row1.spacing = 4;
 
-        var stopBtn = btnRow.add("button", undefined, "\u23F9 Stop");
-        stopBtn.preferredSize.height = 18;
-        stopBtn.helpTip = "Freeze animation at current playhead time (adds \"stop\" marker)";
-        stopBtn.onClick = function () {
-            addLipsMarker("stop");
+        var presetDropdown = row1.add("dropdownlist", undefined, ["Stop (stop)", "Resume (sync)", "Squash (SQ)", "Blink (B)", "End", "Custom"]);
+        presetDropdown.preferredSize.width = 100;
+        presetDropdown.selection = 0; // Default to Stop
+
+        var commentInput = row1.add("edittext", undefined, "stop");
+        commentInput.preferredSize.width = 75;
+
+        presetDropdown.onChange = function () {
+            var idx = presetDropdown.selection.index;
+            if (idx === 0) commentInput.text = "stop";
+            else if (idx === 1) commentInput.text = "sync";
+            else if (idx === 2) commentInput.text = "SQ";
+            else if (idx === 3) commentInput.text = "B";
+            else if (idx === 4) commentInput.text = "End";
         };
 
-        var resumeBtn = btnRow.add("button", undefined, "\u25B6 Resume");
-        resumeBtn.preferredSize.height = 18;
-        resumeBtn.helpTip = "Resume animation at current playhead time (adds \"sync\" marker)";
-        resumeBtn.onClick = function () {
-            addLipsMarker("sync");
+        // Add button row
+        var row2 = dlg.add("group");
+        row2.orientation = "row";
+        row2.alignChildren = ["fill", "center"];
+        row2.spacing = 4;
+
+        var addBtn = row2.add("button", undefined, "Add Marker");
+        addBtn.preferredSize.height = 18;
+        addBtn.onClick = function () {
+            addMKMarker(commentInput.text);
         };
 
         // Status label
@@ -1005,7 +1024,7 @@
         statusLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         statusLbl.alignment = ["fill", "center"];
 
-        function addLipsMarker(comment) {
+        function addMKMarker(comment) {
             try {
                 var comp = app.project.activeItem;
                 if (!comp || !(comp instanceof CompItem)) {
@@ -1019,7 +1038,7 @@
                     return;
                 }
 
-                app.beginUndoGroup("Add Lips Marker");
+                app.beginUndoGroup("Add MK Marker");
 
                 var t = comp.time;
                 var markerVal = new MarkerValue(comment);
@@ -1030,15 +1049,14 @@
 
                 app.endUndoGroup();
 
-                var label = comment === "stop" ? "STOP" : "RESUME";
                 var ts = Math.floor(t / 60) + ":" +
                     (t % 60 < 10 ? "0" : "") + t.toFixed(2).replace(".", ":");
-                statusLbl.text = label + " @ " + ts + " on " + selectedLayers.length + " layer(s)";
-                updateStatus("Lips " + label + " marker added to " + selectedLayers.length + " layer(s) at " + t.toFixed(2) + "s");
+                statusLbl.text = "'" + comment + "' @ " + ts + " on " + selectedLayers.length + " layer(s)";
+                updateStatus("MK Marker '" + comment + "' added to " + selectedLayers.length + " layer(s) at " + t.toFixed(2) + "s");
 
             } catch (error) {
                 statusLbl.text = "Error: " + error.toString();
-                updateStatus("Lips CTRL error: " + error.toString());
+                updateStatus("MK CTRL error: " + error.toString());
             }
         }
 
@@ -1584,7 +1602,7 @@
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via MK CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
                 stopTimeInput.enabled = false;
@@ -1829,7 +1847,7 @@
                             if (useMarkers) {
                                 expression = "amp = " + currentAmp + ";\n" +
                                     "framesPerCycle = " + randomFrames + ";\n" +
-                                    "// Lips CTRL Stop/Resume Marker Support\n" +
+                                    "// MK CTRL Stop/Resume Marker Support\n" +
                                     "var m = thisLayer.marker;\n" +
                                     "var t = time;\n" +
                                     "var isFrozen = false;\n" +
@@ -2033,7 +2051,7 @@
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via MK CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
                 stopTimeInput.enabled = false;
@@ -2908,7 +2926,7 @@
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via MK CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
                 stopTimeInput.enabled = false;
@@ -3209,7 +3227,7 @@
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via MK CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
                 stopTimeInput.enabled = false;
@@ -6104,7 +6122,7 @@
         // Use Markers checkbox
         var useMarkersCheck = dialog.add("checkbox", undefined, "Use Markers (stop/resume)");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers to stop/resume wiggle. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers to stop/resume wiggle. Add markers via MK CTRL.";
 
         // Preset buttons group
         var presetGroup = dialog.add("group");
@@ -6520,7 +6538,7 @@
         // Use Markers checkbox
         var useMarkersCheck = rightCol.add("checkbox", undefined, "Use Markers");
         useMarkersCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via Lips CTRL.";
+        useMarkersCheck.helpTip = "Use layer markers (stop/resume) to control animation. Add markers via MK CTRL.";
         useMarkersCheck.onClick = function () {
             if (useMarkersCheck.value) {
                 stopTimeInput.enabled = false;
@@ -9743,6 +9761,365 @@
         }
     }
 
+    // Function to apply Squash 2 animation (staggered layer transition)
+    function applySquash2Animation() {
+        try {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                updateStatus("No active composition found");
+                return;
+            }
+
+            var selectedLayers = comp.selectedLayers;
+            if (selectedLayers.length < 2) {
+                updateStatus("Please select at least 2 staggered layers");
+                alert("Please select at least 2 staggered layers");
+                return;
+            }
+
+            // Prompt user for null name
+            var nullName = prompt("Enter a name for the Squash Null object:", "Squash_Null");
+            if (nullName === null) {
+                return; // User cancelled
+            }
+            if (nullName.replace(/^\s+|\s+$/g, "") === "") {
+                nullName = "Squash_Null";
+            }
+
+            app.beginUndoGroup("Squash 2 Animation");
+
+            // 1. Sort layers by inPoint to identify cuts chronologically
+            var sortedLayers = [];
+            for (var i = 0; i < selectedLayers.length; i++) {
+                sortedLayers.push(selectedLayers[i]);
+            }
+            sortedLayers.sort(function (a, b) {
+                return a.inPoint - b.inPoint;
+            });
+
+            // Read the start (earliest inPoint) and end (latest outPoint)
+            var minInPoint = Infinity;
+            var maxOutPoint = -Infinity;
+            for (var i = 0; i < sortedLayers.length; i++) {
+                minInPoint = Math.min(minInPoint, sortedLayers[i].inPoint);
+                maxOutPoint = Math.max(maxOutPoint, sortedLayers[i].outPoint);
+            }
+
+            // The transition points (cuts) are at the inPoint of each staggered layer after the first
+            var markerTimes = [];
+            for (var i = 1; i < sortedLayers.length; i++) {
+                markerTimes.push(sortedLayers[i].inPoint);
+            }
+
+            // 2. Calculate the bounding box of all selected layers (evaluated at their respective inPoints)
+            var bounds = calculateStaggeredLayerBounds(sortedLayers);
+            if (!bounds) {
+                alert("Could not calculate bounding box of selected layers");
+                app.endUndoGroup();
+                return;
+            }
+
+            // Create null object
+            var nullLayer = comp.layers.addNull();
+            nullLayer.name = nullName;
+
+            // Set duration of Null layer to cover the lifespan of the selected layers
+            nullLayer.startTime = minInPoint;
+            nullLayer.inPoint = minInPoint;
+            nullLayer.outPoint = maxOutPoint;
+
+            // Move anchor point of null to center bottom (local coords: 50, 100 on a 100x100 null)
+            nullLayer.transform.anchorPoint.setValue([50, 100, 0]);
+
+            // Set scale to match the bounding box size (null starts as 100x100)
+            nullLayer.transform.scale.setValue([bounds.width, bounds.height, 100]);
+
+            // Set position to the center bottom of the bounding box
+            var posX = bounds.left + bounds.width / 2;
+            var posY = bounds.top + bounds.height;
+            var curPosVal = nullLayer.transform.position.value;
+            if (curPosVal.length > 2) {
+                nullLayer.transform.position.setValue([posX, posY, curPosVal[2]]);
+            } else {
+                nullLayer.transform.position.setValue([posX, posY]);
+            }
+
+            // Parent the selected layers to the Null layer, keeping their world transforms
+            var parentedCount = 0;
+            for (var i = 0; i < sortedLayers.length; i++) {
+                var layer = sortedLayers[i];
+                if (layer !== nullLayer) {
+                    parentAndCompensate(layer, nullLayer);
+                    parentedCount++;
+                }
+            }
+
+            // 3. Place SQ markers and apply expression on the Null scale property
+            var scaleProp = nullLayer.transform.scale;
+
+            for (var m = 0; m < markerTimes.length; m++) {
+                var mt = markerTimes[m];
+
+                // Place "SQ" marker on the Null
+                var mv = new MarkerValue("SQ");
+                nullLayer.property("Marker").setValueAtTime(mt, mv);
+            }
+
+            // Create the Squash 2 expression
+            var expr = [
+                "// Squash 2 Animation Expression",
+                "var m = thisLayer.marker;",
+                "var squashAmt = 90; // EDIT THIS VALUE TO CHANGE SQUASH DEPTH (e.g. 95 for less squash)",
+                "var preFrames = 3;   // frames to go down",
+                "var postFrames = 4;  // frames to go back to normal",
+                "var fd = thisComp.frameDuration;",
+                "",
+                "var squashY = 100;",
+                "",
+                "if (m.numKeys > 0) {",
+                "    for (var i = 1; i <= m.numKeys; i++) {",
+                "        var markerKey = m.key(i);",
+                "        if (markerKey.comment.toUpperCase() === \"SQ\") {",
+                "            var mt = markerKey.time;",
+                "            var t1 = mt - preFrames * fd;",
+                "            var t3 = mt + postFrames * fd;",
+                "            if (time >= t1 && time <= t3) {",
+                "                if (time <= mt) {",
+                "                    squashY = easeIn(time, t1, mt, 100, squashAmt);",
+                "                } else {",
+                "                    squashY = easeOut(time, mt, t3, squashAmt, 100);",
+                "                }",
+                "                break;",
+                "            }",
+                "        }",
+                "    }",
+                "}",
+                "",
+                "if (value.length === 3) {",
+                "    [value[0], value[1] * (squashY / 100), value[2]];",
+                "} else {",
+                "    [value[0], value[1] * (squashY / 100)];",
+                "}"
+            ].join("\n");
+
+            scaleProp.expression = expr;
+
+            // Select the Null layer
+            nullLayer.selected = true;
+
+            app.endUndoGroup();
+            updateStatus("Applied Squash 2 to " + parentedCount + " layer(s) with Null '" + nullName + "'");
+
+        } catch (error) {
+            updateStatus("Error: " + error.toString());
+            alert("Error applying Squash 2: " + error.toString());
+        }
+    }
+
+    // Helper to calculate bounding box of selected layers evaluated at their respective inPoints
+    function calculateStaggeredLayerBounds(layers) {
+        var minLeft = Infinity;
+        var minTop = Infinity;
+        var maxRight = -Infinity;
+        var maxBottom = -Infinity;
+
+        var comp = app.project.activeItem;
+        if (!comp) return null;
+
+        for (var i = 0; i < layers.length; i++) {
+            var layer = layers[i];
+            var t = layer.inPoint;
+            
+            // Clamp time to valid composition limits to prevent "invalid time value" errors
+            if (t < 0) t = 0;
+            if (t > comp.duration) t = comp.duration;
+
+            var calculated = false;
+
+            // Method 1: Try sourceRectAtTime + toComp for precise bounds (Text, Shapes, Solids, Comps)
+            try {
+                if (layer.sourceRectAtTime && typeof layer.sourceRectAtTime === "function") {
+                    var rect = layer.sourceRectAtTime(t, false);
+                    
+                    var p1 = [rect.left, rect.top];
+                    var p2 = [rect.left + rect.width, rect.top];
+                    var p3 = [rect.left, rect.top + rect.height];
+                    var p4 = [rect.left + rect.width, rect.top + rect.height];
+
+                    var origTime = comp.time;
+                    try {
+                        comp.time = t;
+                    } catch (timeErr) {
+                        // Ignore time-setting errors, just use current playhead time
+                    }
+                    
+                    var c1 = layer.toComp(p1);
+                    var c2 = layer.toComp(p2);
+                    var c3 = layer.toComp(p3);
+                    var c4 = layer.toComp(p4);
+                    
+                    try {
+                        comp.time = origTime; // restore
+                    } catch (restoreErr) {
+                        // Ignore
+                    }
+
+                    var xs = [c1[0], c2[0], c3[0], c4[0]];
+                    var ys = [c1[1], c2[1], c3[1], c4[1]];
+
+                    var l = Math.min.apply(null, xs);
+                    var r = Math.max.apply(null, xs);
+                    var topVal = Math.min.apply(null, ys);
+                    var b = Math.max.apply(null, ys);
+
+                    minLeft = Math.min(minLeft, l);
+                    minTop = Math.min(minTop, topVal);
+                    maxRight = Math.max(maxRight, r);
+                    maxBottom = Math.max(maxBottom, b);
+                    calculated = true;
+                }
+            } catch (e) {
+                // Method 1 failed for this layer
+            }
+
+            // Method 2: Fallback to basic layer width/height calculation (AVLayers, comps, solids)
+            if (!calculated) {
+                try {
+                    var layerWidth = layer.width || (layer.source && layer.source.width) || 100;
+                    var layerHeight = layer.height || (layer.source && layer.source.height) || 100;
+
+                    var pos = layer.transform.position.valueAtTime(t, false);
+                    var anchor = layer.transform.anchorPoint.valueAtTime(t, false);
+                    var scale = layer.transform.scale.valueAtTime(t, false);
+
+                    var scaledWidth = layerWidth * (scale[0] / 100);
+                    var scaledHeight = layerHeight * (scale[1] / 100);
+
+                    var actualLeft, actualTop;
+                    if (layer.parent) {
+                        var worldPos = layer.toComp(anchor);
+                        actualLeft = worldPos[0] - (anchor[0] * scale[0] / 100);
+                        actualTop = worldPos[1] - (anchor[1] * scale[1] / 100);
+                    } else {
+                        actualLeft = pos[0] - (anchor[0] * scale[0] / 100);
+                        actualTop = pos[1] - (anchor[1] * scale[1] / 100);
+                    }
+                    var actualRight = actualLeft + scaledWidth;
+                    var actualBottom = actualTop + scaledHeight;
+
+                    minLeft = Math.min(minLeft, actualLeft);
+                    minTop = Math.min(minTop, actualTop);
+                    maxRight = Math.max(maxRight, actualRight);
+                    maxBottom = Math.max(maxBottom, actualBottom);
+                } catch (fallbackErr) {
+                    // Ignore this layer if both methods fail
+                }
+            }
+        }
+
+        if (minLeft === Infinity) {
+            return null;
+        }
+
+        return {
+            left: minLeft,
+            top: minTop,
+            right: maxRight,
+            bottom: maxBottom,
+            width: maxRight - minLeft,
+            height: maxBottom - minTop
+        };
+    }
+
+    // Helper to convert world coordinates to local coordinates of a 0-rotated Null layer
+    function convertWorldPosToNullLocal(worldPos, nullLayer) {
+        var ax = nullLayer.transform.anchorPoint.value[0];
+        var ay = nullLayer.transform.anchorPoint.value[1];
+        
+        var px = nullLayer.transform.position.value[0];
+        var py = nullLayer.transform.position.value[1];
+        
+        var sx = nullLayer.transform.scale.value[0] / 100;
+        var sy = nullLayer.transform.scale.value[1] / 100;
+        
+        var lx = ax + (worldPos[0] - px) / sx;
+        var ly = ay + (worldPos[1] - py) / sy;
+        
+        if (worldPos.length > 2 && nullLayer.transform.position.value.length > 2) {
+            var az = nullLayer.transform.anchorPoint.value[2];
+            var pz = nullLayer.transform.position.value[2];
+            var sz = nullLayer.transform.scale.value[2] / 100;
+            var lz = az + (worldPos[2] - pz) / sz;
+            return [lx, ly, lz];
+        }
+        
+        return [lx, ly];
+    }
+
+    // Helper to parent selected layer to the Null layer and compensate to prevent any jumping
+    function parentAndCompensate(layer, nullLayer) {
+        var origParent = layer.parent;
+        var t = layer.inPoint;
+
+        try {
+            // Get world values at inPoint (when it starts)
+            // Temporarily unparent to get clean world values if parented
+            layer.parent = null;
+            var worldPos = layer.transform.position.valueAtTime(t, false);
+            var worldScale = layer.transform.scale.valueAtTime(t, false);
+            var worldRot = layer.transform.rotation.valueAtTime(t, false);
+
+            // Parent to null
+            layer.parent = nullLayer;
+
+            // Compensate Scale
+            var nullScale = nullLayer.transform.scale.value;
+            if (layer.transform.scale.numKeys > 0) {
+                for (var k = 1; k <= layer.transform.scale.numKeys; k++) {
+                    var kVal = layer.transform.scale.keyValue(k);
+                    var newKVal = [kVal[0] * 100 / nullScale[0], kVal[1] * 100 / nullScale[1]];
+                    if (kVal.length > 2) newKVal.push(kVal[2] * 100 / nullScale[2]);
+                    layer.transform.scale.setValueAtKey(k, newKVal);
+                }
+            } else {
+                var newScale = [worldScale[0] * 100 / nullScale[0], worldScale[1] * 100 / nullScale[1]];
+                if (worldScale.length > 2) newScale.push(worldScale[2] * 100 / nullScale[2]);
+                layer.transform.scale.setValue(newScale);
+            }
+
+            // Compensate Rotation (Null layer has 0 rotation, so it's simple, but let's be robust)
+            var nullRot = nullLayer.transform.rotation.value;
+            if (layer.transform.rotation.numKeys > 0) {
+                for (var k = 1; k <= layer.transform.rotation.numKeys; k++) {
+                    var kVal = layer.transform.rotation.keyValue(k);
+                    layer.transform.rotation.setValueAtKey(k, kVal - nullRot);
+                }
+            } else {
+                layer.transform.rotation.setValue(worldRot - nullRot);
+            }
+
+            // Compensate Position
+            if (layer.transform.position.numKeys > 0) {
+                for (var k = 1; k <= layer.transform.position.numKeys; k++) {
+                    var kTime = layer.transform.position.keyTime(k);
+                    // Temporarily restore original parent connection to read world pos at this keyframe
+                    layer.parent = origParent;
+                    var wPos = layer.transform.position.valueAtTime(kTime, false);
+                    layer.parent = nullLayer;
+                    var lPos = convertWorldPosToNullLocal(wPos, nullLayer);
+                    layer.transform.position.setValueAtKey(k, lPos);
+                }
+            } else {
+                var localPos = convertWorldPosToNullLocal(worldPos, nullLayer);
+                layer.transform.position.setValue(localPos);
+            }
+        } catch (e) {
+            // Restore original parent if anything failed
+            layer.parent = origParent;
+            throw e;
+        }
+    }
+
     // Helper function to apply CSS cubic-bezier values to After Effects keyframes
     function applyCubicBezierToKeyframes(prop, keyIndex1, keyIndex2, cubicBezier) {
         if (!prop.isTimeVarying) return;
@@ -10875,6 +11252,329 @@
         } catch (error) {
             updateStatus("Auto-size error: " + error.toString());
         }
+    }
+
+    // ===== TEXT COUNTER DIALOG =====
+    function showTextCounterDialog() {
+        var dialog = new Window("dialog", "Text Counter Settings");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 6;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
+
+        // Format Row
+        var r1 = dialog.add("group");
+        r1.orientation = "row";
+        r1.alignChildren = ["left", "center"];
+        r1.spacing = 4;
+        var lblF = r1.add("statictext", undefined, "Format:");
+        lblF.preferredSize.width = 75;
+        lblF.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        var formatDropdown = r1.add("dropdownlist", undefined, [
+            "Money US ($1,234.56)",
+            "Money Rp (Rp1.234)",
+            "Money Euro (€1.234,56)",
+            "Money Yen/Yuan (¥1,234)",
+            "Money Pound (£1,234.56)",
+            "Money Rupee (₹1,234.56)",
+            "USA Numeric (1,234)",
+            "Global Numeric (1.234)",
+            "Time (HH:MM:SS)",
+            "Time (MM:SS)"
+        ]);
+        formatDropdown.preferredSize.width = 145;
+        formatDropdown.selection = 0;
+
+        // Controller Type Row
+        var r2 = dialog.add("group");
+        r2.orientation = "row";
+        r2.alignChildren = ["left", "center"];
+        r2.spacing = 4;
+        var lblC = r2.add("statictext", undefined, "Control Type:");
+        lblC.preferredSize.width = 75;
+        lblC.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        var ctrlDropdown = r2.add("dropdownlist", undefined, [
+            "Point Control (No Limit)",
+            "Angle Control (No Limit)",
+            "Slider Control (Standard)",
+            "3D Point Control (X=H, Y=M, Z=S)",
+            "2D Point Control (X=M, Y=S)"
+        ]);
+        ctrlDropdown.preferredSize.width = 145;
+        ctrlDropdown.selection = 0;
+
+        // Prefix Row
+        var r3 = dialog.add("group");
+        r3.orientation = "row";
+        r3.alignChildren = ["left", "center"];
+        r3.spacing = 4;
+        var lblP = r3.add("statictext", undefined, "Prefix:");
+        lblP.preferredSize.width = 75;
+        lblP.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        var prefixInput = r3.add("edittext", undefined, "$");
+        prefixInput.preferredSize.width = 145;
+
+        // Suffix Row
+        var r4 = dialog.add("group");
+        r4.orientation = "row";
+        r4.alignChildren = ["left", "center"];
+        r4.spacing = 4;
+        var lblS = r4.add("statictext", undefined, "Suffix:");
+        lblS.preferredSize.width = 75;
+        lblS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        var suffixInput = r4.add("edittext", undefined, "");
+        suffixInput.preferredSize.width = 145;
+
+        // Decimals Row
+        var r5 = dialog.add("group");
+        r5.orientation = "row";
+        r5.alignChildren = ["left", "center"];
+        r5.spacing = 4;
+        var lblD = r5.add("statictext", undefined, "Decimals:");
+        lblD.preferredSize.width = 75;
+        lblD.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 10);
+        var decimalsInput = r5.add("edittext", undefined, "2");
+        decimalsInput.preferredSize.width = 145;
+
+        formatDropdown.onChange = function() {
+            var sel = formatDropdown.selection.index;
+            if (sel === 0) { // Money US
+                prefixInput.text = "$";
+                decimalsInput.text = "2";
+                decimalsInput.enabled = true;
+            } else if (sel === 1) { // Money Rp
+                prefixInput.text = "Rp ";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = true;
+            } else if (sel === 2) { // Money Euro
+                prefixInput.text = "€";
+                decimalsInput.text = "2";
+                decimalsInput.enabled = true;
+            } else if (sel === 3) { // Money Yen/Yuan
+                prefixInput.text = "¥";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = true;
+            } else if (sel === 4) { // Money Pound
+                prefixInput.text = "£";
+                decimalsInput.text = "2";
+                decimalsInput.enabled = true;
+            } else if (sel === 5) { // Money Rupee
+                prefixInput.text = "₹";
+                decimalsInput.text = "2";
+                decimalsInput.enabled = true;
+            } else if (sel === 6) { // USA Numeric
+                prefixInput.text = "";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = true;
+            } else if (sel === 7) { // Global Numeric
+                prefixInput.text = "";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = true;
+            } else if (sel === 8) { // Time HH:MM:SS
+                prefixInput.text = "";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = false;
+                ctrlDropdown.selection = 3;
+            } else if (sel === 9) { // Time MM:SS
+                prefixInput.text = "";
+                decimalsInput.text = "0";
+                decimalsInput.enabled = false;
+                ctrlDropdown.selection = 4;
+            }
+        };
+
+        var buttonGroup = dialog.add("group");
+        buttonGroup.orientation = "row";
+        buttonGroup.alignment = "center";
+        buttonGroup.spacing = 8;
+        buttonGroup.margins = [0, 6, 0, 0];
+
+        var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [80, 20];
+        
+        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
+        cancelBtn.preferredSize = [80, 20];
+        cancelBtn.onClick = function () {
+            dialog.close();
+        };
+
+        okBtn.onClick = function () {
+            try {
+                var comp = app.project.activeItem;
+                if (!comp || !(comp instanceof CompItem)) {
+                    alert("Please open or select a composition first.");
+                    return;
+                }
+
+                var formatIdx = formatDropdown.selection.index;
+                var ctrlIdx = ctrlDropdown.selection.index;
+                var prefix = prefixInput.text;
+                var suffix = suffixInput.text;
+                var decimals = parseInt(decimalsInput.text, 10);
+                if (isNaN(decimals) || decimals < 0) decimals = 0;
+
+                var ctrlType = "Point Control";
+                var controlMatchName = "ADBE Point Control";
+                if (ctrlIdx === 1) {
+                    ctrlType = "Angle Control";
+                    controlMatchName = "ADBE Angle Control";
+                } else if (ctrlIdx === 2) {
+                    ctrlType = "Slider Control";
+                    controlMatchName = "ADBE Slider Control";
+                } else if (ctrlIdx === 3) {
+                    ctrlType = "3D Point Control";
+                    controlMatchName = "ADBE Point3D Control";
+                } else if (ctrlIdx === 4) {
+                    ctrlType = "2D Point Control";
+                    controlMatchName = "ADBE Point Control";
+                }
+
+                app.beginUndoGroup("Create Text Counter");
+
+                var textLayer = null;
+                if (comp.selectedLayers.length > 0) {
+                    var sel = comp.selectedLayers[0];
+                    if (sel instanceof TextLayer) {
+                        textLayer = sel;
+                    }
+                }
+
+                if (!textLayer) {
+                    textLayer = comp.layers.addText("Counter Text");
+                    textLayer.transform.position.setValue([comp.width / 2, comp.height / 2]);
+
+                    var textProp = textLayer.property("Source Text");
+                    var textDocument = textProp.value;
+                    textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+                    textDocument.fontSize = Math.round(comp.height / 15);
+                    textProp.setValue(textDocument);
+                }
+
+                var effectName = "Counter Control";
+                var effect = textLayer.Effects.addProperty(controlMatchName);
+                effect.name = effectName;
+
+                var propRef = "";
+                if (ctrlType === "Point Control") {
+                    propRef = 'effect("' + effectName + '")("Point")[0]';
+                } else if (ctrlType === "Angle Control") {
+                    propRef = 'effect("' + effectName + '")("Angle")';
+                } else if (ctrlType === "3D Point Control") {
+                    propRef = 'effect("' + effectName + '")("3D Point")';
+                } else if (ctrlType === "2D Point Control") {
+                    propRef = 'effect("' + effectName + '")("Point")';
+                } else {
+                    propRef = 'effect("' + effectName + '")("Slider")';
+                }
+
+                var expressionLines = [];
+                if (formatIdx === 8) { // Time (HH:MM:SS)
+                    expressionLines = [
+                        '// Time Counter HH:MM:SS',
+                        'var val = ' + propRef + ';',
+                        'var prefix = "' + prefix + '";',
+                        'var suffix = "' + suffix + '";'
+                    ];
+                    if (ctrlType === "3D Point Control") {
+                        expressionLines.push(
+                            'var v = val.value || val;',
+                            'var total_sec = v[0] * 3600 + v[1] * 60 + v[2];',
+                            'var sec = Math.floor(total_sec);'
+                        );
+                    } else if (ctrlType === "2D Point Control") {
+                        expressionLines.push(
+                            'var v = val.value || val;',
+                            'var total_sec = v[0] * 3600 + v[1] * 60;',
+                            'var sec = Math.floor(total_sec);'
+                        );
+                    } else {
+                        expressionLines.push('var sec = Math.floor(val.value || val);');
+                    }
+                    expressionLines.push(
+                        'var neg = sec < 0 ? "-" : "";',
+                        'sec = Math.abs(sec);',
+                        'var hrs = Math.floor(sec / 3600);',
+                        'var mins = Math.floor((sec % 3600) / 60);',
+                        'var secs = sec % 60;',
+                        'function pad(n) { return (n < 10 ? "0" : "") + n; }',
+                        'neg + prefix + pad(hrs) + ":" + pad(mins) + ":" + pad(secs) + suffix;'
+                    );
+                } else if (formatIdx === 9) { // Time (MM:SS)
+                    expressionLines = [
+                        '// Time Counter MM:SS',
+                        'var val = ' + propRef + ';',
+                        'var prefix = "' + prefix + '";',
+                        'var suffix = "' + suffix + '";'
+                    ];
+                    if (ctrlType === "3D Point Control") {
+                        expressionLines.push(
+                            'var v = val.value || val;',
+                            'var total_sec = v[0] * 3600 + v[1] * 60 + v[2];',
+                            'var sec = Math.floor(total_sec);'
+                        );
+                    } else if (ctrlType === "2D Point Control") {
+                        expressionLines.push(
+                            'var v = val.value || val;',
+                            'var total_sec = v[0] * 60 + v[1];',
+                            'var sec = Math.floor(total_sec);'
+                        );
+                    } else {
+                        expressionLines.push('var sec = Math.floor(val.value || val);');
+                    }
+                    expressionLines.push(
+                        'var neg = sec < 0 ? "-" : "";',
+                        'sec = Math.abs(sec);',
+                        'var mins = Math.floor(sec / 60);',
+                        'var secs = sec % 60;',
+                        'function pad(n) { return (n < 10 ? "0" : "") + n; }',
+                        'neg + prefix + pad(mins) + ":" + pad(secs) + suffix;'
+                    );
+                } else {
+                    var useCommas = true;
+                    if (formatIdx === 1 || formatIdx === 2 || formatIdx === 7) {
+                        useCommas = false;
+                    }
+
+                    expressionLines = [
+                        '// Numeric / Currency Counter',
+                        'var val = ' + propRef + ';',
+                        'var decimals = ' + decimals + ';',
+                        'var prefix = "' + prefix + '";',
+                        'var suffix = "' + suffix + '";',
+                        'var useCommas = ' + useCommas + ';',
+                        '',
+                        'var num = val.value || val;',
+                        'if (num instanceof Array) num = num[0];',
+                        'var neg = "";',
+                        'if (num < 0) {',
+                        '    neg = "-";',
+                        '    num = Math.abs(num);',
+                        '}',
+                        'var parts = num.toFixed(decimals).split(".");',
+                        'if (useCommas) {',
+                        '    parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");',
+                        '    neg + prefix + parts.join(".") + suffix;',
+                        '} else {',
+                        '    parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");',
+                        '    neg + prefix + parts.join(",") + suffix;',
+                        '}'
+                    ];
+                }
+
+                textLayer.property("Source Text").expression = expressionLines.join("\n");
+
+                app.endUndoGroup();
+                updateStatus("Created counter on text layer '" + textLayer.name + "'");
+                dialog.close();
+            } catch (err) {
+                app.endUndoGroup();
+                alert("Error creating text counter: " + err.toString());
+            }
+        };
+
+        dialog.center();
+        dialog.show();
     }
 
     // Execute the panel
