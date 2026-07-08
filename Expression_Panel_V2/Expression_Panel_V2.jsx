@@ -4943,80 +4943,85 @@
                 }
 
                 app.beginUndoGroup("Add Mouth, Sync & Markers");
-
-                var newlyAddedMouthLayers = [];
-
-                for (var j = 0; j < parentLayersToAttach.length; j++) {
-                    var parentLyr = parentLayersToAttach[j];
-                    var mouthLayer = comp.layers.add(mouthComp);
-                    newlyAddedMouthLayers.push(mouthLayer);
-
-                    // Place ABOVE the primary layer
-                    mouthLayer.moveBefore(parentLyr);
-
-                    // Parent it to the selected layer
-                    mouthLayer.parent = parentLyr;
-
-                    // Set the position relative to parent's anchor point
-                    mouthLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
-
-                    // Auto scale to 15% relatively
-                    var targetX = flipCheckbox.value ? -15 : 15;
-                    var currentScale = mouthLayer.transform.scale.value;
-
-                    // Perform scale override directly (keyframed if it was already keyed, though standard adds don't have keys)
-                    if (flipCheckbox.value) {
-                        if (currentScale.length > 2) {
-                            mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15, 15]);
-                        } else {
-                            mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15]);
-                        }
-                    } else {
-                        if (currentScale.length > 2) {
-                            mouthLayer.transform.scale.setValue([targetX, 15, 15]);
-                        } else {
-                            mouthLayer.transform.scale.setValue([targetX, 15]);
-                        }
-                    }
-                }
-
-                // 1. Add Audio layer from main_comp (if available) - this selects the Audio layer
-                copyAndSyncAudio();
-
-                // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
-                for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
-
-                // 3. Auto Apply Audio Sync Expression to the mouth layers
-                applyAudioSyncExpression();
-
-                // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
-                for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
-                    newlyAddedMouthLayers[j].startTime = 0;
-                    newlyAddedMouthLayers[j].outPoint = comp.duration;
-                }
-
-                // 4. Find and select the Audio layer for marker generation
-                var audioLayerForMarkers = null;
-                for (var i = 1; i <= comp.numLayers; i++) {
-                    var layerName = comp.layer(i).name.toLowerCase();
-                    if (layerName === "audio" || layerName.indexOf("audio") === 0) {
-                        audioLayerForMarkers = comp.layer(i);
-                        break;
-                    }
-                }
                 
-                if (audioLayerForMarkers) {
+                try {
+                    var newlyAddedMouthLayers = [];
+
+                    for (var j = 0; j < parentLayersToAttach.length; j++) {
+                        var parentLyr = parentLayersToAttach[j];
+                        var mouthLayer = comp.layers.add(mouthComp);
+                        newlyAddedMouthLayers.push(mouthLayer);
+
+                        // Place ABOVE the primary layer
+                        mouthLayer.moveBefore(parentLyr);
+
+                        // Parent it to the selected layer
+                        mouthLayer.parent = parentLyr;
+
+                        // Set the position relative to parent's anchor point
+                        mouthLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
+
+                        // Auto scale to 15% relatively
+                        var targetX = flipCheckbox.value ? -15 : 15;
+                        var currentScale = mouthLayer.transform.scale.value;
+
+                        // Perform scale override directly (keyframed if it was already keyed, though standard adds don't have keys)
+                        if (flipCheckbox.value) {
+                            if (currentScale.length > 2) {
+                                mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15, 15]);
+                            } else {
+                                mouthLayer.transform.scale.setValueAtTime(comp.time, [targetX, 15]);
+                            }
+                        } else {
+                            if (currentScale.length > 2) {
+                                mouthLayer.transform.scale.setValue([targetX, 15, 15]);
+                            } else {
+                                mouthLayer.transform.scale.setValue([targetX, 15]);
+                            }
+                        }
+                    }
+
+                    // 1. Add Audio layer from main_comp (if available) - this selects the Audio layer
+                    copyAndSyncAudio();
+
+                    // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
                     for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                    audioLayerForMarkers.selected = true;
+                    for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
+
+                    // 3. Auto Apply Audio Sync Expression to the mouth layers
+                    applyAudioSyncExpression();
+
+                    // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
+                    for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                        newlyAddedMouthLayers[j].startTime = 0;
+                        newlyAddedMouthLayers[j].outPoint = comp.duration;
+                    }
+
+                    // 4. Find and select the Audio layer for marker generation
+                    var audioLayerForMarkers = null;
+                    for (var i = 1; i <= comp.numLayers; i++) {
+                        var layerName = comp.layer(i).name.toLowerCase();
+                        if (layerName === "audio" || layerName.indexOf("audio") === 0) {
+                            audioLayerForMarkers = comp.layer(i);
+                            break;
+                        }
+                    }
+                    
+                    if (audioLayerForMarkers) {
+                        for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        audioLayerForMarkers.selected = true;
+                    }
+
+                    // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
+                    generateAudioSpikeMarkers(6, 8, false);
+
+                    updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
+                    dialog.close();
+                } catch (err) {
+                    alert("Error during Add Mouth: " + err.toString());
+                } finally {
+                    app.endUndoGroup();
                 }
-
-                // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
-                generateAudioSpikeMarkers(6, 8, false);
-
-                app.endUndoGroup();
-                updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
-                dialog.close();
             };
 
             cancelBtn.onClick = function () {
