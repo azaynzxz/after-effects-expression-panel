@@ -905,7 +905,8 @@
             parseFloat(f || 0); // Frames as decimal of a second
     }
 // Audio Sync Expression function (Audio Amplitude)
-    function applyAudioSyncExpression() {
+    function applyAudioSyncExpression(skipUndo) {
+        var undoStarted = false;
         try {
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
@@ -919,7 +920,10 @@
                 return;
             }
 
-            app.beginUndoGroup("Apply Audio Sync Expression");
+            if (!skipUndo) {
+                app.beginUndoGroup("Apply Audio Sync Expression");
+                undoStarted = true;
+            }
 
             var expression = [
                 'try {',
@@ -963,10 +967,11 @@
                 layer.timeRemap.expression = expression;
             }
 
-            app.endUndoGroup();
+            if (undoStarted) app.endUndoGroup();
             updateStatus("Applied marker-aware audio sync to " + selectedLayers.length + " layer(s)");
 
         } catch (error) {
+            if (undoStarted) app.endUndoGroup();
             updateStatus("Error: " + error.toString());
         }
     }
@@ -1065,7 +1070,8 @@
     }
 
     // Copy Audio comp from main_comp and sync it
-    function copyAndSyncAudio() {
+    function copyAndSyncAudio(skipUndo) {
+        var undoStarted = false;
         try {
             var currentComp = app.project.activeItem;
             if (!currentComp || !(currentComp instanceof CompItem)) {
@@ -1104,7 +1110,10 @@
                 return;
             }
 
-            app.beginUndoGroup("Copy and Sync Audio");
+            if (!skipUndo) {
+                app.beginUndoGroup("Copy and Sync Audio");
+                undoStarted = true;
+            }
 
             // Check if audio already exists in current comp
             var existingAudio = null;
@@ -1157,11 +1166,11 @@
             }
             newAudioLayer.selected = true;
 
-            app.endUndoGroup();
+            if (undoStarted) app.endUndoGroup();
             updateStatus("Copied, synced, and locked audio to " + currentComp.name);
 
         } catch (error) {
-            app.endUndoGroup();
+            if (undoStarted) app.endUndoGroup();
             updateStatus("Error: " + error.toString());
         }
     }
@@ -4982,14 +4991,14 @@
                     }
 
                     // 1. Add Audio layer from main_comp (if available) - this selects the Audio layer
-                    copyAndSyncAudio();
+                    copyAndSyncAudio(true);
 
                     // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
                     for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
                     for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
                     // 3. Auto Apply Audio Sync Expression to the mouth layers
-                    applyAudioSyncExpression();
+                    applyAudioSyncExpression(true);
 
                     // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
                     for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
@@ -5013,7 +5022,7 @@
                     }
 
                     // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
-                    generateAudioSpikeMarkers(6, 8, false);
+                    generateAudioSpikeMarkers(6, 8, false, true);
 
                     updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                     dialog.close();
@@ -5102,7 +5111,8 @@
         win.show();
     }
 
-    function generateAudioSpikeMarkers(threshold, minFrames, targetComp) {
+    function generateAudioSpikeMarkers(threshold, minFrames, targetComp, skipUndo) {
+        var undoStarted = false;
         try {
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
@@ -5183,7 +5193,10 @@
                 return;
             }
 
-            app.beginUndoGroup("Generate Audio Markers");
+            if (!skipUndo) {
+                app.beginUndoGroup("Generate Audio Markers");
+                undoStarted = true;
+            }
 
             var valThreshold = threshold;
             var minTime = minFrames * comp.frameDuration;
@@ -5238,7 +5251,7 @@
             }
 
             if (spikes.length === 0) {
-                app.endUndoGroup();
+                if (undoStarted) app.endUndoGroup();
                 updateStatus("No spikes found above threshold " + threshold);
                 return;
             }
@@ -5263,10 +5276,10 @@
             }
 
 
-            app.endUndoGroup();
+            if (undoStarted) app.endUndoGroup();
 
         } catch (error) {
-            if (app.project) app.endUndoGroup();
+            if (undoStarted) app.endUndoGroup();
             updateStatus("Error: " + error.toString());
         }
     }
