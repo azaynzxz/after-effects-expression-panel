@@ -484,7 +484,7 @@
             ["⌕ Auto Zoom", "Auto Zoom", function() { showAutoZoomDialog(); }, "Add zoom in/out keyframes to selected layers"],
             ["⤏ Walk/Run", "Walk/Run", function() { showWalkRunDialog(); }, "Add walking/running arc movement"],
             ["⚯ Attach Leg", "Attach Leg", function() { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
-            ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer"],
+            ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer (Add Lip)"],
             ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"],
             ["⧗ Counter", "Text Counter", function() { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"]
         ];
@@ -713,7 +713,7 @@
             { label: "⌕ Auto Zoom", key: "Auto Zoom", actionFn: function() { showAutoZoomDialog(); }, helpTip: "Add zoom in/out keyframes to selected layers" },
             { label: "⤏ Walk/Run", key: "Walk/Run", actionFn: function() { showWalkRunDialog(); }, helpTip: "Add walking/running arc movement" },
             { label: "⚯ Attach Leg", key: "Attach Leg", actionFn: function() { showAttachLegDialog(); }, helpTip: "Attach a leg comp to the selected layer" },
-            { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function() { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer" },
+            { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function() { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer (Add Lip)" },
             { label: "⤓ Pinch", key: "Pinch", actionFn: function() { showPinchDialog(); }, helpTip: "Add a pinch preset animation" },
             { label: "⧗ Counter", key: "Text Counter", actionFn: function() { showTextCounterDialog(); }, helpTip: "Create a text counter with dynamic formatting and custom slider limits" },
             { label: "☰ List Jumper", key: "List Jumper", actionFn: function() {
@@ -4942,11 +4942,14 @@
                     return;
                 }
 
-                app.beginUndoGroup("Add Mouth");
+                app.beginUndoGroup("Add Mouth, Sync & Markers");
+
+                var newlyAddedMouthLayers = [];
 
                 for (var j = 0; j < parentLayersToAttach.length; j++) {
                     var parentLyr = parentLayersToAttach[j];
                     var mouthLayer = comp.layers.add(mouthComp);
+                    newlyAddedMouthLayers.push(mouthLayer);
 
                     // Place ABOVE the primary layer
                     mouthLayer.moveBefore(parentLyr);
@@ -4977,8 +4980,42 @@
                     }
                 }
 
+                // 1. Add Audio layer from main_comp (if available) - this selects the Audio layer
+                copyAndSyncAudio();
+
+                // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
+                for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
+
+                // 3. Auto Apply Audio Sync Expression to the mouth layers
+                applyAudioSyncExpression();
+
+                // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
+                for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                    newlyAddedMouthLayers[j].startTime = 0;
+                    newlyAddedMouthLayers[j].outPoint = comp.duration;
+                }
+
+                // 4. Find and select the Audio layer for marker generation
+                var audioLayerForMarkers = null;
+                for (var i = 1; i <= comp.numLayers; i++) {
+                    var layerName = comp.layer(i).name.toLowerCase();
+                    if (layerName === "audio" || layerName.indexOf("audio") === 0) {
+                        audioLayerForMarkers = comp.layer(i);
+                        break;
+                    }
+                }
+                
+                if (audioLayerForMarkers) {
+                    for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                    audioLayerForMarkers.selected = true;
+                }
+
+                // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
+                generateAudioSpikeMarkers(6, 8, false);
+
                 app.endUndoGroup();
-                updateStatus("Mouth attached to " + parentLayersToAttach.length + " layer(s)");
+                updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                 dialog.close();
             };
 
