@@ -276,7 +276,6 @@
             ["☒ Hide Lyrs", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
             ["☑ Show Lyrs", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
-            ["♫ Audio Mkr", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
             ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
             ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
@@ -403,10 +402,9 @@
         var utilItems = [
             ["⛨ XLock", "XLock", function() { toggleXLockLayers(); }, "Toggle lock status for layers named 'x' or 'X' in main_comp"],
             ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
-            ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio comp from main_comp to current comp and sync it"],
+            ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
             ["⚲ MK CTRL", "MK CTRL", function() { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End) for animations"],
-            ["♫ Audio Marker", "Audio Marker", function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, "Copy Audio, analyze spikes, and add markers"],
             ["⚯ Puppet→Null", "Puppet→Null", function() { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
             ["↔ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
@@ -486,7 +484,19 @@
             ["⚯ Attach Leg", "Attach Leg", function() { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
             ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer (Add Lip)"],
             ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"],
-            ["⧗ Counter", "Text Counter", function() { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"]
+            ["⧗ Counter", "Text Counter", function() { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"],
+            ["⚇ Smart Rig", "Smart Rig", function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, "Open Smart Rig script"],
+            ["▤ Batch Render", "Batch Rendering", function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, "Open Batch Rendering script"],
+            ["◫ Sync PSDs", "Sync PSDs", function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, "Open Sync PSDs to Timeline script"]
         ];
 
         for (var i = 0; i < toolPairs.length; i += 2) {
@@ -681,10 +691,9 @@
             // Utilities
             { label: "⛨ XLock", key: "XLock", actionFn: function() { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
             { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
-            { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio comp from main_comp to current comp and sync it" },
+            { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio, sync, and optionally generate markers" },
             { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function() { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
             { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function() { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End) for animations" },
-            { label: "♫ Audio Marker", key: "Audio Marker", actionFn: function() { copyAndSyncAudio(); showAudioMarkersDialog(); }, helpTip: "Copy Audio, analyze spikes, and add markers" },
             { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function() { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
             { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function() { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
             { label: "↔ Flip H", key: "Flip H", actionFn: function() { flipHorizontal(); }, helpTip: "Flip layers horizontally (invert X scale)" },
@@ -719,7 +728,19 @@
             { label: "☰ List Jumper", key: "List Jumper", actionFn: function() {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
                 $.evalFile(new File(scriptFile));
-            }, helpTip: "Open List Jumper - jump to timeline positions based on CSV word data" }
+            }, helpTip: "Open List Jumper - jump to timeline positions based on CSV word data" },
+            { label: "⚇ Smart Rig", key: "Smart Rig", actionFn: function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, helpTip: "Open Smart Rig script" },
+            { label: "▤ Batch Render", key: "Batch Rendering", actionFn: function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, helpTip: "Open Batch Rendering script" },
+            { label: "◫ Sync PSDs", key: "Sync PSDs", actionFn: function() { 
+                var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
+                $.evalFile(new File(scriptFile)); 
+            }, helpTip: "Open Sync PSDs to Timeline script" }
         ];
 
         var currentActiveTab = 0;
@@ -905,21 +926,51 @@
             parseFloat(f || 0); // Frames as decimal of a second
     }
 // Audio Sync Expression function (Audio Amplitude)
-    function applyAudioSyncExpression(skipUndo) {
+    function applyAudioSyncExpression(skipUndo, skipPrompt) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+
+        var target = null;
+        if (skipPrompt) {
+            var mainComp = null;
+            for (var i = 1; i <= app.project.numItems; i++) {
+                if (app.project.item(i) instanceof CompItem && app.project.item(i).name === "main_comp") {
+                    mainComp = app.project.item(i);
+                    break;
+                }
+            }
+            if (mainComp) {
+                var ampLayer = null;
+                for (var i = 1; i <= mainComp.numLayers; i++) {
+                    if (mainComp.layer(i).name === "Audio Amplitude") {
+                        ampLayer = mainComp.layer(i);
+                        break;
+                    }
+                }
+                if (ampLayer) {
+                    target = { comp: mainComp, layer: ampLayer };
+                }
+            }
+            if (!target) {
+                updateStatus("Automated sync failed: 'main_comp' or 'Audio Amplitude' not found.");
+                return;
+            }
+        } else {
+            target = promptForTargetCompAndLayer("Audio Sync Target", "Target Comp:", "Amplitude Layer:", "amplitude");
+            if (!target) return;
+        }
+
         var undoStarted = false;
         try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                updateStatus("No active composition");
-                return;
-            }
-
-            var selectedLayers = comp.selectedLayers;
-            if (selectedLayers.length === 0) {
-                updateStatus("No layers selected");
-                return;
-            }
-
             if (!skipUndo) {
                 app.beginUndoGroup("Apply Audio Sync Expression");
                 undoStarted = true;
@@ -927,7 +978,7 @@
 
             var expression = [
                 'try {',
-                '    var ampLayer = thisComp.layer("Audio Amplitude");',
+                '    var ampLayer = comp("' + target.comp.name + '").layer("' + target.layer.name + '");',
                 '    var ampVal = ampLayer.effect("Both Channels")("Slider") / 75;',
                 '    var isFrozen = false;',
                 '    ',
@@ -1071,45 +1122,20 @@
 
     // Copy Audio comp from main_comp and sync it
     function copyAndSyncAudio(skipUndo) {
+        var currentComp = app.project.activeItem;
+        if (!currentComp || !(currentComp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var target = promptForTargetCompAndLayer("Copy Audio Target", "Source Comp:", "Audio Layer:", "audio", true);
+        if (!target) return;
+        
+        var mainComp = target.comp;
+        var audioLayer = target.layer;
         var undoStarted = false;
+        
         try {
-            var currentComp = app.project.activeItem;
-            if (!currentComp || !(currentComp instanceof CompItem)) {
-                updateStatus("No active composition");
-                return;
-            }
-
-            // Find main_comp in the project
-            var mainComp = null;
-            for (var i = 1; i <= app.project.numItems; i++) {
-                var item = app.project.item(i);
-                if (item instanceof CompItem && item.name === "main_comp") {
-                    mainComp = item;
-                    break;
-                }
-            }
-
-            if (!mainComp) {
-                updateStatus("main_comp not found");
-                return;
-            }
-
-            // Search for audio layer in main_comp (case insensitive)
-            var audioLayer = null;
-            for (var i = 1; i <= mainComp.numLayers; i++) {
-                var layer = mainComp.layer(i);
-                var layerName = layer.name.toLowerCase();
-                if (layerName === "audio" || layerName.indexOf("audio") === 0) {
-                    audioLayer = layer;
-                    break;
-                }
-            }
-
-            if (!audioLayer) {
-                updateStatus("Audio layer not found in main_comp");
-                return;
-            }
-
             if (!skipUndo) {
                 app.beginUndoGroup("Copy and Sync Audio");
                 undoStarted = true;
@@ -1136,6 +1162,7 @@
 
             // Add the audio source to current comp
             var newAudioLayer = currentComp.layers.add(audioSource);
+            newAudioLayer.name = audioLayer.name;
 
             // Copy properties from original layer
             newAudioLayer.startTime = 0;
@@ -1148,11 +1175,7 @@
             }
 
             // Apply the sync expression
-            var expression = 'MasterC = "main_comp";\n' +
-                'PreC = thisComp.name;\n\n' +
-                'C = comp(MasterC);\n' +
-                'L = C.layer(PreC);\n' +
-                'Main_T = time + L.startTime;';
+            var expression = generateMultiLevelSyncExpression(mainComp, currentComp);
 
             newAudioLayer.timeRemap.expression = expression;
 
@@ -1167,7 +1190,13 @@
             newAudioLayer.selected = true;
 
             if (undoStarted) app.endUndoGroup();
-            updateStatus("Copied, synced, and locked audio to " + currentComp.name);
+            
+            if (target.generateMarkers) {
+                generateAudioSpikeMarkers(target.threshold, target.gap, target.applyToComp, true);
+                updateStatus("Copied, synced, and added markers from " + mainComp.name);
+            } else {
+                updateStatus("Copied, synced, and locked audio from " + mainComp.name);
+            }
 
         } catch (error) {
             if (undoStarted) app.endUndoGroup();
@@ -4414,6 +4443,224 @@
         return data;
     }
 
+    function promptForTargetCompAndLayer(title, compLabel, layerLabel, autoSelectLayerKeyword, showMarkerOptions) {
+        var allComps = [];
+        var compNames = [];
+        var mainCompIndex = 0;
+
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem) {
+                allComps.push(item);
+                compNames.push(item.name);
+                if (item.name === "main_comp") {
+                    mainCompIndex = compNames.length - 1;
+                }
+            }
+        }
+
+        var dialog = new Window("dialog", title);
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 6;
+        dialog.margins = 10;
+
+        var mainPanel = dialog.add("panel", undefined, "Target Selection");
+        mainPanel.orientation = "column";
+        mainPanel.alignChildren = ["fill", "top"];
+        mainPanel.margins = 8;
+        mainPanel.spacing = 6;
+
+        var compSearch = createSearchableDropdown(mainPanel, compLabel, compNames);
+
+        var layerSearch = null;
+        if (layerLabel) {
+            layerSearch = createSearchableDropdown(mainPanel, layerLabel, []);
+        }
+
+        var markerCheckbox = null;
+        var markerPanel = null;
+        var threshInput = null;
+        var distInput = null;
+        var targetRadioCurrent = null;
+        var targetRadioSelected = null;
+
+        if (showMarkerOptions) {
+            markerCheckbox = dialog.add("checkbox", undefined, "Generate Audio Markers");
+            markerCheckbox.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+            markerCheckbox.value = false;
+
+            markerPanel = dialog.add("panel", undefined, "Marker Settings");
+            markerPanel.orientation = "column";
+            markerPanel.alignChildren = ["fill", "top"];
+            markerPanel.margins = 8;
+            markerPanel.spacing = 6;
+            markerPanel.visible = false;
+
+            var gridGroup = markerPanel.add("group");
+            gridGroup.orientation = "row";
+            gridGroup.alignChildren = ["left", "center"];
+            gridGroup.spacing = 15;
+
+            var threshGroup = gridGroup.add("group");
+            threshGroup.orientation = "row";
+            var threshLbl = threshGroup.add("statictext", undefined, "Threshold (0-100):");
+            threshLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            threshInput = threshGroup.add("edittext", undefined, "6");
+            threshInput.preferredSize = [35, 18];
+
+            var distGroup = gridGroup.add("group");
+            distGroup.orientation = "row";
+            var distLbl = distGroup.add("statictext", undefined, "Min Gap:");
+            distLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            distInput = distGroup.add("edittext", undefined, "8");
+            distInput.preferredSize = [35, 18];
+
+            var targetGroup = markerPanel.add("group");
+            targetGroup.orientation = "row";
+            targetGroup.alignChildren = ["left", "center"];
+            targetGroup.spacing = 10;
+            
+            var tgtLbl = targetGroup.add("statictext", undefined, "Apply To:");
+            tgtLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            targetRadioCurrent = targetGroup.add("radiobutton", undefined, "Current Comp");
+            targetRadioCurrent.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            targetRadioSelected = targetGroup.add("radiobutton", undefined, "Selected Layers");
+            targetRadioSelected.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            targetRadioCurrent.value = true;
+
+            markerCheckbox.onClick = function() {
+                markerPanel.visible = markerCheckbox.value;
+                dialog.layout.layout(true);
+            };
+        }
+
+        function updateLayers() {
+            if (!layerSearch) return;
+            var selCompName = compSearch.getSelectedName();
+            var selComp = null;
+            for (var i = 0; i < allComps.length; i++) {
+                if (allComps[i].name === selCompName) {
+                    selComp = allComps[i];
+                    break;
+                }
+            }
+            
+            var layerNames = [];
+            var keywordIndex = -1;
+            if (selComp) {
+                for (var i = 1; i <= selComp.numLayers; i++) {
+                    var lName = selComp.layer(i).name;
+                    layerNames.push(lName);
+                    if (autoSelectLayerKeyword && keywordIndex === -1 && lName.toLowerCase().indexOf(autoSelectLayerKeyword.toLowerCase()) !== -1) {
+                        keywordIndex = i - 1;
+                    }
+                }
+            }
+            layerSearch.setItems(layerNames);
+            if (keywordIndex !== -1 && layerSearch.dropdown.items.length > keywordIndex) {
+                layerSearch.dropdown.selection = keywordIndex;
+            } else if (layerNames.length > 0) {
+                layerSearch.dropdown.selection = 0;
+            }
+        }
+
+        compSearch.dropdown.onChange = updateLayers;
+        
+        if (compNames.length > 0) {
+            compSearch.dropdown.selection = mainCompIndex;
+            updateLayers();
+        }
+
+        var btnGroup = dialog.add("group");
+        btnGroup.alignment = "center";
+        var btnOk = btnGroup.add("button", undefined, "Apply");
+        var btnCancel = btnGroup.add("button", undefined, "Cancel");
+
+        var result = null;
+
+        btnOk.onClick = function () {
+            var selCompName = compSearch.getSelectedName();
+            var selLayerName = layerSearch ? layerSearch.getSelectedName() : null;
+            
+            if (!selCompName || (layerLabel && !selLayerName)) {
+                alert("Please select the target composition" + (layerLabel ? " and layer." : "."));
+                return;
+            }
+            
+            var selComp = null;
+            for (var i = 0; i < allComps.length; i++) {
+                if (allComps[i].name === selCompName) {
+                    selComp = allComps[i];
+                    break;
+                }
+            }
+            
+            var selLayer = null;
+            if (layerLabel && selComp) {
+                for (var i = 1; i <= selComp.numLayers; i++) {
+                    if (selComp.layer(i).name === selLayerName) {
+                        selLayer = selComp.layer(i);
+                        break;
+                    }
+                }
+            }
+
+            if (!selComp || (layerLabel && !selLayer)) {
+                alert("Could not resolve selected target.");
+                return;
+            }
+
+            result = { 
+                comp: selComp, 
+                layer: selLayer,
+                generateMarkers: showMarkerOptions && markerCheckbox.value,
+                threshold: showMarkerOptions ? parseFloat(threshInput.text) || 6 : 6,
+                gap: showMarkerOptions ? parseInt(distInput.text) || 8 : 8,
+                applyToComp: showMarkerOptions ? targetRadioCurrent.value : true
+            };
+            dialog.close();
+        };
+
+        btnCancel.onClick = function () {
+            dialog.close();
+        };
+
+        dialog.show();
+        return result;
+    }
+
+    function generateMultiLevelSyncExpression(masterComp, targetComp) {
+        function findCompPath(startComp, targetC, currentPath) {
+            if (startComp === targetC) return currentPath;
+            for (var i = 1; i <= startComp.numLayers; i++) {
+                var layer = startComp.layer(i);
+                if (layer.source && layer.source instanceof CompItem) {
+                    var newPath = currentPath.slice();
+                    newPath.push({ layerName: layer.name, compName: layer.source.name });
+                    var res = findCompPath(layer.source, targetC, newPath);
+                    if (res) return res;
+                }
+            }
+            return null;
+        }
+
+        var path = findCompPath(masterComp, targetComp, []);
+        if (path && path.length > 0) {
+            var expr = "var t = time;\n";
+            var parentCompName = masterComp.name;
+            for (var i = 0; i < path.length; i++) {
+                expr += "var L" + i + " = comp(\"" + parentCompName + "\").layer(\"" + path[i].layerName + "\");\n";
+                expr += "t += L" + i + ".startTime;\n";
+                parentCompName = path[i].compName;
+            }
+            expr += "t;";
+            return expr;
+        } else {
+            return 'MasterC = "' + masterComp.name + '";\nPreC = thisComp.name;\ntry {\n  C = comp(MasterC);\n  L = C.layer(PreC);\n  time + L.startTime;\n} catch(e) { time; }';
+        }
+    }
+
     // ===== CP MOVEMENT DIALOG =====
     // Show CP Movement dialog - copy movement from a layer inside a precomp
     function showCPMovementDialog() {
@@ -4998,7 +5245,7 @@
                     for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
                     // 3. Auto Apply Audio Sync Expression to the mouth layers
-                    applyAudioSyncExpression(true);
+                    applyAudioSyncExpression(true, true);
 
                     // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
                     for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
@@ -5046,70 +5293,7 @@
     }
 
     // ===== AUDIO MARKERS =====
-    function showAudioMarkersDialog() {
-        var win = new Window("dialog", "Audio Markers");
-        win.orientation = "column";
-        win.alignChildren = ["fill", "top"];
-        win.spacing = 4;
-        win.margins = 8;
-        win.preferredSize.width = 240;
 
-        // Threshold
-        var threshGroup = win.add("group");
-        threshGroup.orientation = "row";
-        threshGroup.alignChildren = ["left", "center"];
-        threshGroup.spacing = 2;
-        var threshLbl = threshGroup.add("statictext", undefined, "Threshold (0-100):");
-        threshLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        var threshInput = threshGroup.add("edittext", undefined, "6");
-        threshInput.preferredSize = [40, 18];
-        threshInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        // Min Distance
-        var distGroup = win.add("group");
-        distGroup.orientation = "row";
-        distGroup.alignChildren = ["left", "center"];
-        distGroup.spacing = 2;
-        var distLbl = distGroup.add("statictext", undefined, "Min Frames Gap:");
-        distLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        var distInput = distGroup.add("edittext", undefined, "8");
-        distInput.preferredSize = [40, 18];
-        distInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        // Target Selection
-        var targetGroup = win.add("panel", undefined, "Target");
-        targetGroup.orientation = "column";
-        targetGroup.alignChildren = ["left", "top"];
-        targetGroup.spacing = 3;
-        targetGroup.margins = 6;
-        var radioComp = targetGroup.add("radiobutton", undefined, "On Current Composition");
-        radioComp.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        var radioLayer = targetGroup.add("radiobutton", undefined, "On Selected Layers");
-        radioLayer.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-        radioComp.value = true;
-
-        // Buttons
-        var btnGroup = win.add("group");
-        btnGroup.orientation = "row";
-        btnGroup.alignment = "center";
-        btnGroup.spacing = 4;
-        var btnGenerate = btnGroup.add("button", undefined, "Generate", { name: "ok" });
-        btnGenerate.preferredSize = [65, 18];
-        var btnCancel = btnGroup.add("button", undefined, "Cancel", { name: "cancel" });
-        btnCancel.preferredSize = [60, 18];
-
-        btnCancel.onClick = function () { win.close(); };
-
-        btnGenerate.onClick = function () {
-            var threshold = parseFloat(threshInput.text) || 6;
-            var minFrames = parseInt(distInput.text) || 8;
-            win.close();
-            generateAudioSpikeMarkers(threshold, minFrames, radioComp.value);
-        };
-
-        win.center();
-        win.show();
-    }
 
     function generateAudioSpikeMarkers(threshold, minFrames, targetComp, skipUndo) {
         var undoStarted = false;
@@ -7033,8 +7217,10 @@
             dialog.close();
         };
 
-        dialog.center();
-        dialog.show();
+        dialog.center();
+
+        dialog.show();
+
     }
 
     // Apply walk/run animation to position property
@@ -7243,6 +7429,14 @@
                 }
             };
 
+            // Size selection
+            var sizeGroup = dialog.add("group");
+            sizeGroup.orientation = "row";
+            sizeGroup.alignment = "center";
+            sizeGroup.add("statictext", undefined, "Null Size (px):");
+            var sizeInput = sizeGroup.add("edittext", undefined, "100");
+            sizeInput.characters = 4;
+
             // Action buttons
             var buttonGroup = dialog.add("group");
             buttonGroup.orientation = "row";
@@ -7253,6 +7447,11 @@
             var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
 
             createBtn.onClick = function () {
+                // Parse the custom null size
+                var customSize = parseInt(sizeInput.text, 10);
+                if (isNaN(customSize) || customSize <= 0) {
+                    customSize = 100; // default fallback
+                }
                 // Get selected pins from the list
                 var selectedPins = [];
                 for (var i = 0; i < pinList.items.length; i++) {
@@ -7306,12 +7505,12 @@
                                 var myNull = comp.layers.addNull();
                                 myNull.name = getUniqueLayerName(comp, pinInfo.displayName);
                                 myNull.transform.position.setValue(pos);
-                                myNull.source.width = 350;
-                                myNull.source.height = 350;
+                                myNull.source.width = customSize;
+                                myNull.source.height = customSize;
                                 myNull.moveBefore(myLayer);
 
                                 // Set the anchor point of the null to its center
-                                myNull.transform.anchorPoint.setValue([myNull.source.width / 2, myNull.source.height / 2]);
+                                myNull.transform.anchorPoint.setValue([customSize / 2, customSize / 2]);
 
                                 // Assign a random label color to the null layer
                                 myNull.label = getRandomInt(1, 15);
@@ -11178,6 +11377,103 @@
             app.endUndoGroup();
             updateStatus("White BG error: " + err.toString());
         }
+    }
+
+    function showReverseOpacityDialog() {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("Select layers to apply Reverse Opacity");
+            return;
+        }
+
+        // Gather all layers and check for duplicates
+        var layerNames = [];
+        var nameCounts = {};
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var name = comp.layer(i).name;
+            if (nameCounts[name]) {
+                nameCounts[name]++;
+            } else {
+                nameCounts[name] = 1;
+                layerNames.push(name);
+            }
+        }
+
+        if (layerNames.length === 0) {
+            updateStatus("Composition has no layers");
+            return;
+        }
+
+        var dialog = new Window("dialog", "Reverse Opacity Target");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 10;
+        dialog.margins = 15;
+
+        dialog.add("statictext", undefined, "Select target layer to reverse opacity against:");
+
+        var ddLayers = dialog.add("dropdownlist", undefined, layerNames);
+        ddLayers.selection = 0;
+
+        // Warning text for duplicates
+        var warningText = dialog.add("statictext", undefined, "", { multiline: true });
+        warningText.preferredSize = [250, 35];
+        
+        function updateWarning() {
+            if (ddLayers.selection) {
+                var selName = ddLayers.selection.text;
+                if (nameCounts[selName] > 1) {
+                    warningText.text = "Warning: Multiple layers named '" + selName + "' exist!\nExpression will target the top-most one.";
+                } else {
+                    warningText.text = "";
+                }
+            }
+        }
+        ddLayers.onChange = updateWarning;
+        updateWarning();
+
+        var btnGroup = dialog.add("group");
+        btnGroup.alignment = "center";
+        var btnApply = btnGroup.add("button", undefined, "Apply");
+        var btnCancel = btnGroup.add("button", undefined, "Cancel");
+
+        btnApply.onClick = function () {
+            if (!ddLayers.selection) return;
+            var targetName = ddLayers.selection.text;
+
+            app.beginUndoGroup("Apply Reverse Opacity");
+            var applied = 0;
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer.name === targetName) continue;
+                try {
+                    var expr = "var targetOpacity = thisComp.layer(\"" + targetName + "\").transform.opacity;\n";
+                    expr += "targetOpacity >= 50 ? 0 : value;";
+                    
+                    var opacityProp = layer.property("Transform").property("Opacity");
+                    if (opacityProp && opacityProp.canSetExpression) {
+                        opacityProp.expression = expr;
+                        applied++;
+                    }
+                } catch (e) {}
+            }
+            app.endUndoGroup();
+
+            updateStatus("Applied to " + applied + " layer(s)");
+            dialog.close();
+        };
+
+        btnCancel.onClick = function () {
+            dialog.close();
+        };
+
+        dialog.show();
     }
 
     function cleanTabsOpen() {

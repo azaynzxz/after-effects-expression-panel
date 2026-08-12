@@ -328,6 +328,77 @@ function processBoltCrop(precompFirst, precompName) {
 
         selectedLayers = [newLayer];
     }
+    var processedComps = {}; // id -> { compX, compY }
+
+    function cropLayerRecursive(layer) {
+        if (!layer.source || !(layer.source instanceof CompItem)) {
+            return;
+        }
+        var precompItem = layer.source;
+
+        if (!processedComps[precompItem.id]) {
+            var layersInPrecomp = precompItem.layers;
+            
+            // Recursively process any precomps inside this precomp FIRST (bottom-up)
+            for (var j = 1; j <= layersInPrecomp.length; j++) {
+                var innerLayer = layersInPrecomp[j];
+                if (innerLayer.source && innerLayer.source instanceof CompItem) {
+                    cropLayerRecursive(innerLayer);
+                }
+            }
+            
+            // Now crop this precomp
+            if (layersInPrecomp.length > 0) {
+                var bounds = getCompBoundsOverTime(precompItem, layersInPrecomp);
+                if (bounds) {
+                    var origWidth = precompItem.width;
+                    var origHeight = precompItem.height;
+                    var offset = cropComp(precompItem, bounds);
+                    var newCenterX = precompItem.width / 2;
+                    var newCenterY = precompItem.height / 2;
+                    var oldCenterX = origWidth / 2;
+                    var oldCenterY = origHeight / 2;
+                    var compensationX = offset.x + (newCenterX - oldCenterX);
+                    var compensationY = offset.y + (newCenterY - oldCenterY);
+                    
+                    processedComps[precompItem.id] = { x: compensationX, y: compensationY };
+                } else {
+                    processedComps[precompItem.id] = { x: 0, y: 0 };
+                }
+            } else {
+                processedComps[precompItem.id] = { x: 0, y: 0 };
+            }
+        }
+
+        // Apply compensation to the layer in the parent comp
+        var compData = processedComps[precompItem.id];
+        if (compData && (compData.x !== 0 || compData.y !== 0)) {
+            var posProp = layer.property("Position");
+            if (posProp) {
+                if (posProp.numKeys > 0) {
+                    for (var k = 1; k <= posProp.numKeys; k++) {
+                        var oldVal = posProp.keyValue(k);
+                        var keyT = posProp.keyTime(k);
+                        var newX = oldVal[0] + compData.x;
+                        var newY = oldVal[1] + compData.y;
+                        if (oldVal.length > 2) {
+                            posProp.setValueAtTime(keyT, [newX, newY, oldVal[2]]);
+                        } else {
+                            posProp.setValueAtTime(keyT, [newX, newY]);
+                        }
+                    }
+                } else {
+                    var currentVal = posProp.value;
+                    if (currentVal.length > 2) {
+                        posProp.setValue([currentVal[0] + compData.x, currentVal[1] + compData.y, currentVal[2]]);
+                    } else {
+                        posProp.setValue([currentVal[0] + compData.x, currentVal[1] + compData.y]);
+                    }
+                }
+            }
+        }
+    }
+
     for (var i = 0; i < selectedLayers.length; i++) {
         var layer = selectedLayers[i];
         if (!layer.source || !(layer.source instanceof CompItem)) {
@@ -335,48 +406,11 @@ function processBoltCrop(precompFirst, precompName) {
             continue;
         }
         var precompItem = layer.source;
-        var layersInPrecomp = precompItem.layers;
-        if (layersInPrecomp.length === 0) {
+        if (precompItem.layers.length === 0) {
             alert("Precomp " + precompItem.name + " has no layers.");
             continue;
         }
-        var bounds = getCompBoundsOverTime(precompItem, layersInPrecomp);
-        if (!bounds) {
-            alert("Could not determine bounding box for " + precompItem.name);
-            continue;
-        }
-        var origWidth = precompItem.width;
-        var origHeight = precompItem.height;
-        var offset = cropComp(precompItem, bounds);
-        var newCenterX = precompItem.width / 2;
-        var newCenterY = precompItem.height / 2;
-        var oldCenterX = origWidth / 2;
-        var oldCenterY = origHeight / 2;
-        var compensationX = offset.x + (newCenterX - oldCenterX);
-        var compensationY = offset.y + (newCenterY - oldCenterY);
-        var posProp = layer.property("Position");
-        if (posProp) {
-            if (posProp.numKeys > 0) {
-                for (var k = 1; k <= posProp.numKeys; k++) {
-                    var oldVal = posProp.keyValue(k);
-                    var keyT = posProp.keyTime(k);
-                    var newX = oldVal[0] + compensationX;
-                    var newY = oldVal[1] + compensationY;
-                    if (oldVal.length > 2) {
-                        posProp.setValueAtTime(keyT, [newX, newY, oldVal[2]]);
-                    } else {
-                        posProp.setValueAtTime(keyT, [newX, newY]);
-                    }
-                }
-            } else {
-                var currentVal = posProp.value;
-                if (currentVal.length > 2) {
-                    posProp.setValue([currentVal[0] + compensationX, currentVal[1] + compensationY, currentVal[2]]);
-                } else {
-                    posProp.setValue([currentVal[0] + compensationX, currentVal[1] + compensationY]);
-                }
-            }
-        }
+        cropLayerRecursive(layer);
     }
 }
 

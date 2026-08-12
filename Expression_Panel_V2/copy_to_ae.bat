@@ -28,12 +28,20 @@ echo Deleting old scripts from target...
 del /F /Q "%TARGET_DIR%\Expression_Panel_V2.jsx" 2>nul
 del /F /Q "%TARGET_DIR%\List_Jumper.jsx" 2>nul
 del /F /Q "%TARGET_DIR%\X Crop.jsx" 2>nul
+del /F /Q "%TARGET_DIR%\Anchor_Point_Control.jsx" 2>nul
+del /F /Q "%TARGET_DIR%\Sync_PSDs_Timeline.jsx" 2>nul
+del /F /Q "%TARGET_DIR%\BatchRendering.jsx" 2>nul
+del /F /Q "%TARGET_DIR%\SmartRig.jsx" 2>nul
 
 echo.
 echo Copying new scripts...
 copy /Y "%SRC_DIR%Expression_Panel_V2\Expression_Panel_V2.jsx" "%TARGET_DIR%\"
 copy /Y "%SRC_DIR%Expression_Panel_V2\List_Jumper.jsx" "%TARGET_DIR%\"
 copy /Y "%SRC_DIR%Expression_Panel_V2\X Crop.jsx" "%TARGET_DIR%\"
+copy /Y "%SRC_DIR%Expression_Panel_V2\Anchor_Point_Control.jsx" "%TARGET_DIR%\"
+copy /Y "%SRC_DIR%Expression_Panel_V2\Sync_PSDs_Timeline.jsx" "%TARGET_DIR%\"
+copy /Y "%SRC_DIR%Expression_Panel_V2\BatchRendering.jsx" "%TARGET_DIR%\"
+copy /Y "%SRC_DIR%Expression_Panel_V2\SmartRig.jsx" "%TARGET_DIR%\"
 
 echo.
 echo Done! Scripts successfully copied.
