@@ -377,7 +377,8 @@
             ["⇾ Kick Out", "Kick Out", function() { showKickOutOfFrameDialog(); }],
             ["⇿ Put Here", "Put Here", function() { showPutHereDialog(); }],
             ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }],
-            ["□ White BG", "White BG", function() { setPrecompBgWhite(); }]
+            ["□ White BG", "White BG", function() { setPrecompBgWhite(); }],
+            ["◐ Rev Opacity", "Reverse Opacity", function() { showReverseOpacityDialog(); }]
         ];
 
         for (var i = 0; i < complexItems.length; i += 2) {
@@ -688,6 +689,7 @@
             { label: "⇿ Put Here", key: "Put Here", actionFn: function() { showPutHereDialog(); } },
             { label: "⧉ Tight Crop", key: "Tight Crop", actionFn: function() { runUnprecompDirect(); } },
             { label: "□ White BG", key: "White BG", actionFn: function() { setPrecompBgWhite(); } },
+            { label: "◐ Rev Opacity", key: "Reverse Opacity", actionFn: function() { showReverseOpacityDialog(); }, helpTip: "Reverse opacity against target layer" },
             // Utilities
             { label: "⛨ XLock", key: "XLock", actionFn: function() { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
             { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
