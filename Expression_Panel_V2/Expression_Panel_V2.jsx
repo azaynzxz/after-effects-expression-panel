@@ -10,17 +10,17 @@
         "Fast Wiggle": "wiggle(50,35)",
         "Stop Motion": "posterizeTime(2);\nvalue",
         "Time Rotation": "// Settings\nspeed = 360; // degrees per second\n\n// Rotation animation\ntime * speed",
-        "Loop Cycle": 'loopOut("cycle")',
-        "Loop Continue": 'loopOut("offset")',
-        "Loop PingPong": 'loopOut("pingpong")',
-        "Loop Wiggle": "loop = loopOut(\"cycle\");\nwig = wiggle(75, 15);\n\nloop + (wig - value)",
+        "Loop Cycle": "if (numKeys > 1) {\n  var t1 = key(1).time, t2 = key(numKeys).time, dur = t2 - t1;\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) valueAtTime(t1 + (offsetT % dur));\n  else valueAtTime(evalTime);\n} else value;",
+        "Loop Continue": "if (numKeys > 1) {\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var t2 = key(numKeys).time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) {\n    var v2 = key(numKeys).value, vel = velocityAtTime(t2 - 0.001);\n    (typeof v2 === 'number') ? (v2 + vel * offsetT) : add(v2, mul(vel, offsetT));\n  } else valueAtTime(evalTime);\n} else value;",
+        "Loop PingPong": "if (numKeys > 1) {\n  var t1 = key(1).time, t2 = key(numKeys).time, dur = t2 - t1;\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) {\n    var c = Math.floor(offsetT / dur), cycleT = offsetT % dur;\n    if (c % 2 === 0) valueAtTime(t2 - cycleT);\n    else valueAtTime(t1 + cycleT);\n  } else valueAtTime(evalTime);\n} else value;",
+        "Loop Wiggle": "loop = (function(){\nif (numKeys > 1) {\n  var t1 = key(1).time, t2 = key(numKeys).time, dur = t2 - t1;\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) return valueAtTime(t1 + (offsetT % dur));\n  else return valueAtTime(evalTime);\n} else return value;\n})();\nwig = wiggle(75, 15);\nloop + (wig - value)",
         "Up Down": "amp = 50;\nframesPerCycle = 5;\nfps = thisComp.frameDuration;\nt = time / (framesPerCycle * fps);\nvalue + [0, Math.sin(t * 2 * Math.PI) * amp];",
         "Left Right": "amp = 50;\nframesPerCycle = 5;\nfps = thisComp.frameDuration;\nt = time / (framesPerCycle * fps);\nvalue + [Math.sin(t * 2 * Math.PI) * amp, 0];",
         "Water Float": "wiggle(1,50)",
         "Glitter": "offset = 0.5;\nframesPerToggle = 12;\nflicker = Math.floor(timeToFrames(time - offset)) % (framesPerToggle * 2) < framesPerToggle ? 100 : 0;\nflicker",
         "Fish Position": "speed = 150;\nx = time * speed;\nwiggleFreq = 1;\nwiggleAmp = 5;\ny = Math.sin(time * wiggleFreq * 2 * Math.PI) * wiggleAmp;\nvalue + [x, y]",
         "Fish Rotation": "wiggleFreq = 0.5;\nrotationAmp = 5;\nMath.sin(time * wiggleFreq * 2 * Math.PI) * rotationAmp",
-        "Dynamic Loop": 'loopOut("cycle")',
+        "Dynamic Loop": "if (numKeys > 1) {\n  var t1 = key(1).time, t2 = key(numKeys).time, dur = t2 - t1;\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) valueAtTime(t1 + (offsetT % dur));\n  else valueAtTime(evalTime);\n} else value;",
         "Posterize Time": "posterizeTime(12);\nvalue",
         "Rotation PingPong": "// Egg crack motion: rapid left-right rotations, then pause, then repeat\nlet amp = 15; // rotation amplitude\nlet pauseDuration = 0.8; // pause duration between bursts\nlet rotationSpeed = 12; // oscillations per second during rotation phase\n\n// Helper functions\nfunction random(seed) {\n  return fract(Math.sin(seed * 91.345) * 47453.321);\n}\nfunction fract(x) {\n  return x - Math.floor(x);\n}\n\n// Use a fixed cycle period (max possible cycle time)\n// This ensures consistent cycle boundaries\nlet maxRotations = 7;\nlet maxRotationDuration = maxRotations / rotationSpeed;\nlet fixedCycleTime = maxRotationDuration + pauseDuration;\n\n// Calculate which cycle we're in\nlet cycleIndex = Math.floor(time / fixedCycleTime);\n\n// Randomize number of rotations for this cycle (4-7 rotations)\nlet randRotations = random(cycleIndex * 7.3);\nlet numRotations = Math.floor(4 + randRotations * 4); // 4, 5, 6, or 7\n\n// Calculate rotation duration for this cycle\nlet rotationDuration = numRotations / rotationSpeed;\n\n// Time within current cycle\nlet t = time - (cycleIndex * fixedCycleTime);\n\n// Output: rotate during rotation phase, pause otherwise\nlet output = (t < rotationDuration)\n  ? Math.sin(t * rotationSpeed * 2 * Math.PI) * amp\n  : 0;\n\noutput;",
         "Thunder Flicker": "seedRandom(index + Math.floor(time), true);\n\nrand = random();  // Random chance per second\nrate = rand > 0.7 ? 20 : rand > 0.4 ? 8 : 2;\n\nt = time * rate;\nflicker = Math.floor(t) % 2 == 0 ? 100 : 0;\n\nflicker",
@@ -31,6 +31,8 @@
         "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n[100, scaleY]",
         "B Posterizer": "Enable time remapping on selected layers and apply posterizeTime"
     };
+    var globalStatusText = null;
+
     // Create the main panel function
     function createPanel(thisObj) {
         // Determine if this is a dockable panel or standalone window
@@ -120,6 +122,24 @@
         nextLayerBtn.helpTip = "Jump to next layer start";
         nextLayerBtn.onClick = function () { jumpToNextLayerDirect(); };
 
+        var addKfsBtn = jumpRow.add("button", undefined, "♦");
+        addKfsBtn.preferredSize.width = 18;
+        addKfsBtn.preferredSize.height = 18;
+        addKfsBtn.helpTip = "Adds keyframes for current position, scale, rotation and opacity values";
+        addKfsBtn.onClick = function () { addCurrentKeyframes(); };
+
+        var flipHBtn = jumpRow.add("button", undefined, "\u2194");
+        flipHBtn.preferredSize.width = 18;
+        flipHBtn.preferredSize.height = 18;
+        flipHBtn.helpTip = "Flip layers horizontally (invert X scale)";
+        flipHBtn.onClick = function () { flipHorizontal(); };
+
+        var flipVBtn = jumpRow.add("button", undefined, "\u2195");
+        flipVBtn.preferredSize.width = 18;
+        flipVBtn.preferredSize.height = 18;
+        flipVBtn.helpTip = "Flip layers vertically (invert Y scale)";
+        flipVBtn.onClick = function () { flipVertical(); };
+
         // Search Group
         var searchGroup = headerGroup.add("group");
         searchGroup.orientation = "row";
@@ -149,32 +169,36 @@
         tabGroup.margins = [0, 1, 0, 1];
 
         var btnFav = tabGroup.add("button", undefined, "♥");
-        btnFav.preferredSize = [24, 18];
+        btnFav.preferredSize = [18, 18];
         btnFav.helpTip = "Favourites";
 
         var btnBasic = tabGroup.add("button", undefined, "★");
-        btnBasic.preferredSize = [24, 18];
+        btnBasic.preferredSize = [18, 18];
         btnBasic.helpTip = "Basic Animations";
 
         var btnComplex = tabGroup.add("button", undefined, "✵");
-        btnComplex.preferredSize = [24, 18];
+        btnComplex.preferredSize = [18, 18];
         btnComplex.helpTip = "Complex Animations";
 
         var btnUtil = tabGroup.add("button", undefined, "⚙");
-        btnUtil.preferredSize = [24, 18];
+        btnUtil.preferredSize = [18, 18];
         btnUtil.helpTip = "Utilities";
 
         var btnLoops = tabGroup.add("button", undefined, "↻");
-        btnLoops.preferredSize = [24, 18];
+        btnLoops.preferredSize = [18, 18];
         btnLoops.helpTip = "Loops";
 
         var btnTools = tabGroup.add("button", undefined, "⚒");
-        btnTools.preferredSize = [24, 18];
+        btnTools.preferredSize = [18, 18];
         btnTools.helpTip = "Tools";
 
         var btnLayerUtil = tabGroup.add("button", undefined, "☰");
-        btnLayerUtil.preferredSize = [24, 18];
+        btnLayerUtil.preferredSize = [18, 18];
         btnLayerUtil.helpTip = "Layer Utilities";
+
+        var btnAnticipate = tabGroup.add("button", undefined, "⤾");
+        btnAnticipate.preferredSize = [18, 18];
+        btnAnticipate.helpTip = "Auto Anticipation & Overshoot";
 
         // Stack Container for Tab contents
         var containerStack = myPanel.add("group");
@@ -378,7 +402,7 @@
             ["⇿ Put Here", "Put Here", function() { showPutHereDialog(); }],
             ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }],
             ["□ White BG", "White BG", function() { setPrecompBgWhite(); }],
-            ["◐ Rev Opacity", "Reverse Opacity", function() { showReverseOpacityDialog(); }]
+            ["◐ Rev Opacity", "Reverse Opacity", function() { applyReverseOpacity(); }]
         ];
 
         for (var i = 0; i < complexItems.length; i += 2) {
@@ -405,7 +429,7 @@
             ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
             ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
             ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
-            ["⚲ MK CTRL", "MK CTRL", function() { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End) for animations"],
+            ["⚲ MK CTRL", "MK CTRL", function() { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations"],
             ["⚯ Puppet→Null", "Puppet→Null", function() { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
             ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
             ["↔ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
@@ -511,7 +535,7 @@
             }
         }
 
-        // List Jumper row
+        // List Jumper & Anticipation row
         var rowTLast = tabTools.add("group");
         rowTLast.orientation = "row";
         rowTLast.alignChildren = ["fill", "center"];
@@ -524,6 +548,14 @@
         listJumperBtn.onClick = function () {
             var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
             $.evalFile(new File(scriptFile));
+        };
+        var antBtn = rowTLast.add("button", undefined, "⤾ Anticipate");
+        antBtn.alignment = ["fill", "center"];
+        antBtn.preferredSize.height = 18;
+        antBtn.maximumSize.width = 110;
+        antBtn.helpTip = "Open Auto Anticipation & Overshoot tab";
+        antBtn.onClick = function () {
+            showTab(7);
         };
         addTabSpacer(tabTools);
 
@@ -644,7 +676,296 @@
         var staggerLbl = staggerGrp.add("statictext", undefined, "░ Stg");
         staggerLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
+        // Separator 3
+        var sep4 = tabLayerUtil.add("panel");
+        sep4.alignment = ["fill", "top"];
+        sep4.preferredSize = [10, 2];
+
+        // Custom Utils Row 1: Copy/Paste Anim
+        var animRow1 = tabLayerUtil.add("group");
+        animRow1.orientation = "row";
+        animRow1.alignChildren = ["center", "center"];
+        animRow1.alignment = ["center", "top"];
+        animRow1.spacing = 2;
+
+        var copyAnimBtn = animRow1.add("button", undefined, "[Copy Anim]");
+        copyAnimBtn.preferredSize = [69, 18];
+        copyAnimBtn.helpTip = "Copy keyframes to memory";
+        copyAnimBtn.onClick = function () { doCopyAnim(); };
+
+        var pasteAnimBtn = animRow1.add("button", undefined, "[Paste Anim]");
+        pasteAnimBtn.preferredSize = [69, 18];
+        pasteAnimBtn.helpTip = "Paste keyframes from memory";
+        pasteAnimBtn.onClick = function () { doPasteAnim(); };
+
+        var pasteEaseBtn = animRow1.add("button", undefined, "[Paste Ease]");
+        pasteEaseBtn.preferredSize = [69, 18];
+        pasteEaseBtn.helpTip = "Paste ONLY easing curves (Keep values)";
+        pasteEaseBtn.onClick = function () { doPasteEaseAnim(); };
+
+        var animRow2 = tabLayerUtil.add("group");
+        animRow2.orientation = "row";
+        animRow2.alignChildren = ["center", "center"];
+        animRow2.alignment = ["center", "top"];
+        animRow2.spacing = 2;
+
+        var saveAnimBtn = animRow2.add("button", undefined, "[Save Lib]");
+        saveAnimBtn.preferredSize = [69, 18];
+        saveAnimBtn.helpTip = "Save copied keyframes to a JSON preset";
+        saveAnimBtn.onClick = function () { saveAnimToJson(); };
+
+        var loadAnimBtn = animRow2.add("button", undefined, "[Load Lib]");
+        loadAnimBtn.preferredSize = [69, 18];
+        loadAnimBtn.helpTip = "Load and paste keyframes from a JSON preset";
+        loadAnimBtn.onClick = function () { loadAnimFromJson(); };
+
+        // Custom Utils Row 2: Paste Asset
+        var assetRow = tabLayerUtil.add("group");
+        assetRow.orientation = "row";
+        assetRow.alignChildren = ["center", "center"];
+        assetRow.alignment = ["center", "top"];
+        assetRow.spacing = 2;
+
+        var pasteAssetBtn = assetRow.add("button", undefined, "[Paste Asset]");
+        pasteAssetBtn.preferredSize = [140, 18];
+        pasteAssetBtn.helpTip = "Import asset or link from clipboard";
+        pasteAssetBtn.onClick = function () { importFromClipboard(); };
+
+        // Custom Utils Row 3: Auto Sort / Rename
+        var orgRow = tabLayerUtil.add("group");
+        orgRow.orientation = "row";
+        orgRow.alignChildren = ["center", "center"];
+        orgRow.alignment = ["center", "top"];
+        orgRow.spacing = 2;
+
+        var autoSortBtn = orgRow.add("button", undefined, "[Auto Sort]");
+        autoSortBtn.preferredSize = [69, 18];
+        autoSortBtn.helpTip = "Organize loose items into folders";
+        autoSortBtn.onClick = function () { autoSortProject(); };
+
+        var renameBtn = orgRow.add("button", undefined, "[Rename]");
+        renameBtn.preferredSize = [69, 18];
+        renameBtn.helpTip = "Batch rename selected items/layers";
+        renameBtn.onClick = function () { showSmartRenameDialog(); };
+
         addTabSpacer(tabLayerUtil);
+
+        // ---------------- TAB 7: ANTICIPATION & OVERSHOOT (⤾) ----------------
+        var tabAnticipate = containerStack.add("group");
+        tabAnticipate.orientation = "column";
+        tabAnticipate.alignChildren = ["fill", "top"];
+        tabAnticipate.spacing = 2;
+        tabAnticipate.margins = 2;
+
+        // Category Header: Anticipation
+        var antHeaderLbl = tabAnticipate.add("statictext", undefined, "░ ANTICIPATION (A → A1)");
+        antHeaderLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+        antHeaderLbl.alignment = ["fill", "top"];
+
+        // Anticipation Timing Row:
+        var rowAntT = tabAnticipate.add("group");
+        rowAntT.orientation = "row";
+        rowAntT.alignChildren = ["left", "center"];
+        rowAntT.spacing = 2;
+        var lblAntT = rowAntT.add("statictext", undefined, "Time %:");
+        lblAntT.preferredSize.width = 42;
+        lblAntT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var slAntT = rowAntT.add("slider", undefined, 30, 5, 60);
+        slAntT.preferredSize.width = 65;
+        var txAntT = rowAntT.add("edittext", undefined, "30");
+        txAntT.preferredSize = [28, 16];
+        txAntT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txAntT.justify = "center";
+
+        // Anticipation Strength Row:
+        var rowAntS = tabAnticipate.add("group");
+        rowAntS.orientation = "row";
+        rowAntS.alignChildren = ["left", "center"];
+        rowAntS.spacing = 2;
+        var lblAntS = rowAntS.add("statictext", undefined, "Str %:");
+        lblAntS.preferredSize.width = 42;
+        lblAntS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var slAntS = rowAntS.add("slider", undefined, 40, 0, 100);
+        slAntS.preferredSize.width = 65;
+        var txAntS = rowAntS.add("edittext", undefined, "40");
+        txAntS.preferredSize = [28, 16];
+        txAntS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txAntS.justify = "center";
+
+        // Separator 1
+        var sepAnt1 = tabAnticipate.add("panel");
+        sepAnt1.alignment = ["fill", "top"];
+        sepAnt1.preferredSize = [10, 2];
+
+        // Category Header: Overshoot
+        var ovHeaderLbl = tabAnticipate.add("statictext", undefined, "░ OVERSHOOT (B1 → B)");
+        ovHeaderLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+        ovHeaderLbl.alignment = ["fill", "top"];
+
+        // Overshoot Timing Row:
+        var rowOvT = tabAnticipate.add("group");
+        rowOvT.orientation = "row";
+        rowOvT.alignChildren = ["left", "center"];
+        rowOvT.spacing = 2;
+        var lblOvT = rowOvT.add("statictext", undefined, "Time %:");
+        lblOvT.preferredSize.width = 42;
+        lblOvT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var slOvT = rowOvT.add("slider", undefined, 30, 5, 60);
+        slOvT.preferredSize.width = 65;
+        var txOvT = rowOvT.add("edittext", undefined, "30");
+        txOvT.preferredSize = [28, 16];
+        txOvT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txOvT.justify = "center";
+
+        // Overshoot Strength Row:
+        var rowOvS = tabAnticipate.add("group");
+        rowOvS.orientation = "row";
+        rowOvS.alignChildren = ["left", "center"];
+        rowOvS.spacing = 2;
+        var lblOvS = rowOvS.add("statictext", undefined, "Str %:");
+        lblOvS.preferredSize.width = 42;
+        lblOvS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var slOvS = rowOvS.add("slider", undefined, 25, 0, 100);
+        slOvS.preferredSize.width = 65;
+        var txOvS = rowOvS.add("edittext", undefined, "25");
+        txOvS.preferredSize = [28, 16];
+        txOvS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txOvS.justify = "center";
+
+        // Separator 2
+        var sepAnt2 = tabAnticipate.add("panel");
+        sepAnt2.alignment = ["fill", "top"];
+        sepAnt2.preferredSize = [10, 2];
+
+        // Category Header: Squash & Stretch
+        var ssHeaderLbl = tabAnticipate.add("statictext", undefined, "░ SQUASH & STRETCH (Scale)");
+        ssHeaderLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+        ssHeaderLbl.alignment = ["fill", "top"];
+
+        var rowSS = tabAnticipate.add("group");
+        rowSS.orientation = "row";
+        rowSS.alignChildren = ["left", "center"];
+        rowSS.spacing = 2;
+        var chkSS = rowSS.add("checkbox", undefined, "On");
+        chkSS.preferredSize.width = 34;
+        chkSS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        var slSSS = rowSS.add("slider", undefined, 20, 0, 100);
+        slSSS.preferredSize.width = 73;
+        slSSS.enabled = false;
+        var txSSS = rowSS.add("edittext", undefined, "20");
+        txSSS.preferredSize = [28, 16];
+        txSSS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txSSS.justify = "center";
+        txSSS.enabled = false;
+
+        chkSS.onClick = function() {
+            slSSS.enabled = chkSS.value;
+            txSSS.enabled = chkSS.value;
+        };
+
+        // Slider <-> Text sync helper
+        function syncAntControl(slider, edit) {
+            slider.onChanging = function() {
+                edit.text = Math.round(slider.value).toString();
+            };
+            edit.onChange = function() {
+                var v = parseFloat(edit.text);
+                if (isNaN(v)) return;
+                v = Math.max(slider.minvalue, Math.min(slider.maxvalue, v));
+                slider.value = v;
+                edit.text = Math.round(v).toString();
+            };
+        }
+
+        syncAntControl(slAntT, txAntT);
+        syncAntControl(slAntS, txAntS);
+        syncAntControl(slOvT, txOvT);
+        syncAntControl(slOvS, txOvS);
+        syncAntControl(slSSS, txSSS);
+
+        // Separator 3
+        var sepAnt3 = tabAnticipate.add("panel");
+        sepAnt3.alignment = ["fill", "top"];
+        sepAnt3.preferredSize = [10, 2];
+
+        // Presets Row
+        var presetRow = tabAnticipate.add("group");
+        presetRow.orientation = "row";
+        presetRow.alignChildren = ["center", "center"];
+        presetRow.alignment = ["center", "top"];
+        presetRow.spacing = 2;
+
+        var btnPDefault = presetRow.add("button", undefined, "[Default]");
+        btnPDefault.preferredSize = [69, 18];
+        btnPDefault.helpTip = "Set Default: Ant 30/40%, Ov 30/25%";
+        btnPDefault.onClick = function() {
+            slAntT.value = 30; txAntT.text = "30";
+            slAntS.value = 40; txAntS.text = "40";
+            slOvT.value = 30;  txOvT.text = "30";
+            slOvS.value = 25;  txOvS.text = "25";
+            slSSS.value = 20;  txSSS.text = "20";
+            chkSS.value = false;
+            slSSS.enabled = false;
+            txSSS.enabled = false;
+        };
+
+        var btnPSubtle = presetRow.add("button", undefined, "[Subtle]");
+        btnPSubtle.preferredSize = [69, 18];
+        btnPSubtle.helpTip = "Set Subtle: Ant 30/11%, Ov 30/12%";
+        btnPSubtle.onClick = function() {
+            slAntT.value = 30; txAntT.text = "30";
+            slAntS.value = 11; txAntS.text = "11";
+            slOvT.value = 30;  txOvT.text = "30";
+            slOvS.value = 12;  txOvS.text = "12";
+        };
+
+        // Actions Row
+        var actionRow = tabAnticipate.add("group");
+        actionRow.orientation = "row";
+        actionRow.alignChildren = ["center", "center"];
+        actionRow.alignment = ["center", "top"];
+        actionRow.spacing = 2;
+
+        function getAnticipateSettings() {
+            return {
+                antTiming: parseFloat(txAntT.text) || 30,
+                antStrength: parseFloat(txAntS.text) || 40,
+                ovTiming: parseFloat(txOvT.text) || 30,
+                ovStrength: parseFloat(txOvS.text) || 25,
+                squashOn: chkSS.value,
+                squashStrength: parseFloat(txSSS.text) || 20
+            };
+        }
+
+        var btnApplySel = actionRow.add("button", undefined, "Apply Sel");
+        btnApplySel.preferredSize = [69, 18];
+        btnApplySel.helpTip = "Apply anticipation & overshoot to selected keyframe pairs (Pos/Rot)";
+        btnApplySel.onClick = function() {
+            runAutoAnticipation("selected", getAnticipateSettings());
+        };
+
+        var btnApplyAll = actionRow.add("button", undefined, "Apply All");
+        btnApplyAll.preferredSize = [69, 18];
+        btnApplyAll.helpTip = "Apply anticipation & overshoot to all keyframe pairs on selected layer";
+        btnApplyAll.onClick = function() {
+            runAutoAnticipation("all", getAnticipateSettings());
+        };
+
+        // Reset Row
+        var resetRow = tabAnticipate.add("group");
+        resetRow.orientation = "row";
+        resetRow.alignChildren = ["center", "center"];
+        resetRow.alignment = ["center", "top"];
+        resetRow.spacing = 2;
+
+        var btnReset = resetRow.add("button", undefined, "Reset Defaults");
+        btnReset.preferredSize = [140, 18];
+        btnReset.helpTip = "Reset all values to default presets";
+        btnReset.onClick = function() {
+            btnPDefault.onClick();
+        };
+
+        addTabSpacer(tabAnticipate);
 
         // ---------------- TAB SEARCH (🔍 Results stack page) ----------------
         var tabSearch = containerStack.add("group");
@@ -689,13 +1010,13 @@
             { label: "⇿ Put Here", key: "Put Here", actionFn: function() { showPutHereDialog(); } },
             { label: "⧉ Tight Crop", key: "Tight Crop", actionFn: function() { runUnprecompDirect(); } },
             { label: "□ White BG", key: "White BG", actionFn: function() { setPrecompBgWhite(); } },
-            { label: "◐ Rev Opacity", key: "Reverse Opacity", actionFn: function() { showReverseOpacityDialog(); }, helpTip: "Reverse opacity against target layer" },
+            { label: "◐ Rev Opacity", key: "Reverse Opacity", actionFn: function() { applyReverseOpacity(); }, helpTip: "Reverse opacity against last selected layer" },
             // Utilities
             { label: "⛨ XLock", key: "XLock", actionFn: function() { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
             { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
             { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio, sync, and optionally generate markers" },
             { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function() { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
-            { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function() { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End) for animations" },
+            { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function() { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations" },
             { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function() { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
             { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function() { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
             { label: "↔ Flip H", key: "Flip H", actionFn: function() { flipHorizontal(); }, helpTip: "Flip layers horizontally (invert X scale)" },
@@ -742,7 +1063,10 @@
             { label: "◫ Sync PSDs", key: "Sync PSDs", actionFn: function() { 
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
                 $.evalFile(new File(scriptFile)); 
-            }, helpTip: "Open Sync PSDs to Timeline script" }
+            }, helpTip: "Open Sync PSDs to Timeline script" },
+            // Anticipation
+            { label: "⤾ Auto Anticipate", key: "Auto Anticipation", actionFn: function() { showTab(7); }, helpTip: "Auto Anticipation & Overshoot Settings" },
+            { label: "Apply Anticipation", key: "Apply Anticipation", actionFn: function() { showTab(7); }, helpTip: "Apply anticipation & overshoot" }
         ];
 
         var currentActiveTab = 0;
@@ -764,6 +1088,7 @@
             tabLoops.visible = (index === 4);
             tabTools.visible = (index === 5);
             tabLayerUtil.visible = (index === 6);
+            tabAnticipate.visible = (index === 7);
             tabSearch.visible = false;
             
             // Highlight active button using brackets, others clean
@@ -774,6 +1099,7 @@
             btnLoops.text = (index === 4) ? "[↻]" : "↻";
             btnTools.text = (index === 5) ? "[⚒]" : "⚒";
             btnLayerUtil.text = (index === 6) ? "[☰]" : "☰";
+            btnAnticipate.text = (index === 7) ? "[⤾]" : "⤾";
             
             myPanel.layout.layout(true);
         }
@@ -809,6 +1135,7 @@
             tabLoops.visible = false;
             tabTools.visible = false;
             tabLayerUtil.visible = false;
+            tabAnticipate.visible = false;
             tabSearch.visible = true;
 
             // Remove highlight brackets from tab headers
@@ -819,6 +1146,7 @@
             btnLoops.text = "↻";
             btnTools.text = "⚒";
             btnLayerUtil.text = "☰";
+            btnAnticipate.text = "⤾";
 
             // Find matches
             var matches = [];
@@ -861,6 +1189,7 @@
         btnLoops.onClick = function() { showTab(4); };
         btnTools.onClick = function() { showTab(5); };
         btnLayerUtil.onClick = function() { showTab(6); };
+        btnAnticipate.onClick = function() { showTab(7); };
 
         // Search Input listeners
         searchInput.onChanging = function() {
@@ -906,6 +1235,7 @@
 
         // Store reference for status updates
         myPanel.statusText = statusText;
+        globalStatusText = statusText;
 
         // Layout
         myPanel.layout.layout(true);
@@ -928,7 +1258,7 @@
             parseFloat(f || 0); // Frames as decimal of a second
     }
 // Audio Sync Expression function (Audio Amplitude)
-    function applyAudioSyncExpression(skipUndo, skipPrompt) {
+    function applyAudioSyncExpression(skipUndo) {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
             updateStatus("No active composition");
@@ -941,36 +1271,6 @@
             return;
         }
 
-        var target = null;
-        if (skipPrompt) {
-            var mainComp = null;
-            for (var i = 1; i <= app.project.numItems; i++) {
-                if (app.project.item(i) instanceof CompItem && app.project.item(i).name === "main_comp") {
-                    mainComp = app.project.item(i);
-                    break;
-                }
-            }
-            if (mainComp) {
-                var ampLayer = null;
-                for (var i = 1; i <= mainComp.numLayers; i++) {
-                    if (mainComp.layer(i).name === "Audio Amplitude") {
-                        ampLayer = mainComp.layer(i);
-                        break;
-                    }
-                }
-                if (ampLayer) {
-                    target = { comp: mainComp, layer: ampLayer };
-                }
-            }
-            if (!target) {
-                updateStatus("Automated sync failed: 'main_comp' or 'Audio Amplitude' not found.");
-                return;
-            }
-        } else {
-            target = promptForTargetCompAndLayer("Audio Sync Target", "Target Comp:", "Amplitude Layer:", "amplitude");
-            if (!target) return;
-        }
-
         var undoStarted = false;
         try {
             if (!skipUndo) {
@@ -980,7 +1280,7 @@
 
             var expression = [
                 'try {',
-                '    var ampLayer = comp("' + target.comp.name + '").layer("' + target.layer.name + '");',
+                '    var ampLayer = thisComp.layer("Audio Amplitude");',
                 '    var ampVal = ampLayer.effect("Both Channels")("Slider") / 75;',
                 '    var isFrozen = false;',
                 '    ',
@@ -1021,7 +1321,7 @@
             }
 
             if (undoStarted) app.endUndoGroup();
-            updateStatus("Applied marker-aware audio sync to " + selectedLayers.length + " layer(s)");
+            updateStatus("Applied audio sync to " + selectedLayers.length + " layer(s)");
 
         } catch (error) {
             if (undoStarted) app.endUndoGroup();
@@ -1043,37 +1343,60 @@
         infoTxt.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
         infoTxt.helpTip = "Works with: Audio Sync, Wiggle, Up Down, Squash 2, etc.";
 
-        // Dropdown and input row
-        var row1 = dlg.add("group");
-        row1.orientation = "row";
-        row1.alignChildren = ["left", "center"];
-        row1.spacing = 4;
+        // Buttons for presets
+        var btnGroup = dlg.add("group");
+        btnGroup.orientation = "column";
+        btnGroup.alignChildren = ["fill", "top"];
+        btnGroup.spacing = 4;
 
-        var presetDropdown = row1.add("dropdownlist", undefined, ["Stop (stop)", "Resume (sync)", "Squash (SQ)", "Blink (B)", "End", "Custom"]);
-        presetDropdown.preferredSize.width = 100;
-        presetDropdown.selection = 0; // Default to Stop
+        var markers = [
+            { label: "L_St", val: "L_St" },
+            { label: "L_Sy", val: "L_Sy" },
+            { label: "Stop", val: "stop" },
+            { label: "Sync", val: "sync" },
+            { label: "Squash", val: "SQ" },
+            { label: "Blink", val: "B" },
+            { label: "End", val: "End" },
+            { label: "Bow", val: "bow" },
+            { label: "Nod", val: "nod" }
+        ];
 
-        var commentInput = row1.add("edittext", undefined, "stop");
-        commentInput.preferredSize.width = 75;
+        var cols = 3;
+        var curRow;
+        for (var i = 0; i < markers.length; i++) {
+            if (i % cols === 0) {
+                curRow = btnGroup.add("group");
+                curRow.orientation = "row";
+                curRow.alignChildren = ["fill", "center"];
+                curRow.spacing = 4;
+            }
+            var btn = curRow.add("button", undefined, markers[i].label);
+            btn.preferredSize.height = 20;
+            btn.preferredSize.width = 58;
+            (function(val) {
+                btn.onClick = function() {
+                    addMKMarker(val);
+                };
+            })(markers[i].val);
+        }
 
-        presetDropdown.onChange = function () {
-            var idx = presetDropdown.selection.index;
-            if (idx === 0) commentInput.text = "stop";
-            else if (idx === 1) commentInput.text = "sync";
-            else if (idx === 2) commentInput.text = "SQ";
-            else if (idx === 3) commentInput.text = "B";
-            else if (idx === 4) commentInput.text = "End";
-        };
+        // Custom input row
+        var customRow = dlg.add("group");
+        customRow.orientation = "row";
+        customRow.alignChildren = ["fill", "center"];
+        customRow.spacing = 4;
+        customRow.margins = [0, 4, 0, 0];
+        
+        var customLbl = customRow.add("statictext", undefined, "Custom:");
+        customLbl.preferredSize.width = 45;
+        
+        var commentInput = customRow.add("edittext", undefined, "custom");
+        commentInput.preferredSize.width = 85;
 
-        // Add button row
-        var row2 = dlg.add("group");
-        row2.orientation = "row";
-        row2.alignChildren = ["fill", "center"];
-        row2.spacing = 4;
-
-        var addBtn = row2.add("button", undefined, "Add Marker");
-        addBtn.preferredSize.height = 18;
-        addBtn.onClick = function () {
+        var customAddBtn = customRow.add("button", undefined, "Add");
+        customAddBtn.preferredSize.height = 20;
+        customAddBtn.preferredSize.width = 40;
+        customAddBtn.onClick = function () {
             addMKMarker(commentInput.text);
         };
 
@@ -1206,7 +1529,71 @@
         }
     }
 
-    // Create Null Object function
+    // Silent version of copyAndSyncAudio — no modal, auto-picks audio from main_comp.
+    // Used by Add Mouth to avoid the "Copy Audio Target" prompt.
+    function copyAndSyncAudioSilent() {
+        var currentComp = app.project.activeItem;
+        if (!currentComp || !(currentComp instanceof CompItem)) return;
+
+        // Find main_comp
+        var mainComp = null;
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (item instanceof CompItem && item.name === "main_comp") {
+                mainComp = item;
+                break;
+            }
+        }
+        if (!mainComp) return; // No main_comp — silently skip
+
+        // Find the first audio layer in main_comp
+        var audioLayer = null;
+        for (var i = 1; i <= mainComp.numLayers; i++) {
+            var lName = mainComp.layer(i).name.toLowerCase();
+            if (lName === "audio" || lName.indexOf("audio") === 0) {
+                audioLayer = mainComp.layer(i);
+                break;
+            }
+        }
+        if (!audioLayer) return; // No audio layer — silently skip
+
+        try {
+            // Remove existing audio layer in current comp if present
+            for (var i = 1; i <= currentComp.numLayers; i++) {
+                var lName = currentComp.layer(i).name.toLowerCase();
+                if (lName === "audio" || lName.indexOf("audio") === 0) {
+                    currentComp.layer(i).remove();
+                    break;
+                }
+            }
+
+            var audioSource = audioLayer.source;
+            var newAudioLayer = currentComp.layers.add(audioSource);
+            newAudioLayer.name = audioLayer.name;
+            newAudioLayer.startTime = 0;
+            newAudioLayer.inPoint  = audioLayer.inPoint;
+            newAudioLayer.outPoint = audioLayer.outPoint;
+
+            if (!newAudioLayer.timeRemapEnabled) {
+                newAudioLayer.timeRemapEnabled = true;
+            }
+
+            var expression = generateMultiLevelSyncExpression(mainComp, currentComp);
+            newAudioLayer.timeRemap.expression = expression;
+            newAudioLayer.locked = true;
+
+            // Select only the new audio layer so generateAudioSpikeMarkers targets it
+            for (var i = 1; i <= currentComp.numLayers; i++) {
+                currentComp.layer(i).selected = false;
+            }
+            newAudioLayer.selected = true;
+
+        } catch (e) {
+            // Silently fail — Add Mouth will still work without audio
+        }
+    }
+
+
     function createNullObject() {
         try {
             var comp = app.project.activeItem;
@@ -1946,10 +2333,53 @@
                             selectedLayers[i].property("Position").expression = expression;
                         }
                     } else if (selectedLayers.length > 1) {
-                        // Multiple layers selected but randomize NOT checked - use same frames for all
+                        // Multiple layers selected but randomize NOT checked - use same expression for all
                         for (var i = 0; i < selectedLayers.length; i++) {
+                            var currentAmp = isReversed ? (-parseFloat(amp)).toString() : amp;
+                            var multiExpr;
+                            if (useMarkers) {
+                                multiExpr = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + frames + ";\n" +
+                                    "var isFrozen = false;\n" +
+                                    "if (marker.numKeys > 0) {\n" +
+                                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                                    "        var mk = marker.key(i);\n" +
+                                    "        if (mk.time <= time) {\n" +
+                                    "            var c = mk.comment.toLowerCase();\n" +
+                                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                                    "        } else { break; }\n" +
+                                    "    }\n" +
+                                    "}\n" +
+                                    "if (isFrozen) {\n" +
+                                    "    value;\n" +
+                                    "} else {\n" +
+                                    "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "    y_movement = Math.sin(time * freq * 2 * Math.PI) * amp;\n" +
+                                    "    value + [0, y_movement];\n" +
+                                    "}";
+                            } else if (stopTimeComponents !== null) {
+                                var frameRate = comp.frameRate;
+                                var stopTimeCalculation = (stopTimeComponents.h * 3600) + (stopTimeComponents.m * 60) + stopTimeComponents.s + (stopTimeComponents.f / frameRate);
+                                multiExpr = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + frames + ";\n" +
+                                    "stopTime = " + stopTimeCalculation + "\n" +
+                                    "t = time;\n" +
+                                    "if (time >= stopTime) {\n" +
+                                    "  t = stopTime;\n" +
+                                    "}\n" +
+                                    "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                                    "y_movement = Math.sin(t * freq * 2 * Math.PI) * amp;\n" +
+                                    "value + [0, y_movement];";
+                            } else {
+                                multiExpr = "amp = " + currentAmp + ";\n" +
+                                    "framesPerCycle = " + frames + ";\n" +
+                                    "fps = thisComp.frameDuration;\n" +
+                                    "t = time / (framesPerCycle * fps);\n" +
+                                    "value + [0, Math.sin(t * 2 * Math.PI) * amp];";
+                            }
                             if (selectedLayers[i].transform && selectedLayers[i].transform.position) {
-                                selectedLayers[i].transform.position.expression = expression;
+                                selectedLayers[i].transform.position.expression = multiExpr;
                             }
                         }
                     } else {
@@ -5239,8 +5669,8 @@
                         }
                     }
 
-                    // 1. Add Audio layer from main_comp (if available) - this selects the Audio layer
-                    copyAndSyncAudio(true);
+                    // 1. Add Audio layer from main_comp (if available) - auto, no modal
+                    copyAndSyncAudioSilent();
 
                     // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
                     for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
@@ -5471,9 +5901,10 @@
     }
 
     function updateStatus(message) {
-        // This is a simplified version - in a real panel you'd store the panel reference
-        // For now, just show an alert for major errors
-        if (message.indexOf("Error") === 0) {
+        if (globalStatusText != null) {
+            globalStatusText.text = message;
+        }
+        if (typeof message === "string" && message.indexOf("Error") === 0) {
             alert(message);
         }
     }
@@ -11381,7 +11812,7 @@
         }
     }
 
-    function showReverseOpacityDialog() {
+    function applyReverseOpacity() {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
             updateStatus("No active composition");
@@ -11389,93 +11820,33 @@
         }
 
         var selectedLayers = comp.selectedLayers;
-        if (selectedLayers.length === 0) {
-            updateStatus("Select layers to apply Reverse Opacity");
+        if (selectedLayers.length < 2) {
+            updateStatus("Select at least 2 layers to apply Reverse Opacity");
             return;
         }
 
-        // Gather all layers and check for duplicates
-        var layerNames = [];
-        var nameCounts = {};
-        for (var i = 1; i <= comp.numLayers; i++) {
-            var name = comp.layer(i).name;
-            if (nameCounts[name]) {
-                nameCounts[name]++;
-            } else {
-                nameCounts[name] = 1;
-                layerNames.push(name);
-            }
-        }
-
-        if (layerNames.length === 0) {
-            updateStatus("Composition has no layers");
-            return;
-        }
-
-        var dialog = new Window("dialog", "Reverse Opacity Target");
-        dialog.orientation = "column";
-        dialog.alignChildren = ["fill", "top"];
-        dialog.spacing = 10;
-        dialog.margins = 15;
-
-        dialog.add("statictext", undefined, "Select target layer to reverse opacity against:");
-
-        var ddLayers = dialog.add("dropdownlist", undefined, layerNames);
-        ddLayers.selection = 0;
-
-        // Warning text for duplicates
-        var warningText = dialog.add("statictext", undefined, "", { multiline: true });
-        warningText.preferredSize = [250, 35];
+        app.beginUndoGroup("Apply Reverse Opacity");
         
-        function updateWarning() {
-            if (ddLayers.selection) {
-                var selName = ddLayers.selection.text;
-                if (nameCounts[selName] > 1) {
-                    warningText.text = "Warning: Multiple layers named '" + selName + "' exist!\nExpression will target the top-most one.";
-                } else {
-                    warningText.text = "";
+        var targetLayer = selectedLayers[selectedLayers.length - 1];
+        var targetName = targetLayer.name;
+        var applied = 0;
+
+        for (var i = 0; i < selectedLayers.length - 1; i++) {
+            var layer = selectedLayers[i];
+            try {
+                var expr = "var targetOpacity = thisComp.layer(\"" + targetName + "\").transform.opacity;\n";
+                expr += "targetOpacity >= 50 ? 0 : value;";
+                
+                var opacityProp = layer.property("Transform").property("Opacity");
+                if (opacityProp && opacityProp.canSetExpression) {
+                    opacityProp.expression = expr;
+                    applied++;
                 }
-            }
+            } catch (e) {}
         }
-        ddLayers.onChange = updateWarning;
-        updateWarning();
-
-        var btnGroup = dialog.add("group");
-        btnGroup.alignment = "center";
-        var btnApply = btnGroup.add("button", undefined, "Apply");
-        var btnCancel = btnGroup.add("button", undefined, "Cancel");
-
-        btnApply.onClick = function () {
-            if (!ddLayers.selection) return;
-            var targetName = ddLayers.selection.text;
-
-            app.beginUndoGroup("Apply Reverse Opacity");
-            var applied = 0;
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                if (layer.name === targetName) continue;
-                try {
-                    var expr = "var targetOpacity = thisComp.layer(\"" + targetName + "\").transform.opacity;\n";
-                    expr += "targetOpacity >= 50 ? 0 : value;";
-                    
-                    var opacityProp = layer.property("Transform").property("Opacity");
-                    if (opacityProp && opacityProp.canSetExpression) {
-                        opacityProp.expression = expr;
-                        applied++;
-                    }
-                } catch (e) {}
-            }
-            app.endUndoGroup();
-
-            updateStatus("Applied to " + applied + " layer(s)");
-            dialog.close();
-        };
-
-        btnCancel.onClick = function () {
-            dialog.close();
-        };
-
-        dialog.show();
+        
+        app.endUndoGroup();
+        updateStatus("Applied to " + applied + " layer(s)");
     }
 
     function cleanTabsOpen() {
@@ -11928,6 +12299,985 @@
 
         dialog.center();
         dialog.show();
+    }
+
+    // =========================================================================
+    // LAYER UTILITIES: EASY COPY / PASTE (JSON PRESETS)
+    // =========================================================================
+
+    function getTempClipboardFile() {
+        var folder = new Folder(Folder.userData.fsName + "/AE_Expression_Panel");
+        if (!folder.exists) folder.create();
+        return new File(folder.fsName + "/ae_anim_clipboard.json");
+    }
+
+    function doCopyAnim() {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active comp!");
+            return;
+        }
+
+        var props = comp.selectedProperties;
+        if (props.length === 0) {
+            updateStatus("No properties selected!");
+            return;
+        }
+
+        var animData = [];
+
+        for (var i = 0; i < props.length; i++) {
+            var prop = props[i];
+            if (!prop.canVaryOverTime || prop.numKeys === 0) continue;
+
+            var propData = {
+                matchName: prop.matchName,
+                name: prop.name,
+                keys: []
+            };
+
+            for (var k = 1; k <= prop.numKeys; k++) {
+                var keyData = {
+                    time: prop.keyTime(k),
+                    value: prop.keyValue(k),
+                    inType: prop.keyInInterpolationType(k),
+                    outType: prop.keyOutInterpolationType(k)
+                };
+
+                if (keyData.inType === KeyframeInterpolationType.BEZIER || keyData.inType === KeyframeInterpolationType.LINEAR) {
+                    try {
+                        keyData.inTemporalEase = prop.keyInTemporalEase(k);
+                        keyData.outTemporalEase = prop.keyOutTemporalEase(k);
+                    } catch(e) {}
+                }
+
+                if (prop.propertyValueType === PropertyValueType.SHAPE) {
+                    var shapeVal = prop.keyValue(k);
+                    keyData.shape = {
+                        vertices: shapeVal.vertices,
+                        inTangents: shapeVal.inTangents,
+                        outTangents: shapeVal.outTangents,
+                        closed: shapeVal.closed
+                    };
+                    keyData.value = null;
+                }
+
+                propData.keys.push(keyData);
+            }
+            animData.push(propData);
+        }
+
+        if (animData.length === 0) {
+            updateStatus("No keyframes found!");
+            return;
+        }
+
+        var tempFile = getTempClipboardFile();
+        tempFile.open("w");
+        tempFile.write(JSON.stringify(animData, null, 2));
+        tempFile.close();
+        updateStatus("Animation copied to clipboard!");
+    }
+
+    function doPasteAnim() {
+        var tempFile = getTempClipboardFile();
+        if (!tempFile.exists) {
+            updateStatus("Clipboard is empty! Copy first.");
+            return;
+        }
+        
+        tempFile.open("r");
+        var content = tempFile.read();
+        tempFile.close();
+
+        applyAnimData(content);
+    }
+
+    function doPasteEaseAnim() {
+        var tempFile = getTempClipboardFile();
+        if (!tempFile.exists) {
+            updateStatus("Clipboard is empty! Copy first.");
+            return;
+        }
+        
+        tempFile.open("r");
+        var content = tempFile.read();
+        tempFile.close();
+
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active comp!");
+            return;
+        }
+
+        var props = comp.selectedProperties;
+        if (props.length === 0) {
+            updateStatus("Select target properties to paste ease!");
+            return;
+        }
+
+        var animData;
+        try {
+            animData = eval("(" + content + ")");
+        } catch (e) {
+            updateStatus("Invalid JSON data!");
+            return;
+        }
+
+        app.beginUndoGroup("Paste Ease Only");
+        
+        var sourcePropData = animData[0]; 
+
+        for (var i = 0; i < props.length; i++) {
+            var targetProp = props[i];
+            if (!targetProp.canVaryOverTime || targetProp.numKeys === 0) continue;
+
+            if (animData.length > 1 && animData[i]) {
+                sourcePropData = animData[i];
+            }
+
+            var targetKeys = targetProp.selectedKeys;
+            if (targetKeys.length === 0) {
+                for (var k = 1; k <= targetProp.numKeys; k++) targetKeys.push(k);
+            }
+
+            for (var k = 0; k < targetKeys.length; k++) {
+                var keyIndex = targetKeys[k];
+                var sourceKeyIndex = Math.min(k, sourcePropData.keys.length - 1);
+                var keyData = sourcePropData.keys[sourceKeyIndex];
+
+                if (!keyData) continue;
+
+                targetProp.setInterpolationTypeAtKey(keyIndex, keyData.inType, keyData.outType);
+                
+                if (keyData.inTemporalEase && keyData.outTemporalEase) {
+                    try {
+                        var targetInEase = targetProp.keyInTemporalEase(keyIndex);
+                        var targetOutEase = targetProp.keyOutTemporalEase(keyIndex);
+
+                        var newInEase = [];
+                        var newOutEase = [];
+
+                        for (var d = 0; d < targetInEase.length; d++) {
+                            var srcIn = keyData.inTemporalEase[d] || keyData.inTemporalEase[0];
+                            var srcOut = keyData.outTemporalEase[d] || keyData.outTemporalEase[0];
+                            
+                            newInEase.push(new KeyframeEase(srcIn.speed, srcIn.influence));
+                            newOutEase.push(new KeyframeEase(srcOut.speed, srcOut.influence));
+                        }
+                        
+                        targetProp.setTemporalEaseAtKey(keyIndex, newInEase, newOutEase);
+                    } catch(e) {}
+                }
+            }
+        }
+        
+        app.endUndoGroup();
+        updateStatus("Easing pasted!");
+    }
+
+    function saveAnimToJson() {
+        var tempFile = getTempClipboardFile();
+        if (!tempFile.exists) {
+            updateStatus("Clipboard is empty! Copy first.");
+            return;
+        }
+
+        var saveFile = File.saveDialog("Save Animation Preset", "*.json");
+        if (saveFile) {
+            tempFile.open("r");
+            var content = tempFile.read();
+            tempFile.close();
+
+            saveFile.open("w");
+            saveFile.write(content);
+            saveFile.close();
+            updateStatus("Animation saved to JSON!");
+        }
+    }
+
+    function loadAnimFromJson() {
+        var loadFile = File.openDialog("Load Animation Preset", "*.json");
+        if (!loadFile) return;
+
+        loadFile.open("r");
+        var content = loadFile.read();
+        loadFile.close();
+
+        var tempFile = getTempClipboardFile();
+        tempFile.open("w");
+        tempFile.write(content);
+        tempFile.close();
+
+        applyAnimData(content);
+    }
+
+    function applyAnimData(content) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active comp!");
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) {
+            updateStatus("Select a layer first!");
+            return;
+        }
+
+        var animData;
+        try {
+            animData = eval("(" + content + ")");
+        } catch (e) {
+            updateStatus("Invalid JSON file!");
+            return;
+        }
+
+        app.beginUndoGroup("Paste Anim");
+        var t = comp.time;
+        
+        for (var l = 0; l < layers.length; l++) {
+            var layer = layers[l];
+            for (var i = 0; i < animData.length; i++) {
+                var propData = animData[i];
+                var targetProp = null;
+                
+                function findProp(root, matchName) {
+                    for(var p=1; p<=root.numProperties; p++){
+                        if (root.property(p).matchName === matchName) return root.property(p);
+                        if (root.property(p).propertyType === PropertyType.NAMED_GROUP) {
+                            var found = findProp(root.property(p), matchName);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                }
+                
+                targetProp = findProp(layer, propData.matchName);
+
+                if (targetProp && targetProp.canVaryOverTime) {
+                    var firstKeyTime = propData.keys[0].time;
+                    var offset = t - firstKeyTime;
+
+                    for (var k = 0; k < propData.keys.length; k++) {
+                        var keyData = propData.keys[k];
+                        var newTime = keyData.time + offset;
+                        
+                        var val = keyData.value;
+                        if (keyData.shape) {
+                            val = new Shape();
+                            val.vertices = keyData.shape.vertices;
+                            val.inTangents = keyData.shape.inTangents;
+                            val.outTangents = keyData.shape.outTangents;
+                            val.closed = keyData.shape.closed;
+                        }
+
+                        var keyIndex = targetProp.addKey(newTime);
+                        if (val !== null) targetProp.setValueAtKey(keyIndex, val);
+                        
+                        targetProp.setInterpolationTypeAtKey(keyIndex, keyData.inType, keyData.outType);
+                        
+                        if (keyData.inTemporalEase && keyData.outTemporalEase) {
+                            try {
+                                targetProp.setTemporalEaseAtKey(keyIndex, keyData.inTemporalEase, keyData.outTemporalEase);
+                            } catch(e){}
+                        }
+                    }
+                }
+            }
+        }
+        app.endUndoGroup();
+        updateStatus("Animation pasted!");
+    }
+
+    // =========================================================================
+    // LAYER UTILITIES: CLIPBOARD ASSET IMPORT
+    // =========================================================================
+
+    function importFromClipboard() {
+        var isWin = $.os.indexOf("Windows") !== -1;
+        if (!isWin) {
+            updateStatus("Clipboard import requires Windows!");
+            return;
+        }
+
+        updateStatus("Downloading asset...");
+
+        var tempFile = new File(Folder.temp.fsName + "/ae_clipboard_temp.txt");
+        var cmd = 'powershell Get-Clipboard > "' + tempFile.fsName + '"';
+        system.callSystem(cmd);
+
+        var clipboardText = "";
+        if (tempFile.exists) {
+            tempFile.open("r");
+            clipboardText = tempFile.read().replace(/^\s+|\s+$/g, '');
+            tempFile.close();
+            tempFile.remove();
+        }
+
+        if (!clipboardText) {
+            updateStatus("Clipboard is empty!");
+            return;
+        }
+
+        var fileToImport = null;
+
+        if (clipboardText.match(/^https?:\/\//i)) {
+            var url = clipboardText;
+            var fileName = url.substring(url.lastIndexOf('/') + 1) || "downloaded_asset.png";
+            fileName = fileName.split("?")[0];
+            
+            var downloadPath = new File(Folder.temp.fsName + "/" + fileName);
+            var dlCmd = 'powershell -command "Invoke-WebRequest -Uri \'' + url + '\' -OutFile \'' + downloadPath.fsName + '\'"';
+            system.callSystem(dlCmd);
+
+            if (downloadPath.exists) {
+                fileToImport = downloadPath;
+            } else {
+                updateStatus("Failed to download link.");
+                return;
+            }
+        } else {
+            var rawPath = clipboardText.replace(/\\/g, "/").replace(/"/g, "");
+            var testFile = new File(rawPath);
+            if (testFile.exists) {
+                fileToImport = testFile;
+            }
+        }
+
+        if (fileToImport) {
+            try {
+                app.beginUndoGroup("Import Asset");
+                var io = new ImportOptions(fileToImport);
+                var importedItem = app.project.importFile(io);
+
+                var destFolder = null;
+                for (var i = 1; i <= app.project.items.length; i++) {
+                    if (app.project.items[i] instanceof FolderItem && app.project.items[i].name === "Clipboard Imports") {
+                        destFolder = app.project.items[i];
+                        break;
+                    }
+                }
+                if (!destFolder) {
+                    destFolder = app.project.items.addFolder("Clipboard Imports");
+                }
+                importedItem.parentFolder = destFolder;
+                app.endUndoGroup();
+
+                updateStatus("Imported: " + importedItem.name);
+            } catch (e) {
+                updateStatus("Import failed: " + e.toString());
+            }
+        } else {
+            updateStatus("Invalid path or link in clipboard.");
+        }
+    }
+
+    // =========================================================================
+    // LAYER UTILITIES: PROJECT AUTO-SORT
+    // =========================================================================
+
+    function autoSortProject() {
+        app.beginUndoGroup("Auto Sort Project");
+        var proj = app.project;
+        
+        var folders = {
+            "01_Comps": null,
+            "02_Audio": null,
+            "03_Images": null,
+            "04_Video": null,
+            "05_Solids": null
+        };
+
+        for (var i = 1; i <= proj.items.length; i++) {
+            var item = proj.items[i];
+            if (item instanceof FolderItem && folders[item.name] === null) {
+                folders[item.name] = item;
+            }
+        }
+
+        function getFolder(name) {
+            if (!folders[name]) {
+                folders[name] = proj.items.addFolder(name);
+            }
+            return folders[name];
+        }
+
+        var movedCount = 0;
+
+        for (var i = 1; i <= proj.items.length; i++) {
+            var item = proj.items[i];
+            
+            if (item instanceof FolderItem && folders[item.name] !== undefined) continue;
+            if (item.parentFolder !== proj.rootFolder) continue;
+            if (item.name === "Solids") {
+                item.parentFolder = getFolder("05_Solids");
+                continue;
+            }
+
+            if (item instanceof CompItem) {
+                item.parentFolder = getFolder("01_Comps");
+                movedCount++;
+            } else if (item instanceof FootageItem) {
+                if (item.mainSource instanceof SolidSource) {
+                    item.parentFolder = getFolder("05_Solids");
+                    movedCount++;
+                } else if (item.hasAudio && !item.hasVideo) {
+                    item.parentFolder = getFolder("02_Audio");
+                    movedCount++;
+                } else if (item.hasVideo && !item.hasAudio) {
+                    item.parentFolder = getFolder("03_Images");
+                    movedCount++;
+                } else if (item.hasVideo && item.hasAudio) {
+                    item.parentFolder = getFolder("04_Video");
+                    movedCount++;
+                }
+            }
+        }
+        app.endUndoGroup();
+        updateStatus("Sorted " + movedCount + " items.");
+    }
+
+    // =========================================================================
+    // LAYER UTILITIES: SMART RENAME
+    // =========================================================================
+
+    function showSmartRenameDialog() {
+        var itemsToRename = [];
+        
+        var comp = app.project.activeItem;
+        if (comp && comp instanceof CompItem && comp.selectedLayers.length > 0) {
+            itemsToRename = comp.selectedLayers;
+        } else if (app.project.selection.length > 0) {
+            itemsToRename = app.project.selection;
+        } else {
+            updateStatus("Select layers or project items to rename.");
+            return;
+        }
+
+        var dlg = new Window("palette", "Smart Rename", undefined);
+        dlg.orientation = "column";
+        dlg.alignChildren = ["fill", "top"];
+        dlg.spacing = 4;
+        dlg.margins = 8;
+        
+        var prefixGrp = dlg.add("group");
+        prefixGrp.add("statictext", undefined, "Prefix:").preferredSize.width = 45;
+        var prefixIn = prefixGrp.add("edittext", undefined, "");
+        prefixIn.preferredSize.width = 120;
+
+        var suffixGrp = dlg.add("group");
+        suffixGrp.add("statictext", undefined, "Suffix:").preferredSize.width = 45;
+        var suffixIn = suffixGrp.add("edittext", undefined, "");
+        suffixIn.preferredSize.width = 120;
+
+        var findGrp = dlg.add("group");
+        findGrp.add("statictext", undefined, "Find:").preferredSize.width = 45;
+        var findIn = findGrp.add("edittext", undefined, "");
+        findIn.preferredSize.width = 120;
+
+        var repGrp = dlg.add("group");
+        repGrp.add("statictext", undefined, "Replace:").preferredSize.width = 45;
+        var repIn = repGrp.add("edittext", undefined, "");
+        repIn.preferredSize.width = 120;
+
+        var btnGrp = dlg.add("group");
+        btnGrp.alignment = ["center", "top"];
+        var btnOk = btnGrp.add("button", undefined, "Rename");
+        var btnCancel = btnGrp.add("button", undefined, "Cancel");
+
+        btnOk.onClick = function() {
+            app.beginUndoGroup("Smart Rename");
+            for (var i = 0; i < itemsToRename.length; i++) {
+                var item = itemsToRename[i];
+                var newName = item.name;
+                
+                if (findIn.text !== "") {
+                    var regex = new RegExp(findIn.text, "g");
+                    newName = newName.replace(regex, repIn.text);
+                }
+                
+                newName = prefixIn.text + newName + suffixIn.text;
+                
+                if (newName !== item.name) {
+                    item.name = newName;
+                }
+            }
+            app.endUndoGroup();
+            updateStatus("Renamed " + itemsToRename.length + " items.");
+            dlg.close();
+        };
+
+        btnCancel.onClick = function() { dlg.close(); };
+        
+        dlg.center();
+        dlg.show();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  AUTO ANTICIPATION & OVERSHOOT ENGINE
+    // ─────────────────────────────────────────────────────────────────────────
+    var ANTICIPATE_MIN_GAP_FRAMES = 4;
+
+    function snapToFrame(time, fps) {
+        return Math.round(time * fps) / fps;
+    }
+
+    function computeTiming(timeA, timeB, fps, settings) {
+        var gapSec    = timeB - timeA;
+        var gapFrames = Math.round(gapSec * fps);
+
+        if (gapFrames < ANTICIPATE_MIN_GAP_FRAMES) return null;
+
+        var a1Time  = snapToFrame(timeA + gapSec * (settings.antTiming / 100), fps);
+        var b1Time  = snapToFrame(timeB - gapSec * (settings.ovTiming / 100), fps);
+        var midTime = snapToFrame(timeA + gapSec * 0.5, fps);
+
+        if (Math.abs(a1Time - timeA) < 1 / fps) a1Time = snapToFrame(timeA + 1 / fps, fps);
+        if (Math.abs(b1Time - timeB) < 1 / fps) b1Time = snapToFrame(timeB - 1 / fps, fps);
+
+        if (a1Time >= b1Time) return null;
+
+        return { a1Time: a1Time, midTime: midTime, b1Time: b1Time };
+    }
+
+    function getPropertyDisplayName(prop) {
+        if (!prop) return "Property";
+        var name = prop.name;
+        var parent = prop.parentProperty;
+        if (parent && parent.name && parent.name !== "Properties" && parent.name !== "Root") {
+            if (name === "Position" || name === "Path" || name === "Rotation" || name === "Scale" || name === "Opacity" || name.indexOf("Position") !== -1) {
+                return parent.name + " " + name;
+            }
+        }
+        return name;
+    }
+
+    function getPropertyLayer(prop) {
+        var current = prop;
+        while (current && !(current instanceof Layer)) {
+            current = current.parentProperty;
+        }
+        return current;
+    }
+
+    function getSiblingDimensionDeltas(layer, prop, timeA, timeB, defaultDx, defaultDy) {
+        if (!layer || !prop) return { dx: defaultDx, dy: defaultDy };
+        var pName  = prop.name || "";
+        var pMatch = prop.matchName || "";
+
+        var isX = (pName.indexOf("X Position") !== -1 || pName === "X" || pMatch === "ADBE Position 0");
+        var isY = (pName.indexOf("Y Position") !== -1 || pName === "Y" || pMatch === "ADBE Position 1");
+
+        if (!isX && !isY) return { dx: defaultDx, dy: defaultDy };
+
+        try {
+            var transform = layer.property("Transform");
+            if (!transform) return { dx: defaultDx, dy: defaultDy };
+
+            var xProp = transform.property("X Position") || transform.property("ADBE Position 0");
+            var yProp = transform.property("Y Position") || transform.property("ADBE Position 1");
+
+            var dx = defaultDx;
+            var dy = defaultDy;
+
+            if (isX && yProp) {
+                dy = yProp.valueAtTime(timeB, false) - yProp.valueAtTime(timeA, false);
+            } else if (isY && xProp) {
+                dx = xProp.valueAtTime(timeB, false) - xProp.valueAtTime(timeA, false);
+            }
+
+            return { dx: dx, dy: dy };
+        } catch (e) {
+            return { dx: defaultDx, dy: defaultDy };
+        }
+    }
+
+    function calculateHelpers(prop, timeA, valueA, timeB, valueB, fps, settings) {
+        var timing = computeTiming(timeA, timeB, fps, settings);
+        if (!timing) return null;
+
+        var antS = settings.antStrength / 100;
+        var ovS  = settings.ovStrength / 100;
+
+        var a1Val, b1Val;
+        var dx = 0, dy = 1;
+
+        if (valueA instanceof Shape || (valueA && typeof valueA === "object" && valueA.vertices !== undefined)) {
+            if (!valueB || !valueB.vertices || valueA.vertices.length !== valueB.vertices.length) {
+                return null;
+            }
+
+            var numVerts = valueA.vertices.length;
+            var a1Verts = [], b1Verts = [];
+            var a1InTan = [], b1InTan = [];
+            var a1OutTan = [], b1OutTan = [];
+            var sumDx = 0, sumDy = 0;
+
+            for (var v = 0; v < numVerts; v++) {
+                var vA = valueA.vertices[v];
+                var vB = valueB.vertices[v];
+                var dvX = vB[0] - vA[0];
+                var dvY = vB[1] - vA[1];
+                sumDx += dvX;
+                sumDy += dvY;
+
+                a1Verts.push([ vA[0] - dvX * antS, vA[1] - dvY * antS ]);
+                b1Verts.push([ vB[0] + dvX * ovS,  vB[1] + dvY * ovS  ]);
+
+                var inA = (valueA.inTangents && valueA.inTangents[v]) ? valueA.inTangents[v] : [0, 0];
+                var inB = (valueB.inTangents && valueB.inTangents[v]) ? valueB.inTangents[v] : [0, 0];
+                var dInX = inB[0] - inA[0];
+                var dInY = inB[1] - inA[1];
+                a1InTan.push([ inA[0] - dInX * antS, inA[1] - dInY * antS ]);
+                b1InTan.push([ inB[0] + dInX * ovS,  inB[1] + dInY * ovS  ]);
+
+                var outA = (valueA.outTangents && valueA.outTangents[v]) ? valueA.outTangents[v] : [0, 0];
+                var outB = (valueB.outTangents && valueB.outTangents[v]) ? valueB.outTangents[v] : [0, 0];
+                var dOutX = outB[0] - outA[0];
+                var dOutY = outB[1] - outA[1];
+                a1OutTan.push([ outA[0] - dOutX * antS, outA[1] - dOutY * antS ]);
+                b1OutTan.push([ outB[0] + dOutX * ovS,  outB[1] + dOutY * ovS  ]);
+            }
+
+            var shapeA1 = new Shape();
+            shapeA1.closed = (valueA.closed !== undefined) ? valueA.closed : true;
+            shapeA1.vertices = a1Verts;
+            shapeA1.inTangents = a1InTan;
+            shapeA1.outTangents = a1OutTan;
+
+            var shapeB1 = new Shape();
+            shapeB1.closed = (valueB.closed !== undefined) ? valueB.closed : true;
+            shapeB1.vertices = b1Verts;
+            shapeB1.inTangents = b1InTan;
+            shapeB1.outTangents = b1OutTan;
+
+            a1Val = shapeA1;
+            b1Val = shapeB1;
+
+            if (numVerts > 0) {
+                dx = sumDx / numVerts;
+                dy = sumDy / numVerts;
+            }
+        }
+        else if (valueA instanceof Array || (valueA && typeof valueA === "object" && typeof valueA.length === "number")) {
+            var len = valueA.length;
+            a1Val = [];
+            b1Val = [];
+            for (var c = 0; c < len; c++) {
+                var delta = valueB[c] - valueA[c];
+                a1Val.push(valueA[c] - delta * antS);
+                b1Val.push(valueB[c] + delta * ovS);
+            }
+            dx = valueB[0] - valueA[0];
+            dy = (len >= 2) ? (valueB[1] - valueA[1]) : 1;
+        }
+        else if (typeof valueA === "number") {
+            var deltaScalar = valueB - valueA;
+            a1Val = valueA - deltaScalar * antS;
+            b1Val = valueB + deltaScalar * ovS;
+
+            var pName  = (prop && prop.name) ? prop.name : "";
+            var pMatch = (prop && prop.matchName) ? prop.matchName : "";
+
+            if (pName.indexOf("X Position") !== -1 || pName === "X" || pMatch === "ADBE Position 0") {
+                dx = deltaScalar;
+                dy = 0;
+            } else if (pName.indexOf("Y Position") !== -1 || pName === "Y" || pMatch === "ADBE Position 1") {
+                dx = 0;
+                dy = deltaScalar;
+            } else {
+                dx = 0;
+                dy = 1;
+            }
+        }
+        else {
+            return null;
+        }
+
+        return {
+            a1Time  : timing.a1Time,
+            a1Value : a1Val,
+            midTime : timing.midTime,
+            b1Time  : timing.b1Time,
+            b1Value : b1Val,
+            dx      : dx,
+            dy      : dy
+        };
+    }
+
+    function calculateSquashStretch(dx, dy, strength) {
+        var dist = Math.sqrt(dx * dx + dy * dy);
+
+        var cosA = (dist > 0) ? Math.abs(dx) / dist : 0;
+        var sinA = (dist > 0) ? Math.abs(dy) / dist : 1;
+
+        var stretchF = 1 + (strength / 100);
+        var squashF  = 10000 / (stretchF * 100);
+
+        var stretchX = stretchF * cosA + squashF / 100 * sinA;
+        var stretchY = squashF  / 100 * cosA + stretchF * sinA;
+
+        var squashX = squashF / 100 * cosA + stretchF * sinA;
+        var squashY = stretchF * cosA       + squashF  / 100 * sinA;
+
+        return {
+            stretch : [stretchX * 100, stretchY * 100],
+            squash  : [squashX  * 100, squashY  * 100],
+        };
+    }
+
+    function getScaleProp(layer) {
+        try { return layer.property("Transform").property("Scale"); } catch (e) { return null; }
+    }
+
+    function applySquashStretch(scaleProp, timeA, timeB, a1Time, midTime, b1Time, dx, dy, strength) {
+        if (!scaleProp) return;
+
+        var baseA, baseB;
+        if (scaleProp.numKeys > 0) {
+            baseA = scaleProp.valueAtTime(timeA, false);
+            baseB = scaleProp.valueAtTime(timeB, false);
+        } else {
+            baseA = scaleProp.value;
+            baseB = scaleProp.value;
+        }
+
+        var ss = calculateSquashStretch(dx, dy, strength);
+        var stretchScale = [
+            baseA[0] * ss.stretch[0] / 100,
+            baseA[1] * ss.stretch[1] / 100
+        ];
+        var squashScale = [
+            baseA[0] * ss.squash[0] / 100,
+            baseA[1] * ss.squash[1] / 100
+        ];
+
+        scaleProp.setValueAtTime(timeA,   baseA);
+        scaleProp.setValueAtTime(a1Time,  squashScale);
+        scaleProp.setValueAtTime(midTime, stretchScale);
+        scaleProp.setValueAtTime(b1Time,  squashScale);
+        scaleProp.setValueAtTime(timeB,   baseB);
+    }
+
+    function applyToPropertyPairs(layer, prop, pairs, fps, settings) {
+        var result    = { applied: 0, skipped: 0, skipReasons: [] };
+        var scaleProp = settings.squashOn ? getScaleProp(layer) : null;
+
+        var sorted = pairs.slice();
+        sorted.sort(function (a, b) {
+            var timeA_a = prop.keyTime(a[0]);
+            var timeA_b = prop.keyTime(b[0]);
+            return timeA_b - timeA_a;
+        });
+
+        for (var i = 0; i < sorted.length; i++) {
+            var idxA = sorted[i][0];
+            var idxB = sorted[i][1];
+
+            if (idxA > prop.numKeys || idxB > prop.numKeys) continue;
+
+            var timeA  = prop.keyTime(idxA);
+            var valueA = prop.keyValue(idxA);
+            var timeB  = prop.keyTime(idxB);
+            var valueB = prop.keyValue(idxB);
+
+            var h = calculateHelpers(prop, timeA, valueA, timeB, valueB, fps, settings);
+
+            if (!h) {
+                result.skipped++;
+                continue;
+            }
+
+            prop.setValueAtTime(h.b1Time, h.b1Value);
+            prop.setValueAtTime(h.a1Time, h.a1Value);
+
+            if (settings.squashOn && scaleProp && prop !== scaleProp) {
+                var sibling = getSiblingDimensionDeltas(layer, prop, timeA, timeB, h.dx, h.dy);
+                applySquashStretch(scaleProp, timeA, timeB, h.a1Time, h.midTime, h.b1Time, sibling.dx, sibling.dy, settings.squashStrength);
+            }
+
+            result.applied++;
+        }
+
+        return result;
+    }
+
+    function getSelectedKeyIndices(prop) {
+        var sel = [];
+        if (prop.selectedKeys && prop.selectedKeys.length > 0) {
+            for (var i = 0; i < prop.selectedKeys.length; i++) {
+                sel.push(prop.selectedKeys[i]);
+            }
+        } else {
+            for (var k = 1; k <= prop.numKeys; k++) {
+                if (prop.keySelected(k)) sel.push(k);
+            }
+        }
+        return sel;
+    }
+
+    function getPairsFromIndices(selected) {
+        var pairs = [];
+        for (var i = 0; i + 1 < selected.length; i += 2) {
+            pairs.push([selected[i], selected[i + 1]]);
+        }
+        return pairs;
+    }
+
+    function getAllKeyPairs(prop) {
+        var n = prop.numKeys;
+        var pairs = [];
+        for (var k = 1; k < n; k++) {
+            pairs.push([k, k + 1]);
+        }
+        return pairs;
+    }
+
+    function detectPropertiesToProcess(comp, layers, selectionMode) {
+        var list = [];
+
+        function getPropPath(p) {
+            var path = p.name;
+            var cur = p.parentProperty;
+            while (cur) {
+                path = cur.name + "->" + path;
+                cur = cur.parentProperty;
+            }
+            return path;
+        }
+
+        function addProp(layer, prop, pairs) {
+            if (!prop || pairs.length === 0) return;
+            var path = getPropPath(prop);
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].layer.index === layer.index && list[i].path === path) return;
+            }
+            list.push({ layer: layer, prop: prop, pairs: pairs, path: path });
+        }
+
+        if (selectionMode === "selected") {
+            var selProps = comp.selectedProperties;
+            if (selProps && selProps.length > 0) {
+                for (var i = 0; i < selProps.length; i++) {
+                    var p = selProps[i];
+                    if (p && p.propertyType === PropertyType.PROPERTY && p.canVaryOverTime && p.numKeys >= 2) {
+                        var selKeys = getSelectedKeyIndices(p);
+                        if (selKeys.length >= 2) {
+                            var pairs = getPairsFromIndices(selKeys);
+                            var l = getPropertyLayer(p) || layers[0];
+                            if (l && pairs.length > 0) addProp(l, p, pairs);
+                        }
+                    }
+                }
+            }
+            // Only fall back to layer scan if comp.selectedProperties found nothing
+            if (list.length === 0) {
+                for (var L = 0; L < layers.length; L++) {
+                    scanLayerSelected(layers[L]);
+                }
+            }
+        } else {
+            for (var L = 0; L < layers.length; L++) {
+                scanLayerAll(layers[L]);
+            }
+        }
+
+        function scanLayerSelected(propGroup) {
+            if (!propGroup) return;
+            for (var i = 1; i <= propGroup.numProperties; i++) {
+                var p = propGroup.property(i);
+                if (!p) continue;
+                if (p.propertyType === PropertyType.PROPERTY) {
+                    if (p.canVaryOverTime && p.numKeys >= 2) {
+                        var selKeys = getSelectedKeyIndices(p);
+                        if (selKeys.length >= 2) {
+                            var pairs = getPairsFromIndices(selKeys);
+                            var l = getPropertyLayer(p) || propGroup;
+                            if (l && pairs.length > 0) addProp(l, p, pairs);
+                        }
+                    }
+                } else if (p.propertyType === PropertyType.INDEXED_GROUP || p.propertyType === PropertyType.NAMED_GROUP) {
+                    scanLayerSelected(p);
+                }
+            }
+        }
+
+        function scanLayerAll(propGroup) {
+            if (!propGroup) return;
+            for (var i = 1; i <= propGroup.numProperties; i++) {
+                var p = propGroup.property(i);
+                if (!p) continue;
+                if (p.propertyType === PropertyType.PROPERTY) {
+                    if (p.canVaryOverTime && p.numKeys >= 2) {
+                        var pairs = getAllKeyPairs(p);
+                        var l = getPropertyLayer(p) || propGroup;
+                        if (l && pairs.length > 0) addProp(l, p, pairs);
+                    }
+                } else if (p.propertyType === PropertyType.INDEXED_GROUP || p.propertyType === PropertyType.NAMED_GROUP) {
+                    scanLayerAll(p);
+                }
+            }
+        }
+
+        return list;
+    }
+
+    function runAutoAnticipation(selectionMode, settings) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("Please open a composition first.");
+            return;
+        }
+        var layers = comp.selectedLayers;
+        if (!layers || layers.length === 0) {
+            updateStatus("Please select a layer.");
+            return;
+        }
+
+        var fps = comp.frameRate;
+
+        var targets = detectPropertiesToProcess(comp, layers, selectionMode);
+
+        if (targets.length === 0) {
+            if (selectionMode === "selected") {
+                updateStatus("No selected keyframes (select >= 2 keys)");
+                alert("No keyframes detected.\n\nPlease select at least 2 keyframes on any property in the timeline before clicking Apply.");
+            } else {
+                updateStatus("No keyframes found on layer");
+                alert("No keyframes found on selected layer(s).\n\nAdd at least 2 keyframes to a property first.");
+            }
+            return;
+        }
+
+        app.beginUndoGroup("Auto Anticipation & Overshoot");
+
+        var totalApplied = 0;
+        var totalSkipped = 0;
+        var summaries    = [];
+
+        try {
+            for (var t = 0; t < targets.length; t++) {
+                var target = targets[t];
+                var res = applyToPropertyPairs(target.layer, target.prop, target.pairs, fps, settings);
+                totalApplied += res.applied;
+                totalSkipped += res.skipped;
+                var dispName = getPropertyDisplayName(target.prop);
+                summaries.push(dispName + ": " + res.applied + "\u2713");
+            }
+        } catch (e) {
+            app.endUndoGroup();
+            updateStatus("Error: " + e.toString());
+            alert("Error: " + e.toString() + "\nLine: " + e.line);
+            return;
+        }
+
+        app.endUndoGroup();
+
+        var finalMsg = summaries.join("  ");
+        if (totalSkipped > 0) finalMsg += " (" + totalSkipped + " skip)";
+        if (!finalMsg) finalMsg = "Done";
+        updateStatus(finalMsg);
     }
 
     // Execute the panel
