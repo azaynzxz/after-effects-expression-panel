@@ -599,6 +599,9 @@
 
             populateChar();
 
+            var chkFlip = panelChar.add("checkbox", undefined, "Flip Horizontally");
+            chkFlip.value = false;
+
             var grpBtns = winDlg.add("group");
             grpBtns.alignment = ["center", "top"];
             var btnOk = grpBtns.add("button", undefined, "Copy & Add");
@@ -643,9 +646,10 @@
 
                         if (parentLayersToAttach.length > 0) {
                             var parentLyr = parentLayersToAttach[j];
-                            newLayer.moveAfter(parentLyr);
+                            newLayer.moveBefore(parentLyr);
                             newLayer.parent = parentLyr;
                             newLayer.transform.position.setValue(parentLyr.transform.anchorPoint.value);
+                            parentLyr.enabled = false;
                             
                             // Auto-Scale (Fit) character comp to match the placeholder's bounding box
                             try {
@@ -668,6 +672,11 @@
                             } catch(e) {
                                 // Ignore if sourceRectAtTime fails (e.g. on Null Objects)
                             }
+                        }
+                        
+                        if (chkFlip.value) {
+                            var currentScale = newLayer.transform.scale.value;
+                            newLayer.transform.scale.setValue([-currentScale[0], currentScale[1]]);
                         }
                     }
                 } catch (e) {

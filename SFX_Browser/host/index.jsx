@@ -21,11 +21,19 @@ function scanFolder(folder, parentPath, results) {
             scanFolder(item, binPath, results);
         } else if (item.type === ProjectItemType.FILE || item.type === ProjectItemType.CLIP) {
             if (isAudioFile(item)) {
-                results.push({
-                    name: item.name,
-                    treePath: item.treePath,
-                    binPath: parentPath || "root"
-                });
+                var mediaPath = null;
+                try {
+                    mediaPath = item.getMediaPath();
+                } catch (e) {}
+                
+                if (mediaPath && new File(mediaPath).exists) {
+                    results.push({
+                        name: item.name,
+                        treePath: item.treePath,
+                        binPath: parentPath || "root",
+                        mediaPath: mediaPath.replace(/\\/g, "/")
+                    });
+                }
             }
         }
     }

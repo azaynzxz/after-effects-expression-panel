@@ -6,7 +6,7 @@
 
     function buildUI(thisObj) {
         // Determine if this is a dockable panel or standalone window
-        var myPanel = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Anchor Point Control", undefined, {resizeable: true});
+        var myPanel = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Anchor Point Control", undefined, { resizeable: true });
 
         myPanel.orientation = "column";
         myPanel.alignChildren = ["center", "top"];
@@ -14,13 +14,6 @@
         myPanel.margins = 6;
         myPanel.preferredSize.width = 150;
         myPanel.preferredSize.height = 160;
-
-        // Title/Header (small, bold)
-        var titleGrp = myPanel.add("group");
-        titleGrp.alignment = ["fill", "top"];
-        titleGrp.alignChildren = ["center", "center"];
-        var title = titleGrp.add("statictext", undefined, "ANCHOR POINT CONTROL");
-        title.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
         // 3x3 Button Grid
         var gridGroup = myPanel.add("group");
@@ -41,7 +34,7 @@
             for (var c = 0; c < 3; c++) {
                 (function (rr, cc, sym) {
                     var btn = row.add("button", undefined, sym);
-                    btn.preferredSize = [32, 26];
+                    btn.preferredSize = [24, 24]; // Reduced size for a compact square look
                     btn.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 12);
                     btn.onClick = function () {
                         moveAnchorPoint(cc, rr, compensateChk.value);

@@ -113,6 +113,7 @@ function renderList(items) {
         (function (item) {
             var div = document.createElement('div');
             div.className = 'list-item';
+            div.draggable = true;
 
             var favActive = isFavorite(item.treePath);
             div.innerHTML =
@@ -123,6 +124,12 @@ function renderList(items) {
                 '  <button class="action-btn play" title="Preview">▶</button>' +
                 '  <button class="action-btn star ' + (favActive ? 'active' : '') + '" title="Favorite">' + (favActive ? '★' : '☆') + '</button>' +
                 '</div>';
+
+            div.addEventListener('dragstart', function(e) {
+                if (item.mediaPath) {
+                    e.dataTransfer.setData('com.adobe.cep.dnd.file.0', item.mediaPath);
+                }
+            });
 
             div.addEventListener('click', function (e) {
                 if (e.target.classList.contains('play')) {
@@ -373,4 +380,130 @@ for (var i = 0; i < gainBtns.length; i++) {
             });
         });
     })(gainBtns[i]);
+}
+
+// ─── Microphone Recording ──────────────────────────────────────────────────────
+
+var mediaRecorder = null;
+var recordedChunks = [];
+var isRecording = false;
+
+document.getElementById('recordBtn').addEventListener('click', function() {
+    var btn = this;
+    if (isRecording) {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        mediaRecorder = new MediaRecorder(stream);
+        recordedChunks = [];
+        
+        mediaRecorder.addEventListener('dataavailable', function(e) {
+            if (e.data.size > 0) {
+                recordedChunks.push(e.data);
+            }
+        });
+
+        mediaRecorder.addEventListener('stop', function() {
+            isRecording = false;
+            btn.classList.remove('recording');
+            setStatus('Processing recording...', 'success');
+            
+            stream.getTracks().forEach(function(track) { track.stop(); });
+
+            var blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            var reader = new FileReader();
+            reader.onload = function() {
+                var buffer = Buffer.from(reader.result);
+                var tempDir = require('os').tmpdir();
+                var webmPath = path.join(tempDir, 'sfx_record_' + Date.now() + '.webm');
+                var wavPath = webmPath.replace('.webm', '.wav');
+                
+                require('fs').writeFileSync(webmPath, buffer);
+                
+                var ffmpegCmd = findFfmpeg();
+                if (ffmpegCmd) {
+                    try {
+                        childProcess.execSync(ffmpegCmd + ' -y -i "' + webmPath + '" "' + wavPath + '"', {stdio: 'pipe'});
+                        showRecordedItem(wavPath);
+                        setStatus('Recording ready', 'success');
+                    } catch (e) {
+                        setStatus('Error converting recording', 'error');
+                        showRecordedItem(webmPath);
+                    }
+                } else {
+                    showRecordedItem(webmPath);
+                }
+            };
+            reader.readAsArrayBuffer(blob);
+        });
+
+        mediaRecorder.start();
+        isRecording = true;
+        btn.classList.add('recording');
+        setStatus('Recording microphone...', 'success');
+    }).catch(function(err) {
+        setStatus('Microphone error: ' + err.message, 'error');
+    });
+});
+
+function showRecordedItem(filePath) {
+    var container = document.getElementById('recordResult');
+    container.style.display = 'block';
+    container.innerHTML = '';
+    
+    var div = document.createElement('div');
+    div.className = 'list-item';
+    div.draggable = true;
+    div.style.background = '#2a3a2a';
+    div.style.border = '1px solid #4caf50';
+    div.innerHTML =
+        '<span class="icon" style="color:#4caf50">🎤</span>' +
+        '<span class="name">Recorded Audio</span>' +
+        '<span class="path">Drag to timeline!</span>' +
+        '<div class="actions">' +
+        '  <button class="action-btn play" title="Preview">▶</button>' +
+        '</div>';
+        
+    div.addEventListener('dragstart', function(e) {
+        e.dataTransfer.setData('com.adobe.cep.dnd.file.0', filePath.replace(/\\/g, '/'));
+    });
+    
+    div.addEventListener('click', function(e) {
+        if (e.target.classList.contains('play')) {
+            e.stopPropagation();
+            if (currentAudio) {
+                currentAudio.pause();
+                if (currentPlayBtn) {
+                    currentPlayBtn.innerText = '▶';
+                    currentPlayBtn.classList.remove('playing');
+                }
+                var wasPlaying = (currentPlayBtn === e.target);
+                currentAudio = null;
+                currentPlayBtn = null;
+                if (wasPlaying) return;
+            }
+            
+            var fileUrl = 'file://' + encodeURI(filePath.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F');
+            currentAudio = new Audio(fileUrl);
+            currentAudio.volume = 0.6;
+            currentAudio.play().catch(function(){});
+            
+            e.target.innerText = '■';
+            e.target.classList.add('playing');
+            currentPlayBtn = e.target;
+            
+            currentAudio.addEventListener('ended', function() {
+                e.target.innerText = '▶';
+                e.target.classList.remove('playing');
+                currentPlayBtn = null;
+                currentAudio = null;
+            });
+        }
+    });
+    
+    container.appendChild(div);
 }

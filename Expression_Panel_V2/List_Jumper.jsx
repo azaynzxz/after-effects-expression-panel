@@ -1,7 +1,7 @@
 // List Jumper - Jump to timeline positions based on XLSX word data
 // Developed for After Effects
 
-(function () {
+(function (thisObj) {
 
     // Global variables
     var searchData = [];
@@ -94,8 +94,8 @@
     }
 
     // Main function to create the List Jumper window
-    function createListJumperWindow() {
-        var win = new Window("palette", "List Jumper", undefined);
+    function createListJumperWindow(thisObj) {
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "List Jumper", undefined);
         win.orientation = "column";
         win.alignChildren = ["fill", "top"];
         win.spacing = 5;
@@ -384,8 +384,8 @@
             handleNumberKeyJump(event, listbox);
         });
 
-        win.center();
-        win.show();
+        win.layout.layout(true);
+        return win;
     }
 
     // File selection
@@ -898,7 +898,11 @@
     }
 
     // Start the script
-    createListJumperWindow();
+    var myPanel = createListJumperWindow(thisObj);
+    if (myPanel != null && myPanel instanceof Window) {
+        myPanel.center();
+        myPanel.show();
+    }
 
-})();
+})(this);
 

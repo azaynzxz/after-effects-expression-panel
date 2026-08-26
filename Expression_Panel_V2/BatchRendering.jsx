@@ -22,7 +22,8 @@
     // --- STATE ---
     // =========================================================================
     var targetComp = null;       // CompItem reference
-    var ranges = [];             // Array of { inFrame:int, outFrame:int, suffix:String }
+    var compLookup = {};         // O(1) hash map of CompItem.id -> CompItem
+    var ranges = [];             // Array of cached range objects
     var pendingInFrame = null;   // integer frame number, waiting for Mark Out
     var pendingSuffix = "";      // Suffix captured during Mark In (e.g. from layer)
     var outputRootFolder = null; // Folder object — user-chosen root, or null for project default
@@ -35,16 +36,10 @@
         return (n < 10 ? "0" : "") + Math.floor(n);
     }
 
-    /**
-     * Capture current playhead as integer frame number.
-     */
     function captureFrame(comp) {
         return Math.round(comp.time * comp.frameRate);
     }
 
-    /**
-     * Convert integer frame number → "HH:MM:SS:FF" string.
-     */
     function frameToTimecode(frame, fps, dropFrame) {
         var fpsInt = Math.round(fps);
         var f = frame;
@@ -69,9 +64,6 @@
         return pad2(hh) + ":" + pad2(mm) + ":" + pad2(ss) + (dropFrame ? ";" : ":") + pad2(ff);
     }
 
-    /**
-     * Convert "HH:MM:SS:FF" timecode → integer frame number.
-     */
     function timecodeToFrame(tc, fps, dropFrame) {
         var parts = tc.replace(/;/g, ":").split(":");
         if (parts.length !== 4) return 0;
@@ -92,12 +84,10 @@
         return totalFrames;
     }
 
-    /** Frame count → seconds for AE render queue */
     function frameToSeconds(frame, fps) {
         return frame / fps;
     }
 
-    /** Get MM_SS from a frame number (formatted as MM_SS for target filename) */
     function getMMSS(frame, fps) {
         var fpsInt = Math.round(fps);
         var totalSec = Math.floor(frame / fpsInt);
@@ -106,34 +96,48 @@
         return pad2(mm) + "_" + pad2(ss);
     }
 
-    /** Sanitize for filesystem — keep spaces and periods, remove illegal chars only */
     function sanitizePath(str) {
         if (!str) return "";
         return str.replace(/[\\\/\*\?"<>\|:]/g, "");
+    }
+
+    /** Helper to create optimized range objects with pre-calculated timecode strings */
+    function createRangeObj(inF, outF, suffixStr) {
+        var fps = targetComp ? targetComp.frameRate : 30;
+        var df = targetComp ? targetComp.dropFrame : false;
+        
+        var inF_safe = Math.min(inF, outF);
+        var outF_safe = Math.max(inF, outF);
+        var durF = outF_safe - inF_safe;
+
+        return {
+            inFrame: inF_safe,
+            outFrame: outF_safe,
+            durationFrames: durF,
+            suffix: sanitizePath(suffixStr),
+            inTimecode: frameToTimecode(inF_safe, fps, df),
+            outTimecode: frameToTimecode(outF_safe, fps, df),
+            durTimecode: frameToTimecode(durF > 0 ? durF : 0, fps, false)
+        };
     }
 
     // =========================================================================
     // --- COMP LOOKUP ---
     // =========================================================================
 
-    function findCompByName(name) {
-        for (var i = 1; i <= app.project.numItems; i++) {
-            var item = app.project.item(i);
-            if (item instanceof CompItem && item.name === name) return item;
-        }
-        return null;
-    }
-
     function getAllComps() {
         var comps = [];
+        compLookup = {}; // clear hash map
         for (var i = 1; i <= app.project.numItems; i++) {
             var item = app.project.item(i);
-            if (item instanceof CompItem) comps.push(item);
+            if (item instanceof CompItem) {
+                comps.push(item);
+                compLookup[item.id] = item;
+            }
         }
         return comps;
     }
 
-    /** Get active composition if available */
     function getActiveComp() {
         if (app.project && app.project.activeItem && (app.project.activeItem instanceof CompItem)) {
             return app.project.activeItem;
@@ -141,7 +145,6 @@
         return null;
     }
 
-    /** Get project file's parent folder name (truncated to maxLen, default 20) */
     function getParentFolderName(maxLen) {
         var limit = (maxLen !== undefined) ? maxLen : 20;
         var name = "Untitled";
@@ -157,7 +160,7 @@
     }
 
     // =========================================================================
-    // --- UI CONSTRUCTION (Redesigned matching annotation mockup) ---
+    // --- UI CONSTRUCTION ---
     // =========================================================================
 
     // --- ROW 1: Header (Comp dropdown, refresh button, Mark In, Mark Out, Layer range) ---
@@ -175,11 +178,11 @@
 
     var btnMarkIn = headerRow.add("button", undefined, "In");
     btnMarkIn.preferredSize = [50, 24];
-    btnMarkIn.helpTip = "Mark In at playhead or selected layer start";
+    btnMarkIn.helpTip = "Mark In at playhead";
 
     var btnMarkOut = headerRow.add("button", undefined, "Out");
     btnMarkOut.preferredSize = [50, 24];
-    btnMarkOut.helpTip = "Mark Out at playhead or selected layer end";
+    btnMarkOut.helpTip = "Mark Out at playhead";
 
     var btnFromLayer = headerRow.add("button", undefined, "+ Layer");
     btnFromLayer.preferredSize = [60, 24];
@@ -337,12 +340,15 @@
     function refreshCompList() {
         compDropdown.removeAll();
         var comps = getAllComps();
-        for (var i = 0; i < comps.length; i++) compDropdown.add("item", comps[i].name);
+        for (var i = 0; i < comps.length; i++) {
+            var dpItem = compDropdown.add("item", comps[i].name);
+            dpItem.compId = comps[i].id; // Cache ID for O(1) lookup
+        }
         
         var active = getActiveComp();
         if (active) {
             for (var j = 0; j < compDropdown.items.length; j++) {
-                if (compDropdown.items[j].text === active.name) {
+                if (compDropdown.items[j].compId === active.id) {
                     compDropdown.selection = j;
                     setTargetComp(active);
                     return;
@@ -366,7 +372,8 @@
     function autoSelectComp() {
         refreshCompList();
         if (!targetComp && compDropdown.items.length > 0) {
-            setTargetComp(getAllComps()[0]);
+            var firstCompId = compDropdown.items[0].compId;
+            setTargetComp(compLookup[firstCompId]);
         }
         if (targetComp) {
             setStatus("Active comp: " + targetComp.name);
@@ -376,7 +383,6 @@
     }
 
     function refreshOMTemplates(forceScan) {
-        // If omDropdown is already populated and forceScan is not requested, keep existing selection
         if (!forceScan && omDropdown && omDropdown.items && omDropdown.items.length > 0) return;
 
         if (omDropdown) omDropdown.removeAll();
@@ -384,14 +390,10 @@
 
         try {
             var rq = app.project.renderQueue;
-            // 1. Check existing items in render queue without adding new item
             if (rq && rq.numItems > 0) {
-                try {
-                    templates = rq.item(1).outputModule(1).templates;
-                } catch (e1) {}
+                try { templates = rq.item(1).outputModule(1).templates; } catch (e1) {}
             }
             
-            // 2. Only add dummy item if explicitly requested (forceScan) and queue is empty
             if ((!templates || templates.length === 0) && forceScan && targetComp) {
                 var tempItem = rq.items.add(targetComp);
                 templates = tempItem.outputModule(1).templates;
@@ -399,7 +401,6 @@
             }
         } catch (e) {}
 
-        // Fallback standard templates list if dynamic scan was deferred
         if (!templates || templates.length === 0) {
             templates = [
                 "H.264 - Match Render Settings - 5 Mbps",
@@ -415,12 +416,10 @@
                 if (templates[i].indexOf("_HIDDEN") !== 0) omDropdown.add("item", templates[i]);
             }
 
-            // Priority search for EXACT 5 Mbps preset (must not match 15 Mbps, 25 Mbps, 50 Mbps)
             var found = false;
             var reg5Mbps = /(^|[^0-9])5\s*mb/i;
             for (var j = 0; j < omDropdown.items.length; j++) {
-                var itemText = omDropdown.items[j].text;
-                if (reg5Mbps.test(itemText)) {
+                if (reg5Mbps.test(omDropdown.items[j].text)) {
                     omDropdown.selection = j;
                     found = true;
                     break;
@@ -440,56 +439,38 @@
         }
     }
 
-    /** Apply output module template with smart fallback matching for 5 Mbps */
     function applyTemplateWithFallback(om, requestedTemplate) {
         if (!om) return false;
-
-        // 1. Try exact requested template name
         if (requestedTemplate) {
-            try {
-                om.applyTemplate(requestedTemplate);
-                return true;
-            } catch (e1) {}
+            try { om.applyTemplate(requestedTemplate); return true; } catch (e1) {}
         }
-
-        // 2. If exact name failed, search om.templates for exact 5 Mbps preset installed in AE
         try {
             var installed = om.templates;
             var reg5 = /(^|[^0-9])5\s*mb/i;
-
             for (var i = 0; i < installed.length; i++) {
-                if (reg5.test(installed[i])) {
-                    om.applyTemplate(installed[i]);
-                    return true;
-                }
+                if (reg5.test(installed[i])) { om.applyTemplate(installed[i]); return true; }
             }
-
-            // 3. Fallback to any H.264 template if 5 Mbps wasn't found
             for (var j = 0; j < installed.length; j++) {
-                if (installed[j].indexOf("H.264") !== -1) {
-                    om.applyTemplate(installed[j]);
-                    return true;
-                }
+                if (installed[j].indexOf("H.264") !== -1) { om.applyTemplate(installed[j]); return true; }
             }
         } catch (e2) {}
-
         return false;
     }
 
+    function addRangeUI(r, idx) {
+        var item = rangeList.add("item", String(idx + 1));
+        item.subItems[0].text = r.inTimecode;
+        item.subItems[1].text = r.outTimecode;
+        item.subItems[2].text = r.durTimecode;
+        item.subItems[3].text = r.suffix;
+        return item;
+    }
+
+    /** Optimised direct UI refresh instead of full rebuild */
     function refreshRangeList() {
         rangeList.removeAll();
         if (!targetComp) return;
-        var fps = targetComp.frameRate;
-        var df = targetComp.dropFrame;
-        for (var i = 0; i < ranges.length; i++) {
-            var r = ranges[i];
-            var durFrames = r.outFrame - r.inFrame;
-            var item = rangeList.add("item", String(i + 1));
-            item.subItems[0].text = frameToTimecode(r.inFrame, fps, df);
-            item.subItems[1].text = frameToTimecode(r.outFrame, fps, df);
-            item.subItems[2].text = frameToTimecode(durFrames > 0 ? durFrames : 0, fps, false);
-            item.subItems[3].text = r.suffix || "";
-        }
+        for (var i = 0; i < ranges.length; i++) addRangeUI(ranges[i], i);
         updatePreview();
     }
 
@@ -501,15 +482,12 @@
         var idx = item.index;
         if (idx < 0 || idx >= ranges.length) return;
         var r = ranges[idx];
-        var fps = targetComp.frameRate;
-        var df = targetComp.dropFrame;
-        editInField.text = frameToTimecode(r.inFrame, fps, df);
-        editOutField.text = frameToTimecode(r.outFrame, fps, df);
+        editInField.text = r.inTimecode;
+        editOutField.text = r.outTimecode;
         editSuffixField.text = r.suffix || "";
         updatePreview();
     }
 
-    /** Build file path preview for selected row: RF_[Parent folder]_[MM_SS]_[Suffix] */
     function updatePreview() {
         var sel = rangeList.selection;
         if (sel === null || !targetComp) { previewLabel.text = "(select a range)"; return; }
@@ -518,11 +496,10 @@
         var idx = item.index;
         if (idx < 0 || idx >= ranges.length) return;
         var r = ranges[idx];
-        var fps = targetComp.frameRate;
 
         var parentName = sanitizePath(getParentFolderName());
-        var mmss = getMMSS(r.inFrame, fps);
-        var suffix = r.suffix ? "_" + sanitizePath(r.suffix) : "";
+        var mmss = getMMSS(r.inFrame, targetComp.frameRate);
+        var suffix = r.suffix ? "_" + r.suffix : "";
         var fileName = "RF_" + parentName + "_" + mmss + suffix + ".mp4";
 
         var rootPath = getOutputRoot();
@@ -538,24 +515,23 @@
         return Folder.desktop.fsName;
     }
 
-    /** Add range(s) directly from selected layer(s) in active/target comp */
     function addRangesFromSelectedLayers() {
         if (!targetComp) { setStatus("⚠ No target comp selected."); return false; }
         var selLayers = targetComp.selectedLayers;
         if (!selLayers || selLayers.length === 0) return false;
 
         var fps = targetComp.frameRate;
-        var df = targetComp.dropFrame;
 
         for (var i = 0; i < selLayers.length; i++) {
             var layer = selLayers[i];
             var inF = Math.round(layer.inPoint * fps);
             var outF = Math.round(layer.outPoint * fps);
-            var layerSuffix = sanitizePath(layer.name);
-            ranges.push({ inFrame: inF, outFrame: outF, suffix: layerSuffix });
+            var layerSuffix = layer.name;
+            var r = createRangeObj(inF, outF, layerSuffix);
+            ranges.push(r);
+            addRangeUI(r, ranges.length - 1); // Append to UI directly
         }
 
-        refreshRangeList();
         setStatus("✓ Added " + selLayers.length + " range(s) from selected layer(s).");
         return true;
     }
@@ -568,54 +544,36 @@
 
     compDropdown.onChange = function () {
         if (compDropdown.selection === null) return;
-        var comp = findCompByName(compDropdown.selection.text);
+        var cId = compDropdown.selection.compId;
+        var comp = compLookup[cId] || null;
         if (comp) { setTargetComp(comp); setStatus("Target: " + comp.name); }
     };
 
     btnMarkIn.onClick = function () {
         if (!targetComp) { setStatus("⚠ No comp selected."); return; }
         
-        var selLayers = targetComp.selectedLayers;
-        if (selLayers && selLayers.length > 0) {
-            var layer = selLayers[0];
-            pendingInFrame = Math.round(layer.inPoint * targetComp.frameRate);
-            pendingSuffix = layer.name;
-            var tc = frameToTimecode(pendingInFrame, targetComp.frameRate, targetComp.dropFrame);
-            pendingLabel.text = "In: " + tc + " (layer: " + layer.name + ") — click Out";
-            setStatus("In marked at " + tc + " from layer '" + layer.name + "'");
-        } else {
-            pendingInFrame = captureFrame(targetComp);
-            pendingSuffix = "";
-            var tc2 = frameToTimecode(pendingInFrame, targetComp.frameRate, targetComp.dropFrame);
-            pendingLabel.text = "In: " + tc2 + " — click Out";
-            setStatus("In marked at " + tc2);
-        }
+        pendingInFrame = captureFrame(targetComp);
+        pendingSuffix = "";
+        var tc = frameToTimecode(pendingInFrame, targetComp.frameRate, targetComp.dropFrame);
+        pendingLabel.text = "In: " + tc + " — click Out";
+        setStatus("In marked at " + tc);
     };
 
     btnMarkOut.onClick = function () {
         if (!targetComp) { setStatus("⚠ No comp selected."); return; }
         
-        var fps = targetComp.frameRate;
-        var df = targetComp.dropFrame;
-        var selLayers = targetComp.selectedLayers;
-
         if (pendingInFrame !== null) {
             var outFrame = captureFrame(targetComp);
-            var sfx = pendingSuffix;
-
-            if (selLayers && selLayers.length > 0) {
-                outFrame = Math.round(selLayers[0].outPoint * fps);
-                if (!sfx) sfx = selLayers[0].name;
-            }
-
-            ranges.push({ inFrame: pendingInFrame, outFrame: outFrame, suffix: sanitizePath(sfx) });
+            var r = createRangeObj(pendingInFrame, outFrame, pendingSuffix);
+            
+            ranges.push(r);
+            addRangeUI(r, ranges.length - 1);
+            
             pendingInFrame = null;
             pendingSuffix = "";
             pendingLabel.text = "";
-            refreshRangeList();
             setStatus("Range #" + ranges.length + " added.");
         } else {
-            // If Mark In wasn't pressed, try adding range directly from selected layer
             if (!addRangesFromSelectedLayers()) {
                 setStatus("⚠ Mark In first, or select a layer in the timeline.");
             }
@@ -623,9 +581,7 @@
     };
 
     btnFromLayer.onClick = function () {
-        if (!addRangesFromSelectedLayers()) {
-            setStatus("⚠ No layer selected in target comp.");
-        }
+        if (!addRangesFromSelectedLayers()) setStatus("⚠ No layer selected in target comp.");
     };
 
     rangeList.onChange = function () { populateEditFields(); };
@@ -658,23 +614,23 @@
         for (var k = 0; k < items.length; k++) {
             var idx = items[k].index;
             if (idx >= 0 && idx < ranges.length) {
-                if (editInField.text !== "") ranges[idx].inFrame = timecodeToFrame(editInField.text, fps, df);
-                if (editOutField.text !== "") ranges[idx].outFrame = timecodeToFrame(editOutField.text, fps, df);
-                ranges[idx].suffix = editSuffixField.text;
+                var inF = (editInField.text !== "") ? timecodeToFrame(editInField.text, fps, df) : ranges[idx].inFrame;
+                var outF = (editOutField.text !== "") ? timecodeToFrame(editOutField.text, fps, df) : ranges[idx].outFrame;
+                
+                // createRangeObj automatically handles sorting min/max if they are out of order
+                var newR = createRangeObj(inF, outF, editSuffixField.text);
+                ranges[idx] = newR;
+
+                // Update UI directly without tearing down listbox
+                var uiItem = rangeList.items[idx];
+                uiItem.subItems[0].text = newR.inTimecode;
+                uiItem.subItems[1].text = newR.outTimecode;
+                uiItem.subItems[2].text = newR.durTimecode;
+                uiItem.subItems[3].text = newR.suffix;
             }
         }
 
-        refreshRangeList();
-
-        // Restore selection
-        var newSel = [];
-        for (var m = 0; m < items.length; m++) {
-            if (items[m].index < rangeList.items.length) {
-                newSel.push(items[m].index);
-            }
-        }
-        if (newSel.length > 0) rangeList.selection = newSel;
-
+        updatePreview();
         setStatus("✓ Updated " + items.length + " range(s).");
     };
 
@@ -682,19 +638,26 @@
         var sel = rangeList.selection;
         if (sel === null) { setStatus("⚠ Select range(s) to delete."); return; }
 
-        if (sel instanceof Array) {
-            var indices = [];
-            for (var i = 0; i < sel.length; i++) indices.push(sel[i].index);
-            indices.sort(function (a, b) { return b - a; });
-            for (var j = 0; j < indices.length; j++) {
-                ranges.splice(indices[j], 1);
-            }
-            setStatus("Deleted " + indices.length + " range(s).");
-        } else {
-            ranges.splice(sel.index, 1);
-            setStatus("Deleted 1 range.");
+        var items = (sel instanceof Array) ? sel : [sel];
+        var indices = [];
+        for (var i = 0; i < items.length; i++) indices.push(items[i].index);
+        
+        // Sort descending so splicing doesn't shift remaining indices being processed
+        indices.sort(function (a, b) { return b - a; });
+        
+        for (var j = 0; j < indices.length; j++) {
+            var idx = indices[j];
+            ranges.splice(idx, 1);
+            rangeList.remove(rangeList.items[idx]); // Remove directly from DOM
         }
-        refreshRangeList();
+        
+        // Fix index column labels (#) for all remaining items
+        for (var k = 0; k < rangeList.items.length; k++) {
+            rangeList.items[k].text = String(k + 1);
+        }
+
+        populateEditFields(); // Clear or update fields based on new selection state
+        setStatus("Deleted " + indices.length + " range(s).");
     };
 
     btnClearAll.onClick = function () {
@@ -703,7 +666,8 @@
         pendingSuffix = "";
         pendingLabel.text = "";
         editInField.text = ""; editOutField.text = ""; editSuffixField.text = "";
-        refreshRangeList();
+        rangeList.removeAll();
+        updatePreview();
         setStatus("Cleared.");
     };
 
@@ -747,8 +711,6 @@
 
         var templateName = (omDropdown.selection !== null) ? omDropdown.selection.text : null;
         var parentName = sanitizePath(getParentFolderName());
-
-        // Track names for duplicate detection
         var nameCount = {};
 
         app.beginUndoGroup("Batch Rendering — " + ranges.length + " ranges");
@@ -759,43 +721,38 @@
 
             for (var i = 0; i < ranges.length; i++) {
                 var r = ranges[i];
-                var durFrames = r.outFrame - r.inFrame;
-                if (durFrames <= 0) continue;
+                if (r.durationFrames <= 0) continue;
 
                 var rqItem = rq.items.add(targetComp);
                 rqItem.timeSpanStart = frameToSeconds(r.inFrame, fps);
-                rqItem.timeSpanDuration = frameToSeconds(durFrames, fps);
+                rqItem.timeSpanDuration = frameToSeconds(r.durationFrames, fps);
 
-                // Build filename: RF_{parentFolder}_{MM_SS}{suffix}
                 var mmss = getMMSS(r.inFrame, fps);
-                var suffix = r.suffix ? "_" + sanitizePath(r.suffix) : "";
+                var suffix = r.suffix ? "_" + r.suffix : "";
                 var baseName = "RF_" + parentName + "_" + mmss + suffix;
-
-                // Handle duplicate names
-                if (nameCount[baseName] !== undefined) {
-                    nameCount[baseName]++;
-                    baseName = baseName + "_" + nameCount[baseName];
-                } else {
-                    nameCount[baseName] = 1;
-                }
-
+                
                 var om = rqItem.outputModule(1);
                 applyTemplateWithFallback(om, templateName);
 
-                // Extract extension from output module's template file (e.g. ".mp4", ".mov")
                 var ext = ".mp4";
                 try {
                     if (om.file && om.file.name) {
                         var defaultFileName = om.file.name;
                         var dotIndex = defaultFileName.lastIndexOf(".");
-                        if (dotIndex !== -1) {
-                            ext = defaultFileName.substring(dotIndex);
-                        }
+                        if (dotIndex !== -1) ext = defaultFileName.substring(dotIndex);
                     }
                 } catch (eExt) {}
 
-                var outputFile = new File(draftFolder.fsName + "\\" + baseName + ext);
-                om.file = outputFile;
+                // Handle duplicates with physical file check + tracking cache
+                var finalName = baseName;
+                var counter = 1;
+                while (nameCount[finalName] !== undefined || new File(draftFolder.fsName + "/" + finalName + ext).exists) {
+                    finalName = baseName + "_" + counter;
+                    counter++;
+                }
+                nameCount[finalName] = 1;
+
+                om.file = new File(draftFolder.fsName + "/" + finalName + ext);
                 queued++;
             }
 

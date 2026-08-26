@@ -223,7 +223,7 @@
             btn.onClick = function () {
                 try {
                     actionFn(key);
-                } catch(e) {
+                } catch (e) {
                     updateStatus("Error: " + e.toString());
                 }
             };
@@ -268,11 +268,11 @@
             ["↕ V Scale", "V Scale", runAnim, "Pulse vertical scale (Y-axis only) with bottom-centered anchor"],
             ["⤢ Scale Pulse", "Scale Pulse", runAnim, "Pulse scale symmetrically"],
             ["≈ Water Float", "Water Float", runAnim, "Continuous floating drift animation"],
-            ["≈ Water Dist", "Water Distort", function() { showWaterDistortionDialog(); }, "Add water distortion effect"],
-            ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }, "Add bounce keyframes"],
-            ["✳ Rim Light", "Rim Light", function() { addRimLightEffects(); }, "Add rim light effects"],
-            ["⤓ Squash", "Squash", function() { applySquashAnimation(); }, "Apply squash animation"],
-            ["⤓ Squash 2", "Squash 2", function() { applySquash2Animation(); }, "Apply squash 2 (staggered transition) animation"],
+            ["≈ Water Dist", "Water Distort", function () { showWaterDistortionDialog(); }, "Add water distortion effect"],
+            ["⤼ Bounce x2", "Bounce x2", function () { addBounceKeyframes(); }, "Add bounce keyframes"],
+            ["✳ Rim Light", "Rim Light", function () { addRimLightEffects(); }, "Add rim light effects"],
+            ["⤓ Squash", "Squash", function () { applySquashAnimation(); }, "Apply squash animation"],
+            ["⤓ Squash 2", "Squash 2", function () { applySquash2Animation(); }, "Apply squash 2 (staggered transition) animation"],
             ["✦ Glitter", "Glitter", runAnim, "Apply glitter flashing animation"],
             ["↻ Time Rot", "Time Rotation", runAnim, "Continuous constant speed rotation"],
             ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"]
@@ -285,7 +285,7 @@
             row.spacing = 2;
             addBtn(row, favAnimPairs[i][0], favAnimPairs[i][1], favAnimPairs[i][2], favAnimPairs[i][3]);
             if (i + 1 < favAnimPairs.length) {
-                addBtn(row, favAnimPairs[i+1][0], favAnimPairs[i+1][1], favAnimPairs[i+1][2], favAnimPairs[i+1][3]);
+                addBtn(row, favAnimPairs[i + 1][0], favAnimPairs[i + 1][1], favAnimPairs[i + 1][2], favAnimPairs[i + 1][3]);
             }
         }
 
@@ -295,15 +295,15 @@
         utilLbl.alignment = ["fill", "top"];
 
         var favUtilPairs = [
-            ["♦ Add KFs", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
-            ["✃ Trim Sel", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
-            ["☒ Hide Lyrs", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
-            ["☑ Show Lyrs", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
-            ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
-            ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
-            ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
-            ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
-            ["⇆ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
+            ["♦ Add KFs", "Add Keyframes", function () { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
+            ["✃ Trim Sel", "Trim Selected", function () { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
+            ["☒ Hide Lyrs", "Hide Layers", function () { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
+            ["☑ Show Lyrs", "Show Layers", function () { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
+            ["♪ Audio Sync", "Audio Sync", function () { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
+            ["⧈ Mask Fit", "Mask Fit", function () { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
+            ["⧈ X Crop", "X Crop", function () { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
+            ["⧉ Tight Crop", "Tight Crop", function () { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
+            ["⇆ Flip H", "Flip H", function () { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
         ];
 
         for (var i = 0; i < favUtilPairs.length; i += 2) {
@@ -313,7 +313,7 @@
             row.spacing = 2;
             addBtn(row, favUtilPairs[i][0], favUtilPairs[i][1], favUtilPairs[i][2], favUtilPairs[i][3]);
             if (i + 1 < favUtilPairs.length) {
-                addBtn(row, favUtilPairs[i+1][0], favUtilPairs[i+1][1], favUtilPairs[i+1][2], favUtilPairs[i+1][3]);
+                addBtn(row, favUtilPairs[i + 1][0], favUtilPairs[i + 1][1], favUtilPairs[i + 1][2], favUtilPairs[i + 1][3]);
             }
         }
 
@@ -326,9 +326,9 @@
             ["↻ Loop Cycle", "Loop Cycle", runAnim, "Loop cycle expression"],
             ["➔ Loop Cont", "Loop Continue", runAnim, "Loop continue expression"],
             ["⇄ Loop Ping", "Loop PingPong", runAnim, "Loop pingpong expression"],
-            ["⚯ Link", "Link", function() { linkerLayers(); }, "Parent selected layers to the last selected layer"],
-            ["↓ Bellow", "Bellow", function() { Bellow(); }, "Move selected layers below the last selected layer"],
-            ["☰ List Jumper", "List Jumper", function() {
+            ["⚯ Link", "Link", function () { linkerLayers(); }, "Parent selected layers to the last selected layer"],
+            ["↓ Bellow", "Bellow", function () { Bellow(); }, "Move selected layers below the last selected layer"],
+            ["☰ List Jumper", "List Jumper", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
                 $.evalFile(new File(scriptFile));
             }, "Open List Jumper - jump to timeline positions based on CSV word data"]
@@ -341,7 +341,7 @@
             row.spacing = 2;
             addBtn(row, favLoopPairs[i][0], favLoopPairs[i][1], favLoopPairs[i][2], favLoopPairs[i][3]);
             if (i + 1 < favLoopPairs.length) {
-                addBtn(row, favLoopPairs[i+1][0], favLoopPairs[i+1][1], favLoopPairs[i+1][2], favLoopPairs[i+1][3]);
+                addBtn(row, favLoopPairs[i + 1][0], favLoopPairs[i + 1][1], favLoopPairs[i + 1][2], favLoopPairs[i + 1][3]);
             }
         }
         addTabSpacer(tabFav);
@@ -375,7 +375,7 @@
             row.spacing = 2;
             addBtn(row, basicPairs[i][0], basicPairs[i][1], runAnim);
             if (i + 1 < basicPairs.length) {
-                addBtn(row, basicPairs[i+1][0], basicPairs[i+1][1], runAnim);
+                addBtn(row, basicPairs[i + 1][0], basicPairs[i + 1][1], runAnim);
             }
         }
         addTabSpacer(tabBasic);
@@ -391,18 +391,18 @@
             ["≈ Water Float", "Water Float", runAnim],
             ["✦ Glitter", "Glitter", runAnim],
             ["⚏ Fish-like", "Fish-like", runAnim],
-            ["≈ Water Distort", "Water Distort", function() { showWaterDistortionDialog(); }],
-            ["✳ Rim Light", "Rim Light", function() { addRimLightEffects(); }],
-            ["⇅ Choppy Flip", "Choppy Flip", function() { showChoppyFlipDialog(); }],
-            ["⤼ Bounce x2", "Bounce x2", function() { addBounceKeyframes(); }],
-            ["⤓ Squash", "Squash", function() { applySquashAnimation(); }],
-            ["⤓ Squash 2", "Squash 2", function() { applySquash2Animation(); }],
-            ["◒ Blink", "Blink", function() { showBlinkDialog(); }],
-            ["⇾ Kick Out", "Kick Out", function() { showKickOutOfFrameDialog(); }],
-            ["⇿ Put Here", "Put Here", function() { showPutHereDialog(); }],
-            ["⧉ Tight Crop", "Tight Crop", function() { runUnprecompDirect(); }],
-            ["□ White BG", "White BG", function() { setPrecompBgWhite(); }],
-            ["◐ Rev Opacity", "Reverse Opacity", function() { applyReverseOpacity(); }]
+            ["≈ Water Distort", "Water Distort", function () { showWaterDistortionDialog(); }],
+            ["✳ Rim Light", "Rim Light", function () { addRimLightEffects(); }],
+            ["⇅ Choppy Flip", "Choppy Flip", function () { showChoppyFlipDialog(); }],
+            ["⤼ Bounce x2", "Bounce x2", function () { addBounceKeyframes(); }],
+            ["⤓ Squash", "Squash", function () { applySquashAnimation(); }],
+            ["⤓ Squash 2", "Squash 2", function () { applySquash2Animation(); }],
+            ["◒ Blink", "Blink", function () { showBlinkDialog(); }],
+            ["⇾ Kick Out", "Kick Out", function () { showKickOutOfFrameDialog(); }],
+            ["⇿ Put Here", "Put Here", function () { showPutHereDialog(); }],
+            ["⧉ Tight Crop", "Tight Crop", function () { runUnprecompDirect(); }],
+            ["□ White BG", "White BG", function () { setPrecompBgWhite(); }],
+            ["◐ Rev Opacity", "Reverse Opacity", function () { applyReverseOpacity(); }]
         ];
 
         for (var i = 0; i < complexItems.length; i += 2) {
@@ -412,7 +412,7 @@
             row.spacing = 2;
             addBtn(row, complexItems[i][0], complexItems[i][1], complexItems[i][2]);
             if (i + 1 < complexItems.length) {
-                addBtn(row, complexItems[i+1][0], complexItems[i+1][1], complexItems[i+1][2]);
+                addBtn(row, complexItems[i + 1][0], complexItems[i + 1][1], complexItems[i + 1][2]);
             }
         }
         addTabSpacer(tabComplex);
@@ -425,25 +425,25 @@
         tabUtil.margins = 2;
 
         var utilItems = [
-            ["⛨ XLock", "XLock", function() { toggleXLockLayers(); }, "Toggle lock status for layers named 'x' or 'X' in main_comp"],
-            ["✃ Auto Trim", "Auto Trim", function() { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
-            ["♫ Copy Audio", "Copy Audio", function() { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
-            ["♪ Audio Sync", "Audio Sync", function() { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
-            ["⚲ MK CTRL", "MK CTRL", function() { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations"],
-            ["⚯ Puppet→Null", "Puppet→Null", function() { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
-            ["⧈ Mask Fit", "Mask Fit", function() { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
-            ["↔ Flip H", "Flip H", function() { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
-            ["↕ Flip V", "Flip V", function() { flipVertical(); }, "Flip layers vertically (invert Y scale)"],
-            ["☒ Hide Layers", "Hide Layers", function() { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
-            ["☑ Show Layers", "Show Layers", function() { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
-            ["☒ Hide Layer 2", "Hide Layer 2", function() { hideAllLayersNamedHide2(); }, "Hide all layers starting with 'hide' or 'x' in a user-selected comp"],
-            ["⧗ Batch Duration", "Batch Duration", function() { changeBatchDuration(); }, "Change duration of selected precomp source compositions"],
-            ["⧗ Batch FPS", "Batch FPS", function() { showBatchFramerateDialog(); }, "Change framerate of selected precomp source compositions in main_comp"],
-            ["⧈ X Crop", "X Crop", function() { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
-            ["♦ Add Keyframes", "Add Keyframes", function() { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
-            ["✃ Trim Selected", "Trim Selected", function() { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
-            ["⧈ Auto Size", "Auto Size", function() { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"],
-            ["☒ Clean Tabs", "Clean Tabs Open", function() { cleanTabsOpen(); }, "Close all open viewers/tabs except main_comp and Render Queue"]
+            ["⛨ XLock", "XLock", function () { toggleXLockLayers(); }, "Toggle lock status for layers named 'x' or 'X' in main_comp"],
+            ["✃ Auto Trim", "Auto Trim", function () { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
+            ["♫ Copy Audio", "Copy Audio", function () { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
+            ["♪ Audio Sync", "Audio Sync", function () { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
+            ["⚲ MK CTRL", "MK CTRL", function () { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations"],
+            ["⚯ Puppet→Null", "Puppet→Null", function () { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
+            ["⧈ Mask Fit", "Mask Fit", function () { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
+            ["↔ Flip H", "Flip H", function () { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
+            ["↕ Flip V", "Flip V", function () { flipVertical(); }, "Flip layers vertically (invert Y scale)"],
+            ["☒ Hide Layers", "Hide Layers", function () { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
+            ["☑ Show Layers", "Show Layers", function () { showAllLayersNamedHide(); }, "Show all layers starting with 'hide' or 'x' in main_comp"],
+            ["☒ Hide Layer 2", "Hide Layer 2", function () { hideAllLayersNamedHide2(); }, "Hide all layers starting with 'hide' or 'x' in a user-selected comp"],
+            ["⧗ Batch Duration", "Batch Duration", function () { changeBatchDuration(); }, "Change duration of selected precomp source compositions"],
+            ["⧗ Batch FPS", "Batch FPS", function () { showBatchFramerateDialog(); }, "Change framerate of selected precomp source compositions in main_comp"],
+            ["⧈ X Crop", "X Crop", function () { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
+            ["♦ Add Keyframes", "Add Keyframes", function () { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
+            ["✃ Trim Selected", "Trim Selected", function () { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
+            ["⧈ Auto Size", "Auto Size", function () { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"],
+            ["☒ Clean Tabs", "Clean Tabs Open", function () { cleanTabsOpen(); }, "Close all open viewers/tabs except main_comp and Render Queue"]
         ];
 
         for (var i = 0; i < utilItems.length; i += 2) {
@@ -453,7 +453,7 @@
             row.spacing = 2;
             addBtn(row, utilItems[i][0], utilItems[i][1], utilItems[i][2], utilItems[i][3]);
             if (i + 1 < utilItems.length) {
-                addBtn(row, utilItems[i+1][0], utilItems[i+1][1], utilItems[i+1][2], utilItems[i+1][3]);
+                addBtn(row, utilItems[i + 1][0], utilItems[i + 1][1], utilItems[i + 1][2], utilItems[i + 1][3]);
             }
         }
         addTabSpacer(tabUtil);
@@ -499,28 +499,28 @@
         tabTools.margins = 2;
 
         var toolPairs = [
-            ["▢ Create Null", "Create Null", function() { createNullObject(); }, "Creates a null object for the selected layer"],
-            ["⇄ Reverse KF", "Reverse KF", function() { reverseAllKeyframes(); }, "Reverse selected keyframes"],
-            ["⤢ Batch Scale", "Batch Scale", function() { showBatchScaleDialog(); }, "Batch scale layers with presets"],
-            ["⧉ Smart Precomp", "Smart Precomp", function() { createSmartPrecomp(); }, "Create precomp retaining size, scale and position"],
-            ["⤎ CP Movement", "CP Movement", function() { showCPMovementDialog(); }, "Copy movement from a layer inside precomp"],
-            ["⌕ Auto Zoom", "Auto Zoom", function() { showAutoZoomDialog(); }, "Add zoom in/out keyframes to selected layers"],
-            ["⤏ Walk/Run", "Walk/Run", function() { showWalkRunDialog(); }, "Add walking/running arc movement"],
-            ["⚯ Attach Leg", "Attach Leg", function() { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
-            ["⚲ Add Mouth", "Add Mouth", function() { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer (Add Lip)"],
-            ["⤓ Pinch", "Pinch", function() { showPinchDialog(); }, "Add a pinch preset animation"],
-            ["⧗ Counter", "Text Counter", function() { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"],
-            ["⚇ Smart Rig", "Smart Rig", function() { 
+            ["▢ Create Null", "Create Null", function () { createNullObject(); }, "Creates a null object for the selected layer"],
+            ["⇄ Reverse KF", "Reverse KF", function () { reverseAllKeyframes(); }, "Reverse selected keyframes"],
+            ["⤢ Batch Scale", "Batch Scale", function () { showBatchScaleDialog(); }, "Batch scale layers with presets"],
+            ["⧉ Smart Precomp", "Smart Precomp", function () { createSmartPrecomp(); }, "Create precomp retaining size, scale and position"],
+            ["⤎ CP Movement", "CP Movement", function () { showCPMovementDialog(); }, "Copy movement from a layer inside precomp"],
+            ["⌕ Auto Zoom", "Auto Zoom", function () { showAutoZoomDialog(); }, "Add zoom in/out keyframes to selected layers"],
+            ["⤏ Walk/Run", "Walk/Run", function () { showWalkRunDialog(); }, "Add walking/running arc movement"],
+            ["⚯ Attach Leg", "Attach Leg", function () { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
+            ["⚲ Add Mouth", "Add Mouth", function () { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer (Add Lip)"],
+            ["⤓ Pinch", "Pinch", function () { showPinchDialog(); }, "Add a pinch preset animation"],
+            ["⧗ Counter", "Text Counter", function () { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"],
+            ["⚇ Smart Rig", "Smart Rig", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx";
-                $.evalFile(new File(scriptFile)); 
+                $.evalFile(new File(scriptFile));
             }, "Open Smart Rig script"],
-            ["▤ Batch Render", "Batch Rendering", function() { 
+            ["▤ Batch Render", "Batch Rendering", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx";
-                $.evalFile(new File(scriptFile)); 
+                $.evalFile(new File(scriptFile));
             }, "Open Batch Rendering script"],
-            ["◫ Sync PSDs", "Sync PSDs", function() { 
+            ["◫ Sync PSDs", "Sync PSDs", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
-                $.evalFile(new File(scriptFile)); 
+                $.evalFile(new File(scriptFile));
             }, "Open Sync PSDs to Timeline script"]
         ];
 
@@ -531,7 +531,7 @@
             row.spacing = 2;
             addBtn(row, toolPairs[i][0], toolPairs[i][1], toolPairs[i][2], toolPairs[i][3]);
             if (i + 1 < toolPairs.length) {
-                addBtn(row, toolPairs[i+1][0], toolPairs[i+1][1], toolPairs[i+1][2], toolPairs[i+1][3]);
+                addBtn(row, toolPairs[i + 1][0], toolPairs[i + 1][1], toolPairs[i + 1][2], toolPairs[i + 1][3]);
             }
         }
 
@@ -766,12 +766,13 @@
         var rowAntT = tabAnticipate.add("group");
         rowAntT.orientation = "row";
         rowAntT.alignChildren = ["left", "center"];
-        rowAntT.spacing = 2;
+        rowAntT.alignment = ["fill", "top"];
+        rowAntT.spacing = 4;
         var lblAntT = rowAntT.add("statictext", undefined, "Time %:");
-        lblAntT.preferredSize.width = 42;
+        lblAntT.preferredSize.width = 48;
         lblAntT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         var slAntT = rowAntT.add("slider", undefined, 30, 5, 60);
-        slAntT.preferredSize.width = 65;
+        slAntT.alignment = ["fill", "center"];
         var txAntT = rowAntT.add("edittext", undefined, "30");
         txAntT.preferredSize = [28, 16];
         txAntT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -781,12 +782,13 @@
         var rowAntS = tabAnticipate.add("group");
         rowAntS.orientation = "row";
         rowAntS.alignChildren = ["left", "center"];
-        rowAntS.spacing = 2;
+        rowAntS.alignment = ["fill", "top"];
+        rowAntS.spacing = 4;
         var lblAntS = rowAntS.add("statictext", undefined, "Str %:");
-        lblAntS.preferredSize.width = 42;
+        lblAntS.preferredSize.width = 48;
         lblAntS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         var slAntS = rowAntS.add("slider", undefined, 40, 0, 100);
-        slAntS.preferredSize.width = 65;
+        slAntS.alignment = ["fill", "center"];
         var txAntS = rowAntS.add("edittext", undefined, "40");
         txAntS.preferredSize = [28, 16];
         txAntS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -806,12 +808,13 @@
         var rowOvT = tabAnticipate.add("group");
         rowOvT.orientation = "row";
         rowOvT.alignChildren = ["left", "center"];
-        rowOvT.spacing = 2;
+        rowOvT.alignment = ["fill", "top"];
+        rowOvT.spacing = 4;
         var lblOvT = rowOvT.add("statictext", undefined, "Time %:");
-        lblOvT.preferredSize.width = 42;
+        lblOvT.preferredSize.width = 48;
         lblOvT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         var slOvT = rowOvT.add("slider", undefined, 30, 5, 60);
-        slOvT.preferredSize.width = 65;
+        slOvT.alignment = ["fill", "center"];
         var txOvT = rowOvT.add("edittext", undefined, "30");
         txOvT.preferredSize = [28, 16];
         txOvT.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -821,12 +824,13 @@
         var rowOvS = tabAnticipate.add("group");
         rowOvS.orientation = "row";
         rowOvS.alignChildren = ["left", "center"];
-        rowOvS.spacing = 2;
+        rowOvS.alignment = ["fill", "top"];
+        rowOvS.spacing = 4;
         var lblOvS = rowOvS.add("statictext", undefined, "Str %:");
-        lblOvS.preferredSize.width = 42;
+        lblOvS.preferredSize.width = 48;
         lblOvS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         var slOvS = rowOvS.add("slider", undefined, 25, 0, 100);
-        slOvS.preferredSize.width = 65;
+        slOvS.alignment = ["fill", "center"];
         var txOvS = rowOvS.add("edittext", undefined, "25");
         txOvS.preferredSize = [28, 16];
         txOvS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -845,12 +849,13 @@
         var rowSS = tabAnticipate.add("group");
         rowSS.orientation = "row";
         rowSS.alignChildren = ["left", "center"];
-        rowSS.spacing = 2;
+        rowSS.alignment = ["fill", "top"];
+        rowSS.spacing = 4;
         var chkSS = rowSS.add("checkbox", undefined, "On");
-        chkSS.preferredSize.width = 34;
+        chkSS.preferredSize.width = 48;
         chkSS.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         var slSSS = rowSS.add("slider", undefined, 20, 0, 100);
-        slSSS.preferredSize.width = 73;
+        slSSS.alignment = ["fill", "center"];
         slSSS.enabled = false;
         var txSSS = rowSS.add("edittext", undefined, "20");
         txSSS.preferredSize = [28, 16];
@@ -858,17 +863,17 @@
         txSSS.justify = "center";
         txSSS.enabled = false;
 
-        chkSS.onClick = function() {
+        chkSS.onClick = function () {
             slSSS.enabled = chkSS.value;
             txSSS.enabled = chkSS.value;
         };
 
         // Slider <-> Text sync helper
         function syncAntControl(slider, edit) {
-            slider.onChanging = function() {
+            slider.onChanging = function () {
                 edit.text = Math.round(slider.value).toString();
             };
-            edit.onChange = function() {
+            edit.onChange = function () {
                 var v = parseFloat(edit.text);
                 if (isNaN(v)) return;
                 v = Math.max(slider.minvalue, Math.min(slider.maxvalue, v));
@@ -898,12 +903,12 @@
         var btnPDefault = presetRow.add("button", undefined, "[Default]");
         btnPDefault.preferredSize = [69, 18];
         btnPDefault.helpTip = "Set Default: Ant 30/40%, Ov 30/25%";
-        btnPDefault.onClick = function() {
+        btnPDefault.onClick = function () {
             slAntT.value = 30; txAntT.text = "30";
             slAntS.value = 40; txAntS.text = "40";
-            slOvT.value = 30;  txOvT.text = "30";
-            slOvS.value = 25;  txOvS.text = "25";
-            slSSS.value = 20;  txSSS.text = "20";
+            slOvT.value = 30; txOvT.text = "30";
+            slOvS.value = 25; txOvS.text = "25";
+            slSSS.value = 20; txSSS.text = "20";
             chkSS.value = false;
             slSSS.enabled = false;
             txSSS.enabled = false;
@@ -912,11 +917,11 @@
         var btnPSubtle = presetRow.add("button", undefined, "[Subtle]");
         btnPSubtle.preferredSize = [69, 18];
         btnPSubtle.helpTip = "Set Subtle: Ant 30/11%, Ov 30/12%";
-        btnPSubtle.onClick = function() {
+        btnPSubtle.onClick = function () {
             slAntT.value = 30; txAntT.text = "30";
             slAntS.value = 11; txAntS.text = "11";
-            slOvT.value = 30;  txOvT.text = "30";
-            slOvS.value = 12;  txOvS.text = "12";
+            slOvT.value = 30; txOvT.text = "30";
+            slOvS.value = 12; txOvS.text = "12";
         };
 
         // Actions Row
@@ -940,14 +945,14 @@
         var btnApplySel = actionRow.add("button", undefined, "Apply Sel");
         btnApplySel.preferredSize = [69, 18];
         btnApplySel.helpTip = "Apply anticipation & overshoot to selected keyframe pairs (Pos/Rot)";
-        btnApplySel.onClick = function() {
+        btnApplySel.onClick = function () {
             runAutoAnticipation("selected", getAnticipateSettings());
         };
 
         var btnApplyAll = actionRow.add("button", undefined, "Apply All");
         btnApplyAll.preferredSize = [69, 18];
         btnApplyAll.helpTip = "Apply anticipation & overshoot to all keyframe pairs on selected layer";
-        btnApplyAll.onClick = function() {
+        btnApplyAll.onClick = function () {
             runAutoAnticipation("all", getAnticipateSettings());
         };
 
@@ -961,7 +966,7 @@
         var btnReset = resetRow.add("button", undefined, "Reset Defaults");
         btnReset.preferredSize = [140, 18];
         btnReset.helpTip = "Reset all values to default presets";
-        btnReset.onClick = function() {
+        btnReset.onClick = function () {
             btnPDefault.onClick();
         };
 
@@ -999,74 +1004,82 @@
             { label: "≈ Water Float", key: "Water Float", actionFn: runAnim },
             { label: "✦ Glitter", key: "Glitter", actionFn: runAnim },
             { label: "⚏ Fish-like", key: "Fish-like", actionFn: runAnim },
-            { label: "≈ Water Distort", key: "Water Distort", actionFn: function() { showWaterDistortionDialog(); } },
-            { label: "✳ Rim Light", key: "Rim Light", actionFn: function() { addRimLightEffects(); } },
-            { label: "⇅ Choppy Flip", key: "Choppy Flip", actionFn: function() { showChoppyFlipDialog(); } },
-            { label: "⤼ Bounce x2", key: "Bounce x2", actionFn: function() { addBounceKeyframes(); } },
-            { label: "⤓ Squash", key: "Squash", actionFn: function() { applySquashAnimation(); } },
-            { label: "⤓ Squash 2", key: "Squash 2", actionFn: function() { applySquash2Animation(); }, helpTip: "Apply squash 2 (staggered transition) animation" },
-            { label: "◒ Blink", key: "Blink", actionFn: function() { showBlinkDialog(); } },
-            { label: "⇾ Kick Out", key: "Kick Out", actionFn: function() { showKickOutOfFrameDialog(); } },
-            { label: "⇿ Put Here", key: "Put Here", actionFn: function() { showPutHereDialog(); } },
-            { label: "⧉ Tight Crop", key: "Tight Crop", actionFn: function() { runUnprecompDirect(); } },
-            { label: "□ White BG", key: "White BG", actionFn: function() { setPrecompBgWhite(); } },
-            { label: "◐ Rev Opacity", key: "Reverse Opacity", actionFn: function() { applyReverseOpacity(); }, helpTip: "Reverse opacity against last selected layer" },
+            { label: "≈ Water Distort", key: "Water Distort", actionFn: function () { showWaterDistortionDialog(); } },
+            { label: "✳ Rim Light", key: "Rim Light", actionFn: function () { addRimLightEffects(); } },
+            { label: "⇅ Choppy Flip", key: "Choppy Flip", actionFn: function () { showChoppyFlipDialog(); } },
+            { label: "⤼ Bounce x2", key: "Bounce x2", actionFn: function () { addBounceKeyframes(); } },
+            { label: "⤓ Squash", key: "Squash", actionFn: function () { applySquashAnimation(); } },
+            { label: "⤓ Squash 2", key: "Squash 2", actionFn: function () { applySquash2Animation(); }, helpTip: "Apply squash 2 (staggered transition) animation" },
+            { label: "◒ Blink", key: "Blink", actionFn: function () { showBlinkDialog(); } },
+            { label: "⇾ Kick Out", key: "Kick Out", actionFn: function () { showKickOutOfFrameDialog(); } },
+            { label: "⇿ Put Here", key: "Put Here", actionFn: function () { showPutHereDialog(); } },
+            { label: "⧉ Tight Crop", key: "Tight Crop", actionFn: function () { runUnprecompDirect(); } },
+            { label: "□ White BG", key: "White BG", actionFn: function () { setPrecompBgWhite(); } },
+            { label: "◐ Rev Opacity", key: "Reverse Opacity", actionFn: function () { applyReverseOpacity(); }, helpTip: "Reverse opacity against last selected layer" },
             // Utilities
-            { label: "⛨ XLock", key: "XLock", actionFn: function() { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
-            { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function() { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
-            { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function() { copyAndSyncAudio(); }, helpTip: "Copy audio, sync, and optionally generate markers" },
-            { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function() { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
-            { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function() { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations" },
-            { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function() { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
-            { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function() { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
-            { label: "↔ Flip H", key: "Flip H", actionFn: function() { flipHorizontal(); }, helpTip: "Flip layers horizontally (invert X scale)" },
-            { label: "↕ Flip V", key: "Flip V", actionFn: function() { flipVertical(); }, helpTip: "Flip layers vertically (invert Y scale)" },
-            { label: "☒ Hide Layers", key: "Hide Layers", actionFn: function() { hideAllLayersNamedHide(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in main_comp" },
-            { label: "☑ Show Layers", key: "Show Layers", actionFn: function() { showAllLayersNamedHide(); }, helpTip: "Show all layers starting with 'hide' or 'x' in main_comp" },
-            { label: "☒ Hide Layer 2", key: "Hide Layer 2", actionFn: function() { hideAllLayersNamedHide2(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in a user-selected comp" },
-            { label: "⧗ Batch Duration", key: "Batch Duration", actionFn: function() { changeBatchDuration(); }, helpTip: "Change duration of selected precomp source compositions" },
-            { label: "⧗ Batch FPS", key: "Batch FPS", actionFn: function() { showBatchFramerateDialog(); }, helpTip: "Change framerate of selected precomp source compositions in main_comp" },
-            { label: "⧈ X Crop", key: "X Crop", actionFn: function() { openXCropTool(); }, helpTip: "Open X Crop tool for smart composition cropping" },
-            { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function() { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale, rotation and opacity values" },
-            { label: "✃ Trim Selected", key: "Trim Selected", actionFn: function() { trimSelectedLayers(); }, helpTip: "Trim selected layers to avoid overlapping" },
-            { label: "⧈ Auto Size", key: "Auto Size", actionFn: function() { autoSizeSelectedLayers(); }, helpTip: "Resize selected layers/precomps to fit the composition" },
-            { label: "☒ Clean Tabs", key: "Clean Tabs Open", actionFn: function() { cleanTabsOpen(); }, helpTip: "Close all open viewers/tabs except main_comp and Render Queue" },
+            { label: "⛨ XLock", key: "XLock", actionFn: function () { toggleXLockLayers(); }, helpTip: "Toggle lock status for layers named 'x' or 'X' in main_comp" },
+            { label: "✃ Auto Trim", key: "Auto Trim", actionFn: function () { autoTrimLayers(); }, helpTip: "Trim overlapping layers automatically in main_comp" },
+            { label: "♫ Copy Audio", key: "Copy Audio", actionFn: function () { copyAndSyncAudio(); }, helpTip: "Copy audio, sync, and optionally generate markers" },
+            { label: "♪ Audio Sync", key: "Audio Sync", actionFn: function () { applyAudioSyncExpression(); }, helpTip: "Apply audio sync expression to time remap property" },
+            { label: "⚲ MK CTRL", key: "MK CTRL", actionFn: function () { showMKCtrlDialog(); }, helpTip: "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations" },
+            { label: "⚯ Puppet→Null", key: "Puppet→Null", actionFn: function () { createPuppetNulls(); }, helpTip: "Create null objects for puppet pins on selected layer(s)" },
+            { label: "⧈ Mask Fit", key: "Mask Fit", actionFn: function () { applyMaskAutoFit(); }, helpTip: "Use selected or first mask to auto-position and scale layer to fit comp" },
+            { label: "↔ Flip H", key: "Flip H", actionFn: function () { flipHorizontal(); }, helpTip: "Flip layers horizontally (invert X scale)" },
+            { label: "↕ Flip V", key: "Flip V", actionFn: function () { flipVertical(); }, helpTip: "Flip layers vertically (invert Y scale)" },
+            { label: "☒ Hide Layers", key: "Hide Layers", actionFn: function () { hideAllLayersNamedHide(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in main_comp" },
+            { label: "☑ Show Layers", key: "Show Layers", actionFn: function () { showAllLayersNamedHide(); }, helpTip: "Show all layers starting with 'hide' or 'x' in main_comp" },
+            { label: "☒ Hide Layer 2", key: "Hide Layer 2", actionFn: function () { hideAllLayersNamedHide2(); }, helpTip: "Hide all layers starting with 'hide' or 'x' in a user-selected comp" },
+            { label: "⧗ Batch Duration", key: "Batch Duration", actionFn: function () { changeBatchDuration(); }, helpTip: "Change duration of selected precomp source compositions" },
+            { label: "⧗ Batch FPS", key: "Batch FPS", actionFn: function () { showBatchFramerateDialog(); }, helpTip: "Change framerate of selected precomp source compositions in main_comp" },
+            { label: "⧈ X Crop", key: "X Crop", actionFn: function () { openXCropTool(); }, helpTip: "Open X Crop tool for smart composition cropping" },
+            { label: "♦ Add Keyframes", key: "Add Keyframes", actionFn: function () { addCurrentKeyframes(); }, helpTip: "Adds keyframes for current position, scale, rotation and opacity values" },
+            { label: "✃ Trim Selected", key: "Trim Selected", actionFn: function () { trimSelectedLayers(); }, helpTip: "Trim selected layers to avoid overlapping" },
+            { label: "⧈ Auto Size", key: "Auto Size", actionFn: function () { autoSizeSelectedLayers(); }, helpTip: "Resize selected layers/precomps to fit the composition" },
+            { label: "☒ Clean Tabs", key: "Clean Tabs Open", actionFn: function () { cleanTabsOpen(); }, helpTip: "Close all open viewers/tabs except main_comp and Render Queue" },
             // Loops
             { label: "↻ Loop Cycle", key: "Loop Cycle", actionFn: runAnim },
             { label: "➔ Loop Continue", key: "Loop Continue", actionFn: runAnim },
             { label: "⇄ Loop PingPong", key: "Loop PingPong", actionFn: runAnim },
-            { label: "∞ Looper", key: "Looper", actionFn: function() { looperTool(); }, helpTip: "Enable time remap loop on selected precomp layer" },
+            { label: "∞ Looper", key: "Looper", actionFn: function () { looperTool(); }, helpTip: "Enable time remap loop on selected precomp layer" },
             // Tools
-            { label: "▢ Create Null", key: "Create Null", actionFn: function() { createNullObject(); }, helpTip: "Creates a null object for the selected layer" },
-            { label: "⇄ Reverse KF", key: "Reverse KF", actionFn: function() { reverseAllKeyframes(); }, helpTip: "Reverse selected keyframes" },
-            { label: "⤢ Batch Scale", key: "Batch Scale", actionFn: function() { showBatchScaleDialog(); }, helpTip: "Batch scale layers with presets" },
-            { label: "⧉ Smart Precomp", key: "Smart Precomp", actionFn: function() { createSmartPrecomp(); }, helpTip: "Create precomp retaining size, scale and position" },
-            { label: "⤎ CP Movement", key: "CP Movement", actionFn: function() { showCPMovementDialog(); }, helpTip: "Copy movement from a layer inside precomp" },
-            { label: "⌕ Auto Zoom", key: "Auto Zoom", actionFn: function() { showAutoZoomDialog(); }, helpTip: "Add zoom in/out keyframes to selected layers" },
-            { label: "⤏ Walk/Run", key: "Walk/Run", actionFn: function() { showWalkRunDialog(); }, helpTip: "Add walking/running arc movement" },
-            { label: "⚯ Attach Leg", key: "Attach Leg", actionFn: function() { showAttachLegDialog(); }, helpTip: "Attach a leg comp to the selected layer" },
-            { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function() { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer (Add Lip)" },
-            { label: "⤓ Pinch", key: "Pinch", actionFn: function() { showPinchDialog(); }, helpTip: "Add a pinch preset animation" },
-            { label: "⧗ Counter", key: "Text Counter", actionFn: function() { showTextCounterDialog(); }, helpTip: "Create a text counter with dynamic formatting and custom slider limits" },
-            { label: "☰ List Jumper", key: "List Jumper", actionFn: function() {
-                var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
-                $.evalFile(new File(scriptFile));
-            }, helpTip: "Open List Jumper - jump to timeline positions based on CSV word data" },
-            { label: "⚇ Smart Rig", key: "Smart Rig", actionFn: function() { 
-                var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx";
-                $.evalFile(new File(scriptFile)); 
-            }, helpTip: "Open Smart Rig script" },
-            { label: "▤ Batch Render", key: "Batch Rendering", actionFn: function() { 
-                var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx";
-                $.evalFile(new File(scriptFile)); 
-            }, helpTip: "Open Batch Rendering script" },
-            { label: "◫ Sync PSDs", key: "Sync PSDs", actionFn: function() { 
-                var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
-                $.evalFile(new File(scriptFile)); 
-            }, helpTip: "Open Sync PSDs to Timeline script" },
+            { label: "▢ Create Null", key: "Create Null", actionFn: function () { createNullObject(); }, helpTip: "Creates a null object for the selected layer" },
+            { label: "⇄ Reverse KF", key: "Reverse KF", actionFn: function () { reverseAllKeyframes(); }, helpTip: "Reverse selected keyframes" },
+            { label: "⤢ Batch Scale", key: "Batch Scale", actionFn: function () { showBatchScaleDialog(); }, helpTip: "Batch scale layers with presets" },
+            { label: "⧉ Smart Precomp", key: "Smart Precomp", actionFn: function () { createSmartPrecomp(); }, helpTip: "Create precomp retaining size, scale and position" },
+            { label: "⤎ CP Movement", key: "CP Movement", actionFn: function () { showCPMovementDialog(); }, helpTip: "Copy movement from a layer inside precomp" },
+            { label: "⌕ Auto Zoom", key: "Auto Zoom", actionFn: function () { showAutoZoomDialog(); }, helpTip: "Add zoom in/out keyframes to selected layers" },
+            { label: "⤏ Walk/Run", key: "Walk/Run", actionFn: function () { showWalkRunDialog(); }, helpTip: "Add walking/running arc movement" },
+            { label: "⚯ Attach Leg", key: "Attach Leg", actionFn: function () { showAttachLegDialog(); }, helpTip: "Attach a leg comp to the selected layer" },
+            { label: "⚲ Add Mouth", key: "Add Mouth", actionFn: function () { showAttachMouthDialog(); }, helpTip: "Attach a mouth comp to the selected layer (Add Lip)" },
+            { label: "⤓ Pinch", key: "Pinch", actionFn: function () { showPinchDialog(); }, helpTip: "Add a pinch preset animation" },
+            { label: "⧗ Counter", key: "Text Counter", actionFn: function () { showTextCounterDialog(); }, helpTip: "Create a text counter with dynamic formatting and custom slider limits" },
+            {
+                label: "☰ List Jumper", key: "List Jumper", actionFn: function () {
+                    var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
+                    $.evalFile(new File(scriptFile));
+                }, helpTip: "Open List Jumper - jump to timeline positions based on CSV word data"
+            },
+            {
+                label: "⚇ Smart Rig", key: "Smart Rig", actionFn: function () {
+                    var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx";
+                    $.evalFile(new File(scriptFile));
+                }, helpTip: "Open Smart Rig script"
+            },
+            {
+                label: "▤ Batch Render", key: "Batch Rendering", actionFn: function () {
+                    var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx";
+                    $.evalFile(new File(scriptFile));
+                }, helpTip: "Open Batch Rendering script"
+            },
+            {
+                label: "◫ Sync PSDs", key: "Sync PSDs", actionFn: function () {
+                    var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
+                    $.evalFile(new File(scriptFile));
+                }, helpTip: "Open Sync PSDs to Timeline script"
+            },
             // Anticipation
-            { label: "⤾ Auto Anticipate", key: "Auto Anticipation", actionFn: function() { showTab(7); }, helpTip: "Auto Anticipation & Overshoot Settings" },
-            { label: "Apply Anticipation", key: "Apply Anticipation", actionFn: function() { showTab(7); }, helpTip: "Apply anticipation & overshoot" }
+            { label: "⤾ Auto Anticipate", key: "Auto Anticipation", actionFn: function () { showTab(7); }, helpTip: "Auto Anticipation & Overshoot Settings" },
+            { label: "Apply Anticipation", key: "Apply Anticipation", actionFn: function () { showTab(7); }, helpTip: "Apply anticipation & overshoot" }
         ];
 
         var currentActiveTab = 0;
@@ -1090,7 +1103,7 @@
             tabLayerUtil.visible = (index === 6);
             tabAnticipate.visible = (index === 7);
             tabSearch.visible = false;
-            
+
             // Highlight active button using brackets, others clean
             btnFav.text = (index === 0) ? "[♥]" : "♥";
             btnBasic.text = (index === 1) ? "[★]" : "★";
@@ -1100,7 +1113,7 @@
             btnTools.text = (index === 5) ? "[⚒]" : "⚒";
             btnLayerUtil.text = (index === 6) ? "[☰]" : "☰";
             btnAnticipate.text = (index === 7) ? "[⤾]" : "⤾";
-            
+
             myPanel.layout.layout(true);
         }
 
@@ -1113,7 +1126,7 @@
 
             // Trim and lowercase
             var cleanQuery = query.toLowerCase().replace(/^\s+|\s+$/g, '');
-            
+
             if (cleanQuery === "" || cleanQuery === "search...") {
                 if (isSearching) {
                     isSearching = false;
@@ -1155,7 +1168,7 @@
                 var labelMatch = item.label.toLowerCase().indexOf(cleanQuery) !== -1;
                 var keyMatch = item.key.toLowerCase().indexOf(cleanQuery) !== -1;
                 var helpMatch = (item.helpTip && item.helpTip.toLowerCase().indexOf(cleanQuery) !== -1);
-                
+
                 if (labelMatch || keyMatch || helpMatch) {
                     matches.push(item);
                 }
@@ -1173,7 +1186,7 @@
                     row.spacing = 2;
                     addBtn(row, matches[r].label, matches[r].key, matches[r].actionFn, matches[r].helpTip);
                     if (r + 1 < matches.length) {
-                        addBtn(row, matches[r+1].label, matches[r+1].key, matches[r+1].actionFn, matches[r+1].helpTip);
+                        addBtn(row, matches[r + 1].label, matches[r + 1].key, matches[r + 1].actionFn, matches[r + 1].helpTip);
                     }
                 }
             }
@@ -1182,33 +1195,33 @@
         }
 
         // Set click handlers for tab buttons
-        btnFav.onClick = function() { showTab(0); };
-        btnBasic.onClick = function() { showTab(1); };
-        btnComplex.onClick = function() { showTab(2); };
-        btnUtil.onClick = function() { showTab(3); };
-        btnLoops.onClick = function() { showTab(4); };
-        btnTools.onClick = function() { showTab(5); };
-        btnLayerUtil.onClick = function() { showTab(6); };
-        btnAnticipate.onClick = function() { showTab(7); };
+        btnFav.onClick = function () { showTab(0); };
+        btnBasic.onClick = function () { showTab(1); };
+        btnComplex.onClick = function () { showTab(2); };
+        btnUtil.onClick = function () { showTab(3); };
+        btnLoops.onClick = function () { showTab(4); };
+        btnTools.onClick = function () { showTab(5); };
+        btnLayerUtil.onClick = function () { showTab(6); };
+        btnAnticipate.onClick = function () { showTab(7); };
 
         // Search Input listeners
-        searchInput.onChanging = function() {
+        searchInput.onChanging = function () {
             doSearch(this.text);
         };
 
-        searchInput.onActivate = function() {
+        searchInput.onActivate = function () {
             if (this.text === "Search...") {
                 this.text = "";
             }
         };
 
-        searchInput.onDeactivate = function() {
+        searchInput.onDeactivate = function () {
             if (this.text === "") {
                 this.text = "Search...";
             }
         };
 
-        clearSearchBtn.onClick = function() {
+        clearSearchBtn.onClick = function () {
             searchInput.text = "Search...";
             doSearch("");
         };
@@ -1242,7 +1255,7 @@
 
         return myPanel;
     }
-// Consolidated Global Helpers
+    // Consolidated Global Helpers
     function padNumber(num, width) {
         var str = num.toString();
         while (str.length < width) {
@@ -1257,7 +1270,7 @@
             parseInt(s) + // Seconds
             parseFloat(f || 0); // Frames as decimal of a second
     }
-// Audio Sync Expression function (Audio Amplitude)
+    // Audio Sync Expression function (Audio Amplitude)
     function applyAudioSyncExpression(skipUndo) {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
@@ -1373,8 +1386,8 @@
             var btn = curRow.add("button", undefined, markers[i].label);
             btn.preferredSize.height = 20;
             btn.preferredSize.width = 58;
-            (function(val) {
-                btn.onClick = function() {
+            (function (val) {
+                btn.onClick = function () {
                     addMKMarker(val);
                 };
             })(markers[i].val);
@@ -1386,10 +1399,10 @@
         customRow.alignChildren = ["fill", "center"];
         customRow.spacing = 4;
         customRow.margins = [0, 4, 0, 0];
-        
+
         var customLbl = customRow.add("statictext", undefined, "Custom:");
         customLbl.preferredSize.width = 45;
-        
+
         var commentInput = customRow.add("edittext", undefined, "custom");
         commentInput.preferredSize.width = 85;
 
@@ -1455,11 +1468,11 @@
 
         var target = promptForTargetCompAndLayer("Copy Audio Target", "Source Comp:", "Audio Layer:", "audio", true);
         if (!target) return;
-        
+
         var mainComp = target.comp;
         var audioLayer = target.layer;
         var undoStarted = false;
-        
+
         try {
             if (!skipUndo) {
                 app.beginUndoGroup("Copy and Sync Audio");
@@ -1515,7 +1528,7 @@
             newAudioLayer.selected = true;
 
             if (undoStarted) app.endUndoGroup();
-            
+
             if (target.generateMarkers) {
                 generateAudioSpikeMarkers(target.threshold, target.gap, target.applyToComp, true);
                 updateStatus("Copied, synced, and added markers from " + mainComp.name);
@@ -1571,7 +1584,7 @@
             var newAudioLayer = currentComp.layers.add(audioSource);
             newAudioLayer.name = audioLayer.name;
             newAudioLayer.startTime = 0;
-            newAudioLayer.inPoint  = audioLayer.inPoint;
+            newAudioLayer.inPoint = audioLayer.inPoint;
             newAudioLayer.outPoint = audioLayer.outPoint;
 
             if (!newAudioLayer.timeRemapEnabled) {
@@ -1910,7 +1923,7 @@
             var frames = Math.floor((currentTime % 1) * fps);
 
             // Helper function to pad numbers with leading zeros
-            
+
 
             // Format as HH:MM:SS:FF
             var timeString = padNumber(hours, 2) + ':' +
@@ -2450,7 +2463,7 @@
         dialog.center();
         dialog.show();
     }
-// Show left right animation dialog
+    // Show left right animation dialog
     function showLeftRightDialog() {
         var dialog = new Window("dialog", "Left Right Animation Settings");
         dialog.orientation = "column";
@@ -4952,7 +4965,7 @@
             targetGroup.orientation = "row";
             targetGroup.alignChildren = ["left", "center"];
             targetGroup.spacing = 10;
-            
+
             var tgtLbl = targetGroup.add("statictext", undefined, "Apply To:");
             tgtLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             targetRadioCurrent = targetGroup.add("radiobutton", undefined, "Current Comp");
@@ -4961,7 +4974,7 @@
             targetRadioSelected.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             targetRadioCurrent.value = true;
 
-            markerCheckbox.onClick = function() {
+            markerCheckbox.onClick = function () {
                 markerPanel.visible = markerCheckbox.value;
                 dialog.layout.layout(true);
             };
@@ -4977,7 +4990,7 @@
                     break;
                 }
             }
-            
+
             var layerNames = [];
             var keywordIndex = -1;
             if (selComp) {
@@ -4998,7 +5011,7 @@
         }
 
         compSearch.dropdown.onChange = updateLayers;
-        
+
         if (compNames.length > 0) {
             compSearch.dropdown.selection = mainCompIndex;
             updateLayers();
@@ -5014,12 +5027,12 @@
         btnOk.onClick = function () {
             var selCompName = compSearch.getSelectedName();
             var selLayerName = layerSearch ? layerSearch.getSelectedName() : null;
-            
+
             if (!selCompName || (layerLabel && !selLayerName)) {
                 alert("Please select the target composition" + (layerLabel ? " and layer." : "."));
                 return;
             }
-            
+
             var selComp = null;
             for (var i = 0; i < allComps.length; i++) {
                 if (allComps[i].name === selCompName) {
@@ -5027,7 +5040,7 @@
                     break;
                 }
             }
-            
+
             var selLayer = null;
             if (layerLabel && selComp) {
                 for (var i = 1; i <= selComp.numLayers; i++) {
@@ -5043,8 +5056,8 @@
                 return;
             }
 
-            result = { 
-                comp: selComp, 
+            result = {
+                comp: selComp,
                 layer: selLayer,
                 generateMarkers: showMarkerOptions && markerCheckbox.value,
                 threshold: showMarkerOptions ? parseFloat(threshInput.text) || 6 : 6,
@@ -5631,7 +5644,7 @@
                 }
 
                 app.beginUndoGroup("Add Mouth, Sync & Markers");
-                
+
                 try {
                     var newlyAddedMouthLayers = [];
 
@@ -5673,14 +5686,14 @@
                     copyAndSyncAudioSilent();
 
                     // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
-                    for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                    for(var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
+                    for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                    for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
                     // 3. Auto Apply Audio Sync Expression to the mouth layers
                     applyAudioSyncExpression(true, true);
 
                     // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
-                    for(var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                    for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
                         newlyAddedMouthLayers[j].startTime = 0;
                         newlyAddedMouthLayers[j].outPoint = comp.duration;
                     }
@@ -5694,9 +5707,9 @@
                             break;
                         }
                     }
-                    
+
                     if (audioLayerForMarkers) {
-                        for(var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
                         audioLayerForMarkers.selected = true;
                     }
 
@@ -8822,12 +8835,12 @@
             cautionGrp.orientation = "column";
             cautionGrp.alignChildren = ["left", "top"];
             cautionGrp.spacing = 1;
-            
+
             var cautionTxt1 = cautionGrp.add("statictext", undefined, "⚠ CAUTION: Sensitive Action!");
             cautionTxt1.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
             try {
                 cautionTxt1.graphics.foregroundColor = cautionTxt1.graphics.newPen(dialog.graphics.PenType.SOLID_COLOR, [0.8, 0.1, 0.1, 1], 1);
-            } catch(e) {}
+            } catch (e) { }
 
             var lblComp = dialog.add("statictext", undefined, "Select composition:");
             lblComp.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -8998,9 +9011,9 @@
 
             // Display alert summary
             var summaryMsg = "✓ Hide Layers Completed!\n\n" +
-                             "Hidden Layers: " + hiddenLayersLog.length + "\n" +
-                             "Precomps missing target layers: " + missingXComps.length + "\n\n" +
-                             "A detailed report/log has been saved as 'hide_layers_report.txt' in your project folder.";
+                "Hidden Layers: " + hiddenLayersLog.length + "\n" +
+                "Precomps missing target layers: " + missingXComps.length + "\n\n" +
+                "A detailed report/log has been saved as 'hide_layers_report.txt' in your project folder.";
             alert(summaryMsg);
 
             updateStatus("Hidden " + hiddenLayersLog.length + " layers in '" + targetName + "' and precomps" + logPathMsg);
@@ -9603,7 +9616,7 @@
                 var frames = Math.floor((totalSeconds % 1) * fps);
 
                 // Helper function to pad numbers with leading zeros
-                
+
 
                 // Format display time with frames
                 var timeDisplay = (hours > 0 ? padNumber(hours, 2) + ':' : '') +
@@ -10616,7 +10629,7 @@
         for (var i = 0; i < layers.length; i++) {
             var layer = layers[i];
             var t = layer.inPoint;
-            
+
             // Clamp time to valid composition limits to prevent "invalid time value" errors
             if (t < 0) t = 0;
             if (t > comp.duration) t = comp.duration;
@@ -10627,7 +10640,7 @@
             try {
                 if (layer.sourceRectAtTime && typeof layer.sourceRectAtTime === "function") {
                     var rect = layer.sourceRectAtTime(t, false);
-                    
+
                     var p1 = [rect.left, rect.top];
                     var p2 = [rect.left + rect.width, rect.top];
                     var p3 = [rect.left, rect.top + rect.height];
@@ -10639,12 +10652,12 @@
                     } catch (timeErr) {
                         // Ignore time-setting errors, just use current playhead time
                     }
-                    
+
                     var c1 = layer.toComp(p1);
                     var c2 = layer.toComp(p2);
                     var c3 = layer.toComp(p3);
                     var c4 = layer.toComp(p4);
-                    
+
                     try {
                         comp.time = origTime; // restore
                     } catch (restoreErr) {
@@ -10722,16 +10735,16 @@
     function convertWorldPosToNullLocal(worldPos, nullLayer) {
         var ax = nullLayer.transform.anchorPoint.value[0];
         var ay = nullLayer.transform.anchorPoint.value[1];
-        
+
         var px = nullLayer.transform.position.value[0];
         var py = nullLayer.transform.position.value[1];
-        
+
         var sx = nullLayer.transform.scale.value[0] / 100;
         var sy = nullLayer.transform.scale.value[1] / 100;
-        
+
         var lx = ax + (worldPos[0] - px) / sx;
         var ly = ay + (worldPos[1] - py) / sy;
-        
+
         if (worldPos.length > 2 && nullLayer.transform.position.value.length > 2) {
             var az = nullLayer.transform.anchorPoint.value[2];
             var pz = nullLayer.transform.position.value[2];
@@ -10739,7 +10752,7 @@
             var lz = az + (worldPos[2] - pz) / sz;
             return [lx, ly, lz];
         }
-        
+
         return [lx, ly];
     }
 
@@ -11108,8 +11121,8 @@
 
     function doUnprecomp(comp, precompLayer, srcComp, useXCrop, dlgStatus) {
         // -- Snapshot everything we need BEFORE touching the comp --
-        var oldName          = precompLayer.name;
-        var precompIndex     = precompLayer.index;      // used to shift indices later
+        var oldName = precompLayer.name;
+        var precompIndex = precompLayer.index;      // used to shift indices later
         var precompStartTime = precompLayer.startTime;  // saved before remove()
 
         var innerCount = srcComp.numLayers;
@@ -11146,7 +11159,7 @@
             var pastedIndices = [];
             for (var ci = 0; ci < innerCount; ci++) {
                 var idx = layerCountBefore + 1 + ci;   // 1-based index in comp
-                var pl  = comp.layer(idx);
+                var pl = comp.layer(idx);
                 pl.startTime = innerStartTimes[ci] + precompStartTime;
                 pastedIndices.push(idx);
             }
@@ -11270,15 +11283,15 @@
 
         // Industry standard FPS presets
         var fpsPresets = [
-            { label: "23.976 fps (Film/Streaming)", value: 24000/1001 },
-            { label: "24 fps (Cinema)",             value: 24 },
-            { label: "25 fps (PAL/Europe TV)",    value: 25 },
-            { label: "29.97 fps (NTSC/USA TV)",      value: 30000/1001 },
-            { label: "30 fps (Web/YouTube)",      value: 30 },
-            { label: "48 fps (HFR Cinema)",         value: 48 },
-            { label: "50 fps (PAL HD/Sports)",    value: 50 },
-            { label: "59.94 fps (NTSC HD)",            value: 60000/1001 },
-            { label: "60 fps (Gaming/Motion)",    value: 60 }
+            { label: "23.976 fps (Film/Streaming)", value: 24000 / 1001 },
+            { label: "24 fps (Cinema)", value: 24 },
+            { label: "25 fps (PAL/Europe TV)", value: 25 },
+            { label: "29.97 fps (NTSC/USA TV)", value: 30000 / 1001 },
+            { label: "30 fps (Web/YouTube)", value: 30 },
+            { label: "48 fps (HFR Cinema)", value: 48 },
+            { label: "50 fps (PAL HD/Sports)", value: 50 },
+            { label: "59.94 fps (NTSC HD)", value: 60000 / 1001 },
+            { label: "60 fps (Gaming/Motion)", value: 60 }
         ];
 
         var fpsLabels = [];
@@ -11315,11 +11328,11 @@
 
         var cancelBtn = btnRow.add("button", undefined, "Cancel");
         cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function() {
+        cancelBtn.onClick = function () {
             dlg.close();
         };
 
-                applyBtn.onClick = function() {
+        applyBtn.onClick = function () {
             var selectedIdx = fpsDropdown.selection ? fpsDropdown.selection.index : -1;
             if (selectedIdx === -1) {
                 dlgStatus.text = "Please select a framerate.";
@@ -11826,7 +11839,7 @@
         }
 
         app.beginUndoGroup("Apply Reverse Opacity");
-        
+
         var targetLayer = selectedLayers[selectedLayers.length - 1];
         var targetName = targetLayer.name;
         var applied = 0;
@@ -11836,15 +11849,15 @@
             try {
                 var expr = "var targetOpacity = thisComp.layer(\"" + targetName + "\").transform.opacity;\n";
                 expr += "targetOpacity >= 50 ? 0 : value;";
-                
+
                 var opacityProp = layer.property("Transform").property("Opacity");
                 if (opacityProp && opacityProp.canSetExpression) {
                     opacityProp.expression = expr;
                     applied++;
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
-        
+
         app.endUndoGroup();
         updateStatus("Applied to " + applied + " layer(s)");
     }
@@ -11918,7 +11931,7 @@
             var count = 0;
             for (var i = 0; i < selectedLayers.length; i++) {
                 var layer = selectedLayers[i];
-                
+
                 // Skip if layer does not have Transform scale or position
                 if (!layer.transform || !layer.transform.scale || !layer.transform.position) {
                     continue;
@@ -12061,7 +12074,7 @@
         var decimalsInput = r5.add("edittext", undefined, "2");
         decimalsInput.preferredSize.width = 145;
 
-        formatDropdown.onChange = function() {
+        formatDropdown.onChange = function () {
             var sel = formatDropdown.selection.index;
             if (sel === 0) { // Money US
                 prefixInput.text = "$";
@@ -12116,7 +12129,7 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [80, 20];
-        
+
         var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
         cancelBtn.preferredSize = [80, 20];
         cancelBtn.onClick = function () {
@@ -12348,7 +12361,7 @@
                     try {
                         keyData.inTemporalEase = prop.keyInTemporalEase(k);
                         keyData.outTemporalEase = prop.keyOutTemporalEase(k);
-                    } catch(e) {}
+                    } catch (e) { }
                 }
 
                 if (prop.propertyValueType === PropertyValueType.SHAPE) {
@@ -12385,7 +12398,7 @@
             updateStatus("Clipboard is empty! Copy first.");
             return;
         }
-        
+
         tempFile.open("r");
         var content = tempFile.read();
         tempFile.close();
@@ -12399,7 +12412,7 @@
             updateStatus("Clipboard is empty! Copy first.");
             return;
         }
-        
+
         tempFile.open("r");
         var content = tempFile.read();
         tempFile.close();
@@ -12425,8 +12438,8 @@
         }
 
         app.beginUndoGroup("Paste Ease Only");
-        
-        var sourcePropData = animData[0]; 
+
+        var sourcePropData = animData[0];
 
         for (var i = 0; i < props.length; i++) {
             var targetProp = props[i];
@@ -12449,7 +12462,7 @@
                 if (!keyData) continue;
 
                 targetProp.setInterpolationTypeAtKey(keyIndex, keyData.inType, keyData.outType);
-                
+
                 if (keyData.inTemporalEase && keyData.outTemporalEase) {
                     try {
                         var targetInEase = targetProp.keyInTemporalEase(keyIndex);
@@ -12461,17 +12474,17 @@
                         for (var d = 0; d < targetInEase.length; d++) {
                             var srcIn = keyData.inTemporalEase[d] || keyData.inTemporalEase[0];
                             var srcOut = keyData.outTemporalEase[d] || keyData.outTemporalEase[0];
-                            
+
                             newInEase.push(new KeyframeEase(srcIn.speed, srcIn.influence));
                             newOutEase.push(new KeyframeEase(srcOut.speed, srcOut.influence));
                         }
-                        
+
                         targetProp.setTemporalEaseAtKey(keyIndex, newInEase, newOutEase);
-                    } catch(e) {}
+                    } catch (e) { }
                 }
             }
         }
-        
+
         app.endUndoGroup();
         updateStatus("Easing pasted!");
     }
@@ -12535,15 +12548,15 @@
 
         app.beginUndoGroup("Paste Anim");
         var t = comp.time;
-        
+
         for (var l = 0; l < layers.length; l++) {
             var layer = layers[l];
             for (var i = 0; i < animData.length; i++) {
                 var propData = animData[i];
                 var targetProp = null;
-                
+
                 function findProp(root, matchName) {
-                    for(var p=1; p<=root.numProperties; p++){
+                    for (var p = 1; p <= root.numProperties; p++) {
                         if (root.property(p).matchName === matchName) return root.property(p);
                         if (root.property(p).propertyType === PropertyType.NAMED_GROUP) {
                             var found = findProp(root.property(p), matchName);
@@ -12552,7 +12565,7 @@
                     }
                     return null;
                 }
-                
+
                 targetProp = findProp(layer, propData.matchName);
 
                 if (targetProp && targetProp.canVaryOverTime) {
@@ -12562,7 +12575,7 @@
                     for (var k = 0; k < propData.keys.length; k++) {
                         var keyData = propData.keys[k];
                         var newTime = keyData.time + offset;
-                        
+
                         var val = keyData.value;
                         if (keyData.shape) {
                             val = new Shape();
@@ -12574,13 +12587,13 @@
 
                         var keyIndex = targetProp.addKey(newTime);
                         if (val !== null) targetProp.setValueAtKey(keyIndex, val);
-                        
+
                         targetProp.setInterpolationTypeAtKey(keyIndex, keyData.inType, keyData.outType);
-                        
+
                         if (keyData.inTemporalEase && keyData.outTemporalEase) {
                             try {
                                 targetProp.setTemporalEaseAtKey(keyIndex, keyData.inTemporalEase, keyData.outTemporalEase);
-                            } catch(e){}
+                            } catch (e) { }
                         }
                     }
                 }
@@ -12626,7 +12639,7 @@
             var url = clipboardText;
             var fileName = url.substring(url.lastIndexOf('/') + 1) || "downloaded_asset.png";
             fileName = fileName.split("?")[0];
-            
+
             var downloadPath = new File(Folder.temp.fsName + "/" + fileName);
             var dlCmd = 'powershell -command "Invoke-WebRequest -Uri \'' + url + '\' -OutFile \'' + downloadPath.fsName + '\'"';
             system.callSystem(dlCmd);
@@ -12680,7 +12693,7 @@
     function autoSortProject() {
         app.beginUndoGroup("Auto Sort Project");
         var proj = app.project;
-        
+
         var folders = {
             "01_Comps": null,
             "02_Audio": null,
@@ -12707,7 +12720,7 @@
 
         for (var i = 1; i <= proj.items.length; i++) {
             var item = proj.items[i];
-            
+
             if (item instanceof FolderItem && folders[item.name] !== undefined) continue;
             if (item.parentFolder !== proj.rootFolder) continue;
             if (item.name === "Solids") {
@@ -12744,7 +12757,7 @@
 
     function showSmartRenameDialog() {
         var itemsToRename = [];
-        
+
         var comp = app.project.activeItem;
         if (comp && comp instanceof CompItem && comp.selectedLayers.length > 0) {
             itemsToRename = comp.selectedLayers;
@@ -12760,7 +12773,7 @@
         dlg.alignChildren = ["fill", "top"];
         dlg.spacing = 4;
         dlg.margins = 8;
-        
+
         var prefixGrp = dlg.add("group");
         prefixGrp.add("statictext", undefined, "Prefix:").preferredSize.width = 45;
         var prefixIn = prefixGrp.add("edittext", undefined, "");
@@ -12786,19 +12799,19 @@
         var btnOk = btnGrp.add("button", undefined, "Rename");
         var btnCancel = btnGrp.add("button", undefined, "Cancel");
 
-        btnOk.onClick = function() {
+        btnOk.onClick = function () {
             app.beginUndoGroup("Smart Rename");
             for (var i = 0; i < itemsToRename.length; i++) {
                 var item = itemsToRename[i];
                 var newName = item.name;
-                
+
                 if (findIn.text !== "") {
                     var regex = new RegExp(findIn.text, "g");
                     newName = newName.replace(regex, repIn.text);
                 }
-                
+
                 newName = prefixIn.text + newName + suffixIn.text;
-                
+
                 if (newName !== item.name) {
                     item.name = newName;
                 }
@@ -12808,8 +12821,8 @@
             dlg.close();
         };
 
-        btnCancel.onClick = function() { dlg.close(); };
-        
+        btnCancel.onClick = function () { dlg.close(); };
+
         dlg.center();
         dlg.show();
     }
@@ -12824,13 +12837,13 @@
     }
 
     function computeTiming(timeA, timeB, fps, settings) {
-        var gapSec    = timeB - timeA;
+        var gapSec = timeB - timeA;
         var gapFrames = Math.round(gapSec * fps);
 
         if (gapFrames < ANTICIPATE_MIN_GAP_FRAMES) return null;
 
-        var a1Time  = snapToFrame(timeA + gapSec * (settings.antTiming / 100), fps);
-        var b1Time  = snapToFrame(timeB - gapSec * (settings.ovTiming / 100), fps);
+        var a1Time = snapToFrame(timeA + gapSec * (settings.antTiming / 100), fps);
+        var b1Time = snapToFrame(timeB - gapSec * (settings.ovTiming / 100), fps);
         var midTime = snapToFrame(timeA + gapSec * 0.5, fps);
 
         if (Math.abs(a1Time - timeA) < 1 / fps) a1Time = snapToFrame(timeA + 1 / fps, fps);
@@ -12863,7 +12876,7 @@
 
     function getSiblingDimensionDeltas(layer, prop, timeA, timeB, defaultDx, defaultDy) {
         if (!layer || !prop) return { dx: defaultDx, dy: defaultDy };
-        var pName  = prop.name || "";
+        var pName = prop.name || "";
         var pMatch = prop.matchName || "";
 
         var isX = (pName.indexOf("X Position") !== -1 || pName === "X" || pMatch === "ADBE Position 0");
@@ -12898,7 +12911,7 @@
         if (!timing) return null;
 
         var antS = settings.antStrength / 100;
-        var ovS  = settings.ovStrength / 100;
+        var ovS = settings.ovStrength / 100;
 
         var a1Val, b1Val;
         var dx = 0, dy = 1;
@@ -12922,22 +12935,22 @@
                 sumDx += dvX;
                 sumDy += dvY;
 
-                a1Verts.push([ vA[0] - dvX * antS, vA[1] - dvY * antS ]);
-                b1Verts.push([ vB[0] + dvX * ovS,  vB[1] + dvY * ovS  ]);
+                a1Verts.push([vA[0] - dvX * antS, vA[1] - dvY * antS]);
+                b1Verts.push([vB[0] + dvX * ovS, vB[1] + dvY * ovS]);
 
                 var inA = (valueA.inTangents && valueA.inTangents[v]) ? valueA.inTangents[v] : [0, 0];
                 var inB = (valueB.inTangents && valueB.inTangents[v]) ? valueB.inTangents[v] : [0, 0];
                 var dInX = inB[0] - inA[0];
                 var dInY = inB[1] - inA[1];
-                a1InTan.push([ inA[0] - dInX * antS, inA[1] - dInY * antS ]);
-                b1InTan.push([ inB[0] + dInX * ovS,  inB[1] + dInY * ovS  ]);
+                a1InTan.push([inA[0] - dInX * antS, inA[1] - dInY * antS]);
+                b1InTan.push([inB[0] + dInX * ovS, inB[1] + dInY * ovS]);
 
                 var outA = (valueA.outTangents && valueA.outTangents[v]) ? valueA.outTangents[v] : [0, 0];
                 var outB = (valueB.outTangents && valueB.outTangents[v]) ? valueB.outTangents[v] : [0, 0];
                 var dOutX = outB[0] - outA[0];
                 var dOutY = outB[1] - outA[1];
-                a1OutTan.push([ outA[0] - dOutX * antS, outA[1] - dOutY * antS ]);
-                b1OutTan.push([ outB[0] + dOutX * ovS,  outB[1] + dOutY * ovS  ]);
+                a1OutTan.push([outA[0] - dOutX * antS, outA[1] - dOutY * antS]);
+                b1OutTan.push([outB[0] + dOutX * ovS, outB[1] + dOutY * ovS]);
             }
 
             var shapeA1 = new Shape();
@@ -12977,7 +12990,7 @@
             a1Val = valueA - deltaScalar * antS;
             b1Val = valueB + deltaScalar * ovS;
 
-            var pName  = (prop && prop.name) ? prop.name : "";
+            var pName = (prop && prop.name) ? prop.name : "";
             var pMatch = (prop && prop.matchName) ? prop.matchName : "";
 
             if (pName.indexOf("X Position") !== -1 || pName === "X" || pMatch === "ADBE Position 0") {
@@ -12996,13 +13009,13 @@
         }
 
         return {
-            a1Time  : timing.a1Time,
-            a1Value : a1Val,
-            midTime : timing.midTime,
-            b1Time  : timing.b1Time,
-            b1Value : b1Val,
-            dx      : dx,
-            dy      : dy
+            a1Time: timing.a1Time,
+            a1Value: a1Val,
+            midTime: timing.midTime,
+            b1Time: timing.b1Time,
+            b1Value: b1Val,
+            dx: dx,
+            dy: dy
         };
     }
 
@@ -13013,17 +13026,17 @@
         var sinA = (dist > 0) ? Math.abs(dy) / dist : 1;
 
         var stretchF = 1 + (strength / 100);
-        var squashF  = 10000 / (stretchF * 100);
+        var squashF = 10000 / (stretchF * 100);
 
         var stretchX = stretchF * cosA + squashF / 100 * sinA;
-        var stretchY = squashF  / 100 * cosA + stretchF * sinA;
+        var stretchY = squashF / 100 * cosA + stretchF * sinA;
 
         var squashX = squashF / 100 * cosA + stretchF * sinA;
-        var squashY = stretchF * cosA       + squashF  / 100 * sinA;
+        var squashY = stretchF * cosA + squashF / 100 * sinA;
 
         return {
-            stretch : [stretchX * 100, stretchY * 100],
-            squash  : [squashX  * 100, squashY  * 100],
+            stretch: [stretchX * 100, stretchY * 100],
+            squash: [squashX * 100, squashY * 100],
         };
     }
 
@@ -13053,15 +13066,15 @@
             baseA[1] * ss.squash[1] / 100
         ];
 
-        scaleProp.setValueAtTime(timeA,   baseA);
-        scaleProp.setValueAtTime(a1Time,  squashScale);
+        scaleProp.setValueAtTime(timeA, baseA);
+        scaleProp.setValueAtTime(a1Time, squashScale);
         scaleProp.setValueAtTime(midTime, stretchScale);
-        scaleProp.setValueAtTime(b1Time,  squashScale);
-        scaleProp.setValueAtTime(timeB,   baseB);
+        scaleProp.setValueAtTime(b1Time, squashScale);
+        scaleProp.setValueAtTime(timeB, baseB);
     }
 
     function applyToPropertyPairs(layer, prop, pairs, fps, settings) {
-        var result    = { applied: 0, skipped: 0, skipReasons: [] };
+        var result = { applied: 0, skipped: 0, skipReasons: [] };
         var scaleProp = settings.squashOn ? getScaleProp(layer) : null;
 
         var sorted = pairs.slice();
@@ -13077,9 +13090,9 @@
 
             if (idxA > prop.numKeys || idxB > prop.numKeys) continue;
 
-            var timeA  = prop.keyTime(idxA);
+            var timeA = prop.keyTime(idxA);
             var valueA = prop.keyValue(idxA);
-            var timeB  = prop.keyTime(idxB);
+            var timeB = prop.keyTime(idxB);
             var valueB = prop.keyValue(idxB);
 
             var h = calculateHelpers(prop, timeA, valueA, timeB, valueB, fps, settings);
@@ -13254,7 +13267,7 @@
 
         var totalApplied = 0;
         var totalSkipped = 0;
-        var summaries    = [];
+        var summaries = [];
 
         try {
             for (var t = 0; t < targets.length; t++) {
