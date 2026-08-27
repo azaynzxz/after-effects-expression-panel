@@ -8931,12 +8931,16 @@
                         processComp(layer.source, depth + 1);
                     }
 
-                    // Check if name starts with any of the prefixes (case-insensitive)
+                    // Check if name matches any of the prefixes as a distinct word (case-insensitive)
                     var lowerName = layer.name.toLowerCase();
                     var matchedPrefix = null;
                     for (var pf = 0; pf < prefixes.length; pf++) {
-                        if (lowerName.indexOf(prefixes[pf]) === 0) {
-                            matchedPrefix = prefixes[pf];
+                        var prefix = prefixes[pf];
+                        // Match if exact name, or if it starts with prefix followed by a non-letter (e.g. space, _, -, number)
+                        var escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        var regex = new RegExp("^" + escapedPrefix + "(?![a-z])");
+                        if (regex.test(lowerName)) {
+                            matchedPrefix = prefix;
                             break;
                         }
                     }

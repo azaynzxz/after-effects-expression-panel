@@ -11,12 +11,12 @@
     var filePathText;
     var selectedFile = null;
     var currentPlayheadTime = -1;
-    var searchForwardOnlyCheckbox;
-    var autoMoveCheckbox;
-    var exactJumpCheckbox;
-    var addMarkerCheckbox;
-    var markerCountLabel;
-    var calibrationInput; // Calibration input field
+    var searchForwardOnlyCheckbox = { value: true };
+    var autoMoveCheckbox = { value: false };
+    var exactJumpCheckbox = { value: false };
+    var addMarkerCheckbox = { value: true };
+    var markerCountLabel = { text: "Count: 0" };
+    var calibrationInput = { text: "0" };
     var markerCount = 0; // Counter for marker comments (1, 2, 3...)
     var isProgrammaticSelection = false; // Flag to prevent double execution
     var isJumping = false; // Flag to prevent jumpToTime from executing multiple times
@@ -100,7 +100,7 @@
         win.alignChildren = ["fill", "top"];
         win.spacing = 5;
         win.margins = 8;
-        win.preferredSize.width = 350;
+        win.preferredSize.width = 195;
 
         // File selector group
         var fileGroup = win.add("group");
@@ -112,8 +112,13 @@
         fileBtn.preferredSize.width = 50;
         fileBtn.preferredSize.height = 22;
 
+        var lastFileBtn = fileGroup.add("button", undefined, "Last");
+        lastFileBtn.preferredSize.width = 40;
+        lastFileBtn.preferredSize.height = 22;
+        lastFileBtn.helpTip = "Open last opened file";
+
         filePathText = fileGroup.add("statictext", undefined, "No file");
-        filePathText.preferredSize.width = 280;
+        filePathText.preferredSize.width = 75;
         filePathText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Search container
@@ -132,123 +137,88 @@
         searchLabel.preferredSize.width = 45;
 
         searchInput = searchInputRow.add("edittext", undefined, "");
-        searchInput.preferredSize.width = 285;
+        searchInput.preferredSize.width = 125;
         searchInput.preferredSize.height = 22;
         searchInput.helpTip = "Type to search words, then press Enter. Press 1-9 to jump to results.";
 
         // Buttons row (below input)
         var buttonsRow = searchContainer.add("group");
         buttonsRow.orientation = "row";
-        buttonsRow.alignChildren = ["right", "center"];
+        buttonsRow.alignChildren = ["left", "center"];
         buttonsRow.spacing = 5;
 
         var searchBtn = buttonsRow.add("button", undefined, "Search");
-        searchBtn.preferredSize.width = 60;
+        searchBtn.preferredSize.width = 55;
         searchBtn.preferredSize.height = 22;
 
         var showAllBtn = buttonsRow.add("button", undefined, "Show All");
-        showAllBtn.preferredSize.width = 60;
+        showAllBtn.preferredSize.width = 55;
         showAllBtn.preferredSize.height = 22;
 
-        // Search direction checkbox
-        var searchDirectionRow = searchContainer.add("group");
-        searchDirectionRow.orientation = "row";
-        searchDirectionRow.alignChildren = ["left", "center"];
-        searchDirectionRow.spacing = 5;
+        var settingsBtn = buttonsRow.add("button", undefined, "Settings");
+        settingsBtn.preferredSize.width = 55;
+        settingsBtn.preferredSize.height = 22;
+        settingsBtn.helpTip = "Open settings menu";
 
-        searchForwardOnlyCheckbox = searchDirectionRow.add("checkbox", undefined, "Search Forward Only");
-        searchForwardOnlyCheckbox.value = true; // Default: search forward (downward)
-        searchForwardOnlyCheckbox.helpTip = "When checked, only shows results at or after current playhead time";
-        searchForwardOnlyCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        settingsBtn.onClick = function () {
+            var dlg = new Window("dialog", "Settings");
+            dlg.orientation = "column";
+            dlg.alignChildren = ["left", "top"];
+            dlg.spacing = 8;
+            dlg.margins = 15;
 
-        // Auto-move layer checkbox
-        var autoMoveRow = searchContainer.add("group");
-        autoMoveRow.orientation = "row";
-        autoMoveRow.alignChildren = ["left", "center"];
-        autoMoveRow.spacing = 5;
+            var cbSearchForward = dlg.add("checkbox", undefined, "Search Forward Only");
+            cbSearchForward.value = searchForwardOnlyCheckbox.value;
 
-        autoMoveCheckbox = autoMoveRow.add("checkbox", undefined, "Auto-move next layer to time");
-        autoMoveCheckbox.value = false; // Default: disabled
-        autoMoveCheckbox.helpTip = "When enabled, automatically move the layer above the selected one to the jumped time";
-        autoMoveCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var cbAutoMove = dlg.add("checkbox", undefined, "Auto-move next layer to time");
+            cbAutoMove.value = autoMoveCheckbox.value;
 
-        // Exact jump checkbox
-        var exactJumpRow = searchContainer.add("group");
-        exactJumpRow.orientation = "row";
-        exactJumpRow.alignChildren = ["left", "center"];
-        exactJumpRow.spacing = 5;
+            var cbExactJump = dlg.add("checkbox", undefined, "Exact Jump");
+            cbExactJump.value = exactJumpCheckbox.value;
 
-        exactJumpCheckbox = exactJumpRow.add("checkbox", undefined, "Exact Jump");
-        exactJumpCheckbox.value = false; // Default: disabled (jump to next word)
-        exactJumpCheckbox.helpTip = "When enabled, jump to the matched word's time instead of the next word's time";
-        exactJumpCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var markerGroup = dlg.add("group");
+            markerGroup.orientation = "row";
+            var cbAddMarker = markerGroup.add("checkbox", undefined, "Add Marker");
+            cbAddMarker.value = addMarkerCheckbox.value;
 
-        // Add Marker checkbox + Reset button
-        var markerRow = searchContainer.add("group");
-        markerRow.orientation = "row";
-        markerRow.alignChildren = ["left", "center"];
-        markerRow.spacing = 5;
+            var markerLabel = markerGroup.add("statictext", undefined, "Count: " + markerCount);
+            markerLabel.preferredSize.width = 55;
 
-        addMarkerCheckbox = markerRow.add("checkbox", undefined, "Add Marker");
-        addMarkerCheckbox.value = true; // Default: enabled
-        addMarkerCheckbox.helpTip = "When enabled, adds a composition marker (like pressing *) with incrementing comment (1, 2, 3...) at the jumped time";
-        addMarkerCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var btnResetMarker = markerGroup.add("button", undefined, "Reset");
+            btnResetMarker.preferredSize.width = 45;
+            btnResetMarker.onClick = function () {
+                markerCount = 0;
+                markerLabel.text = "Count: 0";
+                markerCountLabel.text = "Count: 0";
+            };
 
-        markerCountLabel = markerRow.add("statictext", undefined, "Count: 0");
-        markerCountLabel.preferredSize.width = 55;
-        markerCountLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var calGroup = dlg.add("group");
+            calGroup.orientation = "row";
+            calGroup.add("statictext", undefined, "Calibration:");
+            var calInput = calGroup.add("edittext", undefined, calibrationInput.text);
+            calInput.preferredSize.width = 40;
+            calGroup.add("statictext", undefined, "frames");
 
-        var resetMarkerBtn = markerRow.add("button", undefined, "Reset");
-        resetMarkerBtn.preferredSize.width = 45;
-        resetMarkerBtn.preferredSize.height = 22;
-        resetMarkerBtn.helpTip = "Reset marker counter back to 0";
-        resetMarkerBtn.onClick = function () {
-            markerCount = 0;
-            markerCountLabel.text = "Count: 0";
-        };
+            var btnGroup = dlg.add("group");
+            btnGroup.orientation = "row";
+            btnGroup.alignChildren = ["right", "center"];
+            btnGroup.alignment = ["fill", "bottom"];
+            btnGroup.margins = [0, 10, 0, 0];
+            var btnCancel = btnGroup.add("button", undefined, "Cancel");
+            var btnOk = btnGroup.add("button", undefined, "OK");
 
-        // Calibration row
-        var calibrationRow = searchContainer.add("group");
-        calibrationRow.orientation = "row";
-        calibrationRow.alignChildren = ["left", "center"];
-        calibrationRow.spacing = 5;
+            btnCancel.onClick = function () { dlg.close(); };
+            btnOk.onClick = function () {
+                searchForwardOnlyCheckbox.value = cbSearchForward.value;
+                autoMoveCheckbox.value = cbAutoMove.value;
+                exactJumpCheckbox.value = cbExactJump.value;
+                addMarkerCheckbox.value = cbAddMarker.value;
+                calibrationInput.text = calInput.text;
+                dlg.close();
+                safeExecute(function () { filterAndDisplayResults(searchInput.text); });
+            };
 
-        var calLabel = calibrationRow.add("statictext", undefined, "Calibration:");
-        calLabel.preferredSize.width = 65;
-        calLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
-
-        calibrationInput = calibrationRow.add("edittext", undefined, "0");
-        calibrationInput.preferredSize.width = 50;
-        calibrationInput.preferredSize.height = 22;
-        calibrationInput.helpTip = "Frame offset (+/-) for all jumps";
-
-        var framesLabel = calibrationRow.add("statictext", undefined, "frames");
-        framesLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        var calPlusBtn = calibrationRow.add("button", undefined, "+1");
-        calPlusBtn.preferredSize.width = 35;
-        calPlusBtn.preferredSize.height = 22;
-        calPlusBtn.helpTip = "Add 1 frame to calibration";
-        calPlusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current + 1).toString();
-        };
-
-        var calMinusBtn = calibrationRow.add("button", undefined, "-1");
-        calMinusBtn.preferredSize.width = 35;
-        calMinusBtn.preferredSize.height = 22;
-        calMinusBtn.helpTip = "Subtract 1 frame from calibration";
-        calMinusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current - 1).toString();
-        };
-
-        var calResetBtn = calibrationRow.add("button", undefined, "Reset");
-        calResetBtn.preferredSize.width = 45;
-        calResetBtn.preferredSize.height = 22;
-        calResetBtn.helpTip = "Reset calibration to 0";
-        calResetBtn.onClick = function () {
-            calibrationInput.text = "0";
+            dlg.show();
         };
 
         // Results list
@@ -256,7 +226,7 @@
         listLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         listbox = win.add("listbox", undefined, [], { multiselect: false });
-        listbox.preferredSize.width = 334;
+        listbox.preferredSize.width = 175;
         listbox.preferredSize.height = 100;
 
         // Status bar
@@ -271,6 +241,10 @@
         // Event handlers
         fileBtn.onClick = function () {
             safeExecute(function () { selectFile(); });
+        };
+
+        lastFileBtn.onClick = function () {
+            safeExecute(function () { openLastFile(); });
         };
 
         // Re-adding addEventListener but with deferred execution to conquer Line 0 crashes!
@@ -307,15 +281,7 @@
             safeExecute(function () { filterAndDisplayResults(""); });
         };
 
-        searchForwardOnlyCheckbox.onClick = function () {
-            // Re-filter when checkbox state changes
-            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
-        };
 
-        exactJumpCheckbox.onClick = function () {
-            // Re-filter when checkbox state changes to update display format
-            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
-        };
 
         listbox.onChange = function () {
             // Skip if this is a programmatic selection (from keyboard shortcut)
@@ -398,10 +364,40 @@
                 filePathText.text = file.name;
                 statusText.text = "Loading file...";
                 readCSVFile(file);
+
+                // Save last file path
+                if (app.settings) {
+                    app.settings.saveSetting("ListJumper", "LastFilePath", file.fsName);
+                }
             }
         } catch (error) {
             statusText.text = "Error selecting file: " + error.message;
             alert("Error selecting file: " + error.message);
+        }
+    }
+
+    // Open last file
+    function openLastFile() {
+        try {
+            if (app.settings && app.settings.haveSetting("ListJumper", "LastFilePath")) {
+                var lastPath = app.settings.getSetting("ListJumper", "LastFilePath");
+                var file = new File(lastPath);
+                if (file.exists) {
+                    selectedFile = file;
+                    filePathText.text = file.name;
+                    statusText.text = "Loading file...";
+                    readCSVFile(file);
+                } else {
+                    statusText.text = "Last file not found.";
+                    alert("Last opened file no longer exists at:\n" + lastPath);
+                }
+            } else {
+                statusText.text = "No last file saved.";
+                alert("No last file saved.");
+            }
+        } catch (error) {
+            statusText.text = "Error loading last file: " + error.message;
+            alert("Error loading last file: " + error.message);
         }
     }
 
