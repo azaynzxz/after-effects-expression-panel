@@ -98,14 +98,15 @@
 
     function sanitizePath(str) {
         if (!str) return "";
-        return str.replace(/[\\\/\*\?"<>\|:]/g, "");
+        try { str = decodeURIComponent(str); } catch (e) { }
+        return str.replace(/[\\\/\*\?"<>\|:%]/g, "").replace(/\s+/g, " ");
     }
 
     /** Helper to create optimized range objects with pre-calculated timecode strings */
     function createRangeObj(inF, outF, suffixStr) {
         var fps = targetComp ? targetComp.frameRate : 30;
         var df = targetComp ? targetComp.dropFrame : false;
-        
+
         var inF_safe = Math.min(inF, outF);
         var outF_safe = Math.max(inF, outF);
         var durF = outF_safe - inF_safe;
@@ -150,8 +151,17 @@
         var name = "Untitled";
         try {
             var projFile = app.project.file;
-            if (projFile && projFile.parent) name = projFile.parent.name;
-        } catch (e) {}
+            if (projFile && projFile.name) {
+                var pName = projFile.name;
+                var dotIdx = pName.lastIndexOf(".");
+                if (dotIdx !== -1) pName = pName.substring(0, dotIdx);
+                if (pName) name = pName;
+            } else if (projFile && projFile.parent) {
+                name = projFile.parent.name;
+            }
+        } catch (e) { }
+
+        name = sanitizePath(name);
 
         if (limit > 0 && name.length > limit) {
             name = name.substring(0, limit).replace(/[\s\._\-]+$/, "");
@@ -163,30 +173,114 @@
     // --- UI CONSTRUCTION ---
     // =========================================================================
 
-    // --- ROW 1: Header (Comp dropdown, refresh button, Mark In, Mark Out, Layer range) ---
+    // =========================================================================
+    // --- LOGGING & DIAGNOSTICS ---
+    // =========================================================================
+    var debugLogs = [];
+
+    function logMsg(msg) {
+        var t = new Date();
+        var timeStr = pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + ":" + pad2(t.getSeconds());
+        debugLogs.push("[" + timeStr + "] " + msg);
+    }
+
+    function showLogDialog() {
+        var logWin = new Window("dialog", "Batch Rendering — Diagnostic Log", undefined, { resizeable: true });
+        logWin.orientation = "column";
+        logWin.alignChildren = ["fill", "fill"];
+        logWin.preferredSize = [640, 420];
+
+        var txt = logWin.add("edittext", undefined, debugLogs.join("\n"), { multiline: true, readonly: true, scrollable: true });
+        txt.alignment = ["fill", "fill"];
+
+        var btnRow = logWin.add("group");
+        btnRow.orientation = "row";
+        btnRow.alignment = ["right", "bottom"];
+        var btnClose = btnRow.add("button", undefined, "Close");
+        btnClose.onClick = function () { logWin.close(); };
+
+        logWin.center();
+        logWin.show();
+    }
+
+    function safeSetOMFile(om, draftFolder, fileNameWithExt) {
+        logMsg("--- Setting OM File ---");
+        logMsg("Folder fsName: " + draftFolder.fsName + " (exists: " + draftFolder.exists + ")");
+
+        var dotIndex = fileNameWithExt.lastIndexOf(".");
+        var base = (dotIndex !== -1) ? fileNameWithExt.substring(0, dotIndex) : fileNameWithExt;
+        var ext = (dotIndex !== -1) ? fileNameWithExt.substring(dotIndex) : "";
+        var cleanFileName = sanitizePath(base) + ext;
+
+        logMsg("Target Clean File Name: " + cleanFileName);
+
+        var winPath = draftFolder.fsName + "\\" + cleanFileName;
+        var unixPath = (draftFolder.fsName + "/" + cleanFileName).replace(/\\/g, "/");
+
+        // Attempt 1: Direct File(winPath)
+        try {
+            om.file = new File(winPath);
+            var res1 = om.file ? decodeURIComponent(om.file.name) : "null";
+            logMsg("Attempt 1 (winPath): " + res1);
+            if (om.file && decodeURIComponent(om.file.name) === cleanFileName) return true;
+        } catch (e1) { logMsg("Attempt 1 Error: " + e1.message); }
+
+        // Attempt 2: Direct File(unixPath)
+        try {
+            om.file = new File(unixPath);
+            var res2 = om.file ? decodeURIComponent(om.file.name) : "null";
+            logMsg("Attempt 2 (unixPath): " + res2);
+            if (om.file && decodeURIComponent(om.file.name) === cleanFileName) return true;
+        } catch (e2) { logMsg("Attempt 2 Error: " + e2.message); }
+
+        // Attempt 3: File(draftFolder, cleanFileName)
+        try {
+            om.file = new File(draftFolder, cleanFileName);
+            var res3 = om.file ? decodeURIComponent(om.file.name) : "null";
+            logMsg("Attempt 3 (Folder, Name): " + res3);
+            if (om.file && decodeURIComponent(om.file.name) === cleanFileName) return true;
+        } catch (e3) { logMsg("Attempt 3 Error: " + e3.message); }
+
+        // Attempt 4: File(draftFolder.fullName + "/" + cleanFileName)
+        try {
+            om.file = new File(draftFolder.fullName + "/" + cleanFileName);
+            var res4 = om.file ? decodeURIComponent(om.file.name) : "null";
+            logMsg("Attempt 4 (fullName): " + res4);
+            if (om.file && decodeURIComponent(om.file.name) === cleanFileName) return true;
+        } catch (e4) { logMsg("Attempt 4 Error: " + e4.message); }
+
+        return false;
+    }
+
+    // --- ROW 1: Header (Comp dropdown, refresh button, Mark In, Mark Out, Layer range, Log) ---
     var headerRow = win.add("group");
     headerRow.orientation = "row";
     headerRow.alignChildren = ["left", "center"];
     headerRow.spacing = 4;
 
     var compDropdown = headerRow.add("dropdownlist", undefined, []);
-    compDropdown.preferredSize = [140, 24];
+    compDropdown.preferredSize = [130, 24];
 
     var btnRefresh = headerRow.add("button", undefined, "↻");
     btnRefresh.preferredSize = [24, 24];
     btnRefresh.helpTip = "Refresh comp list";
 
     var btnMarkIn = headerRow.add("button", undefined, "In");
-    btnMarkIn.preferredSize = [50, 24];
+    btnMarkIn.preferredSize = [45, 24];
     btnMarkIn.helpTip = "Mark In at playhead";
 
     var btnMarkOut = headerRow.add("button", undefined, "Out");
-    btnMarkOut.preferredSize = [50, 24];
+    btnMarkOut.preferredSize = [45, 24];
     btnMarkOut.helpTip = "Mark Out at playhead";
 
     var btnFromLayer = headerRow.add("button", undefined, "+ Layer");
-    btnFromLayer.preferredSize = [60, 24];
+    btnFromLayer.preferredSize = [55, 24];
     btnFromLayer.helpTip = "Add range(s) from currently selected layer(s)";
+
+    var btnLog = headerRow.add("button", undefined, "Log");
+    btnLog.preferredSize = [35, 24];
+    btnLog.helpTip = "View detailed execution log";
+    btnLog.onClick = function () { showLogDialog(); };
 
     // Pending status label under top bar
     var pendingLabel = win.add("statictext", undefined, "");
@@ -344,7 +438,7 @@
             var dpItem = compDropdown.add("item", comps[i].name);
             dpItem.compId = comps[i].id; // Cache ID for O(1) lookup
         }
-        
+
         var active = getActiveComp();
         if (active) {
             for (var j = 0; j < compDropdown.items.length; j++) {
@@ -391,15 +485,15 @@
         try {
             var rq = app.project.renderQueue;
             if (rq && rq.numItems > 0) {
-                try { templates = rq.item(1).outputModule(1).templates; } catch (e1) {}
+                try { templates = rq.item(1).outputModule(1).templates; } catch (e1) { }
             }
-            
+
             if ((!templates || templates.length === 0) && forceScan && targetComp) {
                 var tempItem = rq.items.add(targetComp);
                 templates = tempItem.outputModule(1).templates;
                 tempItem.remove();
             }
-        } catch (e) {}
+        } catch (e) { }
 
         if (!templates || templates.length === 0) {
             templates = [
@@ -442,7 +536,7 @@
     function applyTemplateWithFallback(om, requestedTemplate) {
         if (!om) return false;
         if (requestedTemplate) {
-            try { om.applyTemplate(requestedTemplate); return true; } catch (e1) {}
+            try { om.applyTemplate(requestedTemplate); return true; } catch (e1) { }
         }
         try {
             var installed = om.templates;
@@ -453,7 +547,7 @@
             for (var j = 0; j < installed.length; j++) {
                 if (installed[j].indexOf("H.264") !== -1) { om.applyTemplate(installed[j]); return true; }
             }
-        } catch (e2) {}
+        } catch (e2) { }
         return false;
     }
 
@@ -488,6 +582,24 @@
         updatePreview();
     }
 
+    function ensureFolderExists(f) {
+        if (!f) return false;
+        if (f.exists) return true;
+        if (f.parent && !f.parent.exists) {
+            ensureFolderExists(f.parent);
+        }
+        return f.create();
+    }
+
+    function getOutputRootFolder() {
+        if (outputRootFolder && outputRootFolder.exists) return outputRootFolder;
+        try {
+            var projFile = app.project.file;
+            if (projFile && projFile.exists && projFile.parent) return projFile.parent;
+        } catch (e) { }
+        return Folder.desktop;
+    }
+
     function updatePreview() {
         var sel = rangeList.selection;
         if (sel === null || !targetComp) { previewLabel.text = "(select a range)"; return; }
@@ -502,23 +614,31 @@
         var suffix = r.suffix ? "_" + r.suffix : "";
         var fileName = "RF_" + parentName + "_" + mmss + suffix + ".mp4";
 
-        var rootPath = getOutputRoot();
-        previewLabel.text = rootPath + "\\Draft\\" + fileName;
-    }
-
-    function getOutputRoot() {
-        if (outputRootFolder) return outputRootFolder.fsName;
-        try {
-            var projFile = app.project.file;
-            if (projFile) return projFile.parent.fsName;
-        } catch (e) {}
-        return Folder.desktop.fsName;
+        var rootFolder = getOutputRootFolder();
+        previewLabel.text = rootFolder.fsName + "\\Draft\\" + fileName;
     }
 
     function addRangesFromSelectedLayers() {
+        var active = getActiveComp();
+        if (active) {
+            setTargetComp(active);
+            if (compDropdown) {
+                for (var j = 0; j < compDropdown.items.length; j++) {
+                    if (compDropdown.items[j].compId === active.id) {
+                        compDropdown.selection = j;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (!targetComp) { setStatus("⚠ No target comp selected."); return false; }
+
         var selLayers = targetComp.selectedLayers;
-        if (!selLayers || selLayers.length === 0) return false;
+        if (!selLayers || selLayers.length === 0) {
+            setStatus("⚠ No layer selected in target comp.");
+            return false;
+        }
 
         var fps = targetComp.frameRate;
 
@@ -529,7 +649,7 @@
             var layerSuffix = layer.name;
             var r = createRangeObj(inF, outF, layerSuffix);
             ranges.push(r);
-            addRangeUI(r, ranges.length - 1); // Append to UI directly
+            addRangeUI(r, ranges.length - 1);
         }
 
         setStatus("✓ Added " + selLayers.length + " range(s) from selected layer(s).");
@@ -551,7 +671,7 @@
 
     btnMarkIn.onClick = function () {
         if (!targetComp) { setStatus("⚠ No comp selected."); return; }
-        
+
         pendingInFrame = captureFrame(targetComp);
         pendingSuffix = "";
         var tc = frameToTimecode(pendingInFrame, targetComp.frameRate, targetComp.dropFrame);
@@ -561,14 +681,14 @@
 
     btnMarkOut.onClick = function () {
         if (!targetComp) { setStatus("⚠ No comp selected."); return; }
-        
+
         if (pendingInFrame !== null) {
             var outFrame = captureFrame(targetComp);
             var r = createRangeObj(pendingInFrame, outFrame, pendingSuffix);
-            
+
             ranges.push(r);
             addRangeUI(r, ranges.length - 1);
-            
+
             pendingInFrame = null;
             pendingSuffix = "";
             pendingLabel.text = "";
@@ -616,7 +736,7 @@
             if (idx >= 0 && idx < ranges.length) {
                 var inF = (editInField.text !== "") ? timecodeToFrame(editInField.text, fps, df) : ranges[idx].inFrame;
                 var outF = (editOutField.text !== "") ? timecodeToFrame(editOutField.text, fps, df) : ranges[idx].outFrame;
-                
+
                 // createRangeObj automatically handles sorting min/max if they are out of order
                 var newR = createRangeObj(inF, outF, editSuffixField.text);
                 ranges[idx] = newR;
@@ -641,16 +761,16 @@
         var items = (sel instanceof Array) ? sel : [sel];
         var indices = [];
         for (var i = 0; i < items.length; i++) indices.push(items[i].index);
-        
+
         // Sort descending so splicing doesn't shift remaining indices being processed
         indices.sort(function (a, b) { return b - a; });
-        
+
         for (var j = 0; j < indices.length; j++) {
             var idx = indices[j];
             ranges.splice(idx, 1);
             rangeList.remove(rangeList.items[idx]); // Remove directly from DOM
         }
-        
+
         // Fix index column labels (#) for all remaining items
         for (var k = 0; k < rangeList.items.length; k++) {
             rangeList.items[k].text = String(k + 1);
@@ -687,31 +807,51 @@
     // =========================================================================
 
     btnRender.onClick = function () {
-        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
-        if (ranges.length === 0) { setStatus("⚠ No ranges. Mark In/Out or add layers first."); return; }
+        debugLogs = []; // reset log
+        logMsg("=== Starting Batch Render ===");
+
+        if (!targetComp) {
+            logMsg("Error: No target comp selected.");
+            setStatus("⚠ No comp selected.");
+            showLogDialog();
+            return;
+        }
+        if (ranges.length === 0) {
+            logMsg("Error: No ranges added.");
+            setStatus("⚠ No ranges. Mark In/Out or add layers first.");
+            showLogDialog();
+            return;
+        }
+
+        logMsg("Target Comp: " + targetComp.name + " (" + targetComp.width + "x" + targetComp.height + " @ " + targetComp.frameRate + "fps)");
 
         var fps = targetComp.frameRate;
 
-        // Build output folder: {root}/Draft/
-        var rootPath = getOutputRoot();
-        var draftFolder = new Folder(rootPath + "/Draft");
+        // Output Root
+        var rootFolder = getOutputRootFolder();
+        logMsg("Output Root Folder: " + rootFolder.fsName);
+
+        var draftPath = (rootFolder.fsName + "/Draft").replace(/\\/g, "/");
+        var draftFolder = new Folder(draftPath);
+        ensureFolderExists(draftFolder);
+        logMsg("Draft Folder: " + draftFolder.fsName + " (exists: " + draftFolder.exists + ")");
+
         if (!draftFolder.exists) {
-            var created = draftFolder.create();
-            if (!created) {
-                try {
-                    var projFile = app.project.file;
-                    if (projFile) rootPath = projFile.parent.fsName;
-                    else rootPath = Folder.desktop.fsName;
-                } catch (e) { rootPath = Folder.desktop.fsName; }
-                draftFolder = new Folder(rootPath + "/Draft");
-                draftFolder.create();
-                setStatus("⚠ Fallback folder: " + rootPath);
-            }
+            draftPath = (Folder.desktop.fsName + "/Draft").replace(/\\/g, "/");
+            draftFolder = new Folder(draftPath);
+            ensureFolderExists(draftFolder);
+            logMsg("Fallback Desktop Draft Folder: " + draftFolder.fsName + " (exists: " + draftFolder.exists + ")");
         }
 
         var templateName = (omDropdown.selection !== null) ? omDropdown.selection.text : null;
+        logMsg("Selected OM Template: " + (templateName || "None (Default)"));
+
         var parentName = sanitizePath(getParentFolderName());
+        logMsg("Parent Name for prefix: " + parentName);
+
         var nameCount = {};
+        var renderNow = cbRenderNow.value;
+        var createdItems = [];
 
         app.beginUndoGroup("Batch Rendering — " + ranges.length + " ranges");
 
@@ -721,7 +861,13 @@
 
             for (var i = 0; i < ranges.length; i++) {
                 var r = ranges[i];
-                if (r.durationFrames <= 0) continue;
+                if (r.durationFrames <= 0) {
+                    logMsg("Range #" + (i + 1) + " skipped (duration <= 0).");
+                    continue;
+                }
+
+                logMsg("--- Processing Range #" + (i + 1) + " ---");
+                logMsg("In: " + r.inFrame + " f (" + r.inTimecode + "), Out: " + r.outFrame + " f (" + r.outTimecode + ")");
 
                 var rqItem = rq.items.add(targetComp);
                 rqItem.timeSpanStart = frameToSeconds(r.inFrame, fps);
@@ -730,9 +876,11 @@
                 var mmss = getMMSS(r.inFrame, fps);
                 var suffix = r.suffix ? "_" + r.suffix : "";
                 var baseName = "RF_" + parentName + "_" + mmss + suffix;
-                
+                logMsg("Base File Name: " + baseName);
+
                 var om = rqItem.outputModule(1);
-                applyTemplateWithFallback(om, templateName);
+                var applied = applyTemplateWithFallback(om, templateName);
+                logMsg("Template applied: " + applied);
 
                 var ext = ".mp4";
                 try {
@@ -741,32 +889,80 @@
                         var dotIndex = defaultFileName.lastIndexOf(".");
                         if (dotIndex !== -1) ext = defaultFileName.substring(dotIndex);
                     }
-                } catch (eExt) {}
+                } catch (eExt) { }
+                logMsg("Extension determined: " + ext);
 
-                // Handle duplicates with physical file check + tracking cache
                 var finalName = baseName;
                 var counter = 1;
-                while (nameCount[finalName] !== undefined || new File(draftFolder.fsName + "/" + finalName + ext).exists) {
+                while (nameCount[finalName] !== undefined || new File((draftFolder.fsName + "/" + finalName + ext).replace(/\\/g, "/")).exists) {
                     finalName = baseName + "_" + counter;
                     counter++;
                 }
                 nameCount[finalName] = 1;
+                logMsg("Final Target File Name: " + finalName + ext);
 
-                om.file = new File(draftFolder.fsName + "/" + finalName + ext);
+                var success = safeSetOMFile(om, draftFolder, finalName + ext);
+                logMsg("Initial OM File Assignment Success: " + success);
+
+                createdItems.push({
+                    rqItem: rqItem,
+                    om: om,
+                    draftFolder: draftFolder,
+                    fileNameWithExt: finalName + ext
+                });
+
                 queued++;
             }
 
-            setStatus("✓ Queued " + queued + " range(s) → " + draftFolder.fsName);
-
-            if (cbRenderNow.value) {
-                rq.render();
-                setStatus("✓ Render complete.");
-            }
+            if (queued > 0) setStatus("✓ Queued " + queued + " range(s) → " + draftFolder.fsName);
         } catch (e) {
+            logMsg("Critical Error in Render Loop: " + e.message);
             setStatus("✗ Error: " + e.message);
         }
 
         app.endUndoGroup();
+        logMsg("UndoGroup closed.");
+
+        // Post-Undo Pass: Re-verify and re-apply OM file outside UndoGroup if AE reverted it
+        logMsg("=== Starting Post-Undo OM File Re-verification Pass ===");
+        var allVerified = true;
+        for (var k = 0; k < createdItems.length; k++) {
+            var ci = createdItems[k];
+            logMsg("Post-Undo Check #" + (k + 1) + ": " + ci.fileNameWithExt);
+            var currentFile = null;
+            try { currentFile = ci.om.file; } catch (eCF) { }
+            var currentName = currentFile ? decodeURIComponent(currentFile.name) : "(null)";
+            logMsg("Current om.file name: " + currentName);
+
+            if (currentName !== ci.fileNameWithExt) {
+                logMsg("⚠ Reversion detected! Re-applying safeSetOMFile outside UndoGroup...");
+                var reApplied = safeSetOMFile(ci.om, ci.draftFolder, ci.fileNameWithExt);
+                logMsg("Re-apply result: " + reApplied);
+                if (!reApplied) allVerified = false;
+            } else {
+                logMsg("✓ Verified om.file match.");
+            }
+        }
+
+        logMsg("=== Batch Render Queue Prep Finished ===");
+
+        if (!allVerified) {
+            logMsg("WARNING: One or more Output Modules could not be assigned the custom name.");
+            showLogDialog();
+        }
+
+        if (renderNow) {
+            logMsg("Triggering app.project.renderQueue.render()...");
+            try {
+                app.project.renderQueue.render();
+                logMsg("✓ app.project.renderQueue.render() completed successfully.");
+                setStatus("✓ Render complete.");
+            } catch (rErr) {
+                logMsg("✗ Render Error: " + rErr.message);
+                setStatus("✗ Render Error: " + rErr.message);
+                showLogDialog();
+            }
+        }
     };
 
     // =========================================================================

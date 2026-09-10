@@ -10,9 +10,9 @@
         "Fast Wiggle": "wiggle(50,35)",
         "Stop Motion": "posterizeTime(2);\nvalue",
         "Time Rotation": "// Settings\nspeed = 360; // degrees per second\n\n// Rotation animation\ntime * speed",
-        "Loop Cycle": "if (numKeys > 0) loopOut('cycle'); else value;",
-        "Loop Continue": "if (numKeys > 0) loopOut('continue'); else value;",
-        "Loop PingPong": "if (numKeys > 0) loopOut('pingpong'); else value;",
+        "Loop Cycle": "try{loopOut('cycle')}catch(e){if(numKeys>1&&time>key(numKeys).time){var t1=key(1).time,t2=key(numKeys).time,dur=t2-t1;valueAtTime(t1+((time-t1)%dur))}else{value}}",
+        "Loop Continue": "try{loopOut('offset')}catch(e){value}",
+        "Loop PingPong": "try{loopOut('pingpong')}catch(e){if(numKeys>1&&time>key(numKeys).time){var t1=key(1).time,t2=key(numKeys).time,dur=t2-t1,cyc=Math.floor((time-t1)/dur),t=(time-t1)%dur;if(cyc%2!==0)t=dur-t;valueAtTime(t1+t)}else{value}}",
         "Loop Wiggle": "loop = (function(){\nif (numKeys > 1) {\n  var t1 = key(1).time, t2 = key(numKeys).time, dur = t2 - t1;\n  var m = thisLayer.marker, isStopped = false, stopTime = 0, syncTime = -1;\n  if (m.numKeys > 0) {\n    for (var i = 1; i <= m.numKeys; i++) {\n      var mk = m.key(i);\n      if (mk.time <= time) {\n        if (mk.comment === 'L_St') { isStopped = true; stopTime = mk.time; }\n        else if (mk.comment === 'L_Sy') { isStopped = false; syncTime = mk.time; }\n      }\n    }\n  }\n  var evalTime = isStopped ? stopTime : time;\n  var offsetT = (syncTime !== -1 && evalTime >= syncTime) ? (evalTime - syncTime) : (evalTime > t2 ? evalTime - t2 : 0);\n  if (offsetT > 0) return valueAtTime(t1 + (offsetT % dur));\n  else return valueAtTime(evalTime);\n} else return value;\n})();\nwig = wiggle(75, 15);\nloop + (wig - value)",
         "Up Down": "amp = 50;\nframesPerCycle = 5;\nfps = thisComp.frameDuration;\nt = time / (framesPerCycle * fps);\nvalue + [0, Math.sin(t * 2 * Math.PI) * amp];",
         "Left Right": "amp = 50;\nframesPerCycle = 5;\nfps = thisComp.frameDuration;\nt = time / (framesPerCycle * fps);\nvalue + [Math.sin(t * 2 * Math.PI) * amp, 0];",
@@ -139,6 +139,12 @@
         flipVBtn.preferredSize.height = 18;
         flipVBtn.helpTip = "Flip layers vertically (invert Y scale)";
         flipVBtn.onClick = function () { flipVertical(); };
+
+        var linkBtnTop = jumpRow.add("button", undefined, "⚯");
+        linkBtnTop.preferredSize.width = 18;
+        linkBtnTop.preferredSize.height = 18;
+        linkBtnTop.helpTip = "Parent selected layers to the last selected layer (Link)";
+        linkBtnTop.onClick = function () { linkerLayers(); };
 
         // Search Group
         var searchGroup = headerGroup.add("group");
