@@ -713,7 +713,7 @@
                 }
 
                 var finalCharComp = filteredChars[listChar.selection.index];
-                
+
                 if (finalCharComp.id === activeComp.id) {
                     alert("Cannot copy a composition into itself.");
                     return;
@@ -804,7 +804,7 @@
         grpBlinkOpacity.orientation = "row";
         grpBlinkOpacity.alignChildren = ["left", "center"];
         grpBlinkOpacity.margins = [10, 10, 10, 0];
-        
+
         var btnBlinkOp = grpBlinkOpacity.add("button", undefined, "Apply Blink to 'eye-open Opacity'");
         btnBlinkOp.helpTip = "Adds an expression to 'eye-open Opacity' in Essential Properties. Blinks (0%) for 4 frames when hitting a 'B' marker.";
         btnBlinkOp.onClick = function () {
@@ -828,7 +828,7 @@
                 if (essProps) {
                     targetProp = essProps.property("eye-open Opacity");
                 }
-                
+
                 if (targetProp && targetProp.canSetExpression) {
                     targetProp.expression = [
                         'try {',
@@ -860,6 +860,27 @@
                 }
             }
             app.endUndoGroup();
+        };
+
+        var btnReloadAll = grpBlinkOpacity.add("button", undefined, "Reload All Pickers");
+        btnReloadAll.onClick = function () {
+            for (var p = 0; p < pickersData.length; p++) {
+                var pData = pickersData[p];
+                if (app.settings && app.settings.haveSetting("SmartRig", "comp_" + pData.id)) {
+                    var cName = app.settings.getSetting("SmartRig", "comp_" + pData.id);
+                    if (!cName) continue;
+                    var foundComp = null;
+                    for (var i = 1; i <= app.project.numItems; i++) {
+                        if (app.project.item(i) instanceof CompItem && app.project.item(i).name === cName) {
+                            foundComp = app.project.item(i);
+                            break;
+                        }
+                    }
+                    if (foundComp) {
+                        buildPickerGrid(pData.id, foundComp);
+                    }
+                }
+            }
         };
 
         var mainScroll = tabPicker.add("panel", undefined, "");
@@ -924,6 +945,7 @@
                 if (app.settings) {
                     app.settings.saveSetting("SmartRig", "comp_" + pickerId, selComp.name);
                 }
+
                 buildPickerGrid(pickerId, selComp);
             };
 
@@ -945,7 +967,7 @@
                 grpControls.alignChildren = ["left", "center"];
                 grpControls.spacing = 4;
                 grpControls.margins = 0;
-                
+
                 var btnLoad = grpControls.add("button", undefined, "Load");
                 btnLoad.preferredSize.height = 20;
                 grpControls.add("statictext", undefined, "Target:");
@@ -1130,7 +1152,7 @@
             try {
                 var essProps = targetLayer.property("ADBE Master Properties");
                 if (!essProps) essProps = targetLayer.property("Essential Properties");
-                
+
                 if (essProps) {
                     if (effectName.charAt(0) === "-") {
                         var foundProp = findPropertyWithSuffix(essProps, effectName);
@@ -1240,23 +1262,8 @@
             app.endUndoGroup();
         }
 
-        // Auto-Load Cached Pickers
-        for (var p = 0; p < pickersData.length; p++) {
-            var pData = pickersData[p];
-            if (app.settings && app.settings.haveSetting("SmartRig", "comp_" + pData.id)) {
-                var cachedCompName = app.settings.getSetting("SmartRig", "comp_" + pData.id);
-                var foundComp = null;
-                for (var i = 1; i <= app.project.numItems; i++) {
-                    if (app.project.item(i) instanceof CompItem && app.project.item(i).name === cachedCompName) {
-                        foundComp = app.project.item(i);
-                        break;
-                    }
-                }
-                if (foundComp) {
-                    buildPickerGrid(pData.id, foundComp);
-                }
-            }
-        }
+        // Auto-Load Cached Pickers removed to prevent UI freeze on startup
+        // The user can now click the global 'Reload All Pickers' button to explicitly load previous picker grids.
         // --- END SMART PICKER LOGIC ---
 
 

@@ -100,11 +100,11 @@
         win.alignChildren = ["fill", "top"];
         win.spacing = 5;
         win.margins = 8;
-        win.preferredSize.width = 195;
 
         // File selector group
         var fileGroup = win.add("group");
         fileGroup.orientation = "row";
+        fileGroup.alignment = ["fill", "top"];
         fileGroup.alignChildren = ["left", "center"];
         fileGroup.spacing = 5;
 
@@ -118,32 +118,32 @@
         lastFileBtn.helpTip = "Open last opened file";
 
         filePathText = fileGroup.add("statictext", undefined, "No file");
-        filePathText.preferredSize.width = 75;
+        filePathText.alignment = ["fill", "center"];
         filePathText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Search container
         var searchContainer = win.add("group");
         searchContainer.orientation = "column";
+        searchContainer.alignment = ["fill", "top"];
         searchContainer.alignChildren = ["fill", "top"];
         searchContainer.spacing = 3;
 
-        // Search input row
         var searchInputRow = searchContainer.add("group");
         searchInputRow.orientation = "row";
-        searchInputRow.alignChildren = ["left", "center"];
+        searchInputRow.alignment = ["fill", "top"];
+        searchInputRow.alignChildren = ["fill", "center"];
         searchInputRow.spacing = 5;
 
         var searchLabel = searchInputRow.add("statictext", undefined, "Search:");
         searchLabel.preferredSize.width = 45;
 
         searchInput = searchInputRow.add("edittext", undefined, "");
-        searchInput.preferredSize.width = 125;
-        searchInput.preferredSize.height = 22;
+        searchInput.alignment = ["fill", "center"];
         searchInput.helpTip = "Type to search words, then press Enter. Press 1-9 to jump to results.";
 
         // Buttons row (below input)
         var buttonsRow = searchContainer.add("group");
         buttonsRow.orientation = "row";
+        buttonsRow.alignment = ["fill", "top"];
         buttonsRow.alignChildren = ["left", "center"];
         buttonsRow.spacing = 5;
 
@@ -223,15 +223,16 @@
 
         // Results list
         var listLabel = win.add("statictext", undefined, "Results:");
+        listLabel.alignment = ["left", "top"];
         listLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         listbox = win.add("listbox", undefined, [], { multiselect: false });
-        listbox.preferredSize.width = 175;
-        listbox.preferredSize.height = 100;
+        listbox.alignment = ["fill", "fill"];
 
         // Status bar
         var statusGroup = win.add("group");
         statusGroup.orientation = "row";
+        statusGroup.alignment = ["fill", "bottom"];
         statusGroup.alignChildren = ["fill", "center"];
 
         statusText = statusGroup.add("statictext", undefined, "Ready");
@@ -349,6 +350,10 @@
         win.addEventListener('keydown', function (event) {
             handleNumberKeyJump(event, listbox);
         });
+
+        win.onResizing = win.onResize = function () {
+            this.layout.resize();
+        };
 
         win.layout.layout(true);
         return win;

@@ -262,12 +262,7 @@
         tabFav.spacing = 2;
         tabFav.margins = 2;
 
-        // Category: Animations
-        var animLbl = tabFav.add("statictext", undefined, "░ ANIMATIONS");
-        animLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
-        animLbl.alignment = ["fill", "top"];
-
-        var favAnimPairs = [
+        var favAnimPairsAll = [
             ["∿ Wiggle", "Fast Wiggle", runAnim, "Wiggle position, scale, or rotation"],
             ["↕ Up Down", "Up Down", runAnim, "Continuous sinusoidal up-down vertical movement"],
             ["↔ Left Right", "Left Right", runAnim, "Continuous sinusoidal left-right horizontal movement"],
@@ -284,23 +279,7 @@
             ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"]
         ];
 
-        for (var i = 0; i < favAnimPairs.length; i += 2) {
-            var row = tabFav.add("group");
-            row.orientation = "row";
-            row.alignChildren = ["fill", "center"];
-            row.spacing = 2;
-            addBtn(row, favAnimPairs[i][0], favAnimPairs[i][1], favAnimPairs[i][2], favAnimPairs[i][3]);
-            if (i + 1 < favAnimPairs.length) {
-                addBtn(row, favAnimPairs[i + 1][0], favAnimPairs[i + 1][1], favAnimPairs[i + 1][2], favAnimPairs[i + 1][3]);
-            }
-        }
-
-        // Category: Utilities & Audio
-        var utilLbl = tabFav.add("statictext", undefined, "░ UTILITIES & AUDIO");
-        utilLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
-        utilLbl.alignment = ["fill", "top"];
-
-        var favUtilPairs = [
+        var favUtilPairsAll = [
             ["♦ Add KFs", "Add Keyframes", function () { addCurrentKeyframes(); }, "Adds keyframes for current position, scale, rotation and opacity values"],
             ["✃ Trim Sel", "Trim Selected", function () { trimSelectedLayers(); }, "Trim selected layers to avoid overlapping"],
             ["☒ Hide Lyrs", "Hide Layers", function () { hideAllLayersNamedHide(); }, "Hide all layers starting with 'hide' or 'x' in main_comp"],
@@ -312,23 +291,7 @@
             ["⇆ Flip H", "Flip H", function () { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
         ];
 
-        for (var i = 0; i < favUtilPairs.length; i += 2) {
-            var row = tabFav.add("group");
-            row.orientation = "row";
-            row.alignChildren = ["fill", "center"];
-            row.spacing = 2;
-            addBtn(row, favUtilPairs[i][0], favUtilPairs[i][1], favUtilPairs[i][2], favUtilPairs[i][3]);
-            if (i + 1 < favUtilPairs.length) {
-                addBtn(row, favUtilPairs[i + 1][0], favUtilPairs[i + 1][1], favUtilPairs[i + 1][2], favUtilPairs[i + 1][3]);
-            }
-        }
-
-        // Category: Loops & Layers
-        var loopLbl = tabFav.add("statictext", undefined, "░ LOOPS & LAYERS");
-        loopLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
-        loopLbl.alignment = ["fill", "top"];
-
-        var favLoopPairs = [
+        var favLoopPairsAll = [
             ["↻ Loop Cycle", "Loop Cycle", runAnim, "Loop cycle expression"],
             ["➔ Loop Cont", "Loop Continue", runAnim, "Loop continue expression"],
             ["⇄ Loop Ping", "Loop PingPong", runAnim, "Loop pingpong expression"],
@@ -340,14 +303,203 @@
             }, "Open List Jumper - jump to timeline positions based on CSV word data"]
         ];
 
-        for (var i = 0; i < favLoopPairs.length; i += 2) {
-            var row = tabFav.add("group");
-            row.orientation = "row";
-            row.alignChildren = ["fill", "center"];
-            row.spacing = 2;
-            addBtn(row, favLoopPairs[i][0], favLoopPairs[i][1], favLoopPairs[i][2], favLoopPairs[i][3]);
-            if (i + 1 < favLoopPairs.length) {
-                addBtn(row, favLoopPairs[i + 1][0], favLoopPairs[i + 1][1], favLoopPairs[i + 1][2], favLoopPairs[i + 1][3]);
+        function getFavSetting(category, defaultList) {
+            if (app.settings && app.settings.haveSetting("ExpressionPanelV2", "Fav_" + category)) {
+                var saved = app.settings.getSetting("ExpressionPanelV2", "Fav_" + category);
+                return saved ? saved.split(",") : [];
+            }
+            var def = [];
+            for (var i = 0; i < defaultList.length; i++) def.push(defaultList[i][1]);
+            return def;
+        }
+
+        var activeAnimKeys = getFavSetting("Anims", favAnimPairsAll);
+        var activeUtilKeys = getFavSetting("Utils", favUtilPairsAll);
+        var activeLoopKeys = getFavSetting("Loops", favLoopPairsAll);
+
+        var favAnimPairs = [];
+        for (var i = 0; i < favAnimPairsAll.length; i++) {
+            for (var j = 0; j < activeAnimKeys.length; j++) {
+                if (favAnimPairsAll[i][1] === activeAnimKeys[j]) {
+                    favAnimPairs.push(favAnimPairsAll[i]);
+                    break;
+                }
+            }
+        }
+
+        var favUtilPairs = [];
+        for (var i = 0; i < favUtilPairsAll.length; i++) {
+            for (var j = 0; j < activeUtilKeys.length; j++) {
+                if (favUtilPairsAll[i][1] === activeUtilKeys[j]) {
+                    favUtilPairs.push(favUtilPairsAll[i]);
+                    break;
+                }
+            }
+        }
+
+        var favLoopPairs = [];
+        for (var i = 0; i < favLoopPairsAll.length; i++) {
+            for (var j = 0; j < activeLoopKeys.length; j++) {
+                if (favLoopPairsAll[i][1] === activeLoopKeys[j]) {
+                    favLoopPairs.push(favLoopPairsAll[i]);
+                    break;
+                }
+            }
+        }
+
+        function showFavSettingsDialog() {
+            var w = new Window("dialog", "Customize Favourites");
+            w.orientation = "column";
+            w.alignChildren = ["fill", "top"];
+            w.spacing = 10;
+            w.margins = 15;
+
+            w.add("statictext", undefined, "Select tools to show in Favourites tab:");
+
+            var pnlMain = w.add("panel", undefined, "");
+            pnlMain.orientation = "row";
+            pnlMain.alignChildren = ["fill", "top"];
+            pnlMain.spacing = 10;
+            pnlMain.margins = 10;
+
+            var grpAnims = pnlMain.add("group");
+            grpAnims.orientation = "column";
+            grpAnims.alignChildren = ["left", "top"];
+            grpAnims.add("statictext", undefined, "Animations:");
+            var listAnims = grpAnims.add("listbox", undefined, [], {multiselect: true});
+            listAnims.preferredSize = [140, 220];
+
+            var grpUtils = pnlMain.add("group");
+            grpUtils.orientation = "column";
+            grpUtils.alignChildren = ["left", "top"];
+            grpUtils.add("statictext", undefined, "Utilities:");
+            var listUtils = grpUtils.add("listbox", undefined, [], {multiselect: true});
+            listUtils.preferredSize = [140, 220];
+
+            var grpLoops = pnlMain.add("group");
+            grpLoops.orientation = "column";
+            grpLoops.alignChildren = ["left", "top"];
+            grpLoops.add("statictext", undefined, "Loops:");
+            var listLoops = grpLoops.add("listbox", undefined, [], {multiselect: true});
+            listLoops.preferredSize = [140, 220];
+
+            for (var i = 0; i < favAnimPairsAll.length; i++) {
+                var item = listAnims.add("item", favAnimPairsAll[i][0]);
+                for (var j = 0; j < activeAnimKeys.length; j++) {
+                    if (activeAnimKeys[j] === favAnimPairsAll[i][1]) item.selected = true;
+                }
+            }
+            for (var i = 0; i < favUtilPairsAll.length; i++) {
+                var item = listUtils.add("item", favUtilPairsAll[i][0]);
+                for (var j = 0; j < activeUtilKeys.length; j++) {
+                    if (activeUtilKeys[j] === favUtilPairsAll[i][1]) item.selected = true;
+                }
+            }
+            for (var i = 0; i < favLoopPairsAll.length; i++) {
+                var item = listLoops.add("item", favLoopPairsAll[i][0]);
+                for (var j = 0; j < activeLoopKeys.length; j++) {
+                    if (activeLoopKeys[j] === favLoopPairsAll[i][1]) item.selected = true;
+                }
+            }
+
+            var grpBtns = w.add("group");
+            grpBtns.orientation = "row";
+            grpBtns.alignChildren = ["center", "center"];
+            var btnSave = grpBtns.add("button", undefined, "Save");
+            var btnCancel = grpBtns.add("button", undefined, "Cancel");
+
+            btnSave.onClick = function() {
+                var selAnims = [];
+                for (var i = 0; i < listAnims.items.length; i++) {
+                    if (listAnims.items[i].selected) selAnims.push(favAnimPairsAll[i][1]);
+                }
+                var selUtils = [];
+                for (var i = 0; i < listUtils.items.length; i++) {
+                    if (listUtils.items[i].selected) selUtils.push(favUtilPairsAll[i][1]);
+                }
+                var selLoops = [];
+                for (var i = 0; i < listLoops.items.length; i++) {
+                    if (listLoops.items[i].selected) selLoops.push(favLoopPairsAll[i][1]);
+                }
+
+                if (app.settings) {
+                    app.settings.saveSetting("ExpressionPanelV2", "Fav_Anims", selAnims.join(","));
+                    app.settings.saveSetting("ExpressionPanelV2", "Fav_Utils", selUtils.join(","));
+                    app.settings.saveSetting("ExpressionPanelV2", "Fav_Loops", selLoops.join(","));
+                }
+                w.close();
+                alert("Favourites saved! Please reload the panel (close and open) to see the changes.");
+            };
+
+            btnCancel.onClick = function() { w.close(); };
+
+            w.show();
+        }
+
+        // Category: Animations
+        var animLblGrp = tabFav.add("group");
+        animLblGrp.orientation = "row";
+        animLblGrp.alignChildren = ["fill", "center"];
+        animLblGrp.spacing = 2;
+
+        var animLbl = animLblGrp.add("statictext", undefined, "░ ANIMATIONS");
+        animLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+        animLbl.alignment = ["fill", "center"];
+
+        var favSettingsBtn = animLblGrp.add("button", undefined, "⚙");
+        favSettingsBtn.preferredSize = [20, 16];
+        favSettingsBtn.helpTip = "Customize Favourites (Settings)";
+        favSettingsBtn.alignment = ["right", "center"];
+        favSettingsBtn.onClick = function () {
+            showFavSettingsDialog();
+        };
+
+        if (favAnimPairs.length > 0) {
+            for (var i = 0; i < favAnimPairs.length; i += 2) {
+                var row = tabFav.add("group");
+                row.orientation = "row";
+                row.alignChildren = ["fill", "center"];
+                row.spacing = 2;
+                addBtn(row, favAnimPairs[i][0], favAnimPairs[i][1], favAnimPairs[i][2], favAnimPairs[i][3]);
+                if (i + 1 < favAnimPairs.length) {
+                    addBtn(row, favAnimPairs[i + 1][0], favAnimPairs[i + 1][1], favAnimPairs[i + 1][2], favAnimPairs[i + 1][3]);
+                }
+            }
+        }
+
+        // Category: Utilities & Audio
+        if (favUtilPairs.length > 0) {
+            var utilLbl = tabFav.add("statictext", undefined, "░ UTILITIES & AUDIO");
+            utilLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+            utilLbl.alignment = ["fill", "top"];
+
+            for (var i = 0; i < favUtilPairs.length; i += 2) {
+                var row = tabFav.add("group");
+                row.orientation = "row";
+                row.alignChildren = ["fill", "center"];
+                row.spacing = 2;
+                addBtn(row, favUtilPairs[i][0], favUtilPairs[i][1], favUtilPairs[i][2], favUtilPairs[i][3]);
+                if (i + 1 < favUtilPairs.length) {
+                    addBtn(row, favUtilPairs[i + 1][0], favUtilPairs[i + 1][1], favUtilPairs[i + 1][2], favUtilPairs[i + 1][3]);
+                }
+            }
+        }
+
+        // Category: Loops & Layers
+        if (favLoopPairs.length > 0) {
+            var loopLbl = tabFav.add("statictext", undefined, "░ LOOPS & LAYERS");
+            loopLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 8);
+            loopLbl.alignment = ["fill", "top"];
+
+            for (var i = 0; i < favLoopPairs.length; i += 2) {
+                var row = tabFav.add("group");
+                row.orientation = "row";
+                row.alignChildren = ["fill", "center"];
+                row.spacing = 2;
+                addBtn(row, favLoopPairs[i][0], favLoopPairs[i][1], favLoopPairs[i][2], favLoopPairs[i][3]);
+                if (i + 1 < favLoopPairs.length) {
+                    addBtn(row, favLoopPairs[i + 1][0], favLoopPairs[i + 1][1], favLoopPairs[i + 1][2], favLoopPairs[i + 1][3]);
+                }
             }
         }
         addTabSpacer(tabFav);
