@@ -412,13 +412,48 @@
     renderGroup.alignChildren = ["center", "center"];
     renderGroup.spacing = 4;
 
-    var cbRenderNow = renderGroup.add("checkbox", undefined, "Render immediately");
+    var cbRow = renderGroup.add("group");
+    cbRow.orientation = "row";
+    cbRow.alignChildren = ["center", "center"];
+    cbRow.spacing = 8;
+
+    var cbRenderNow = cbRow.add("checkbox", undefined, "Render now");
     cbRenderNow.value = false;
     cbRenderNow.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
+    var cbExportPPro = cbRow.add("checkbox", undefined, "Export PPro timing");
+    cbExportPPro.value = true;
+    cbExportPPro.helpTip = "Export timing metadata (JSON, CSV, and 1-click JSX) for Premiere Pro";
+    cbExportPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+    var cbSyncToPPro = cbRow.add("checkbox", undefined, "Auto-Sync PPro");
+    cbSyncToPPro.value = false;
+    cbSyncToPPro.helpTip = "Automatically sync to Premiere Pro timeline via BridgeTalk after render completes";
+    cbSyncToPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
     var btnRender = renderGroup.add("button", undefined, "RENDER");
-    btnRender.preferredSize = [180, 32];
+    btnRender.preferredSize = [270, 28];
     btnRender.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
+
+    var pproRow = renderGroup.add("group");
+    pproRow.orientation = "row";
+    pproRow.alignChildren = ["center", "center"];
+    pproRow.spacing = 4;
+
+    var btnSyncPPro = pproRow.add("button", undefined, "⚡ Sync to Premiere");
+    btnSyncPPro.preferredSize = [120, 22];
+    btnSyncPPro.helpTip = "1-Click BridgeTalk: Send rendered ranges to active Premiere Pro sequence immediately!";
+    btnSyncPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+    var btnExportPPro = pproRow.add("button", undefined, "📁 Export Timing");
+    btnExportPPro.preferredSize = [95, 22];
+    btnExportPPro.helpTip = "Export JSON, CSV, and Place_Footage_In_PPro.jsx to Draft folder without rendering";
+    btnExportPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+    var btnOpenDraft = pproRow.add("button", undefined, "📂 Draft");
+    btnOpenDraft.preferredSize = [50, 22];
+    btnOpenDraft.helpTip = "Open Draft folder in Windows Explorer";
+    btnOpenDraft.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
     // Status bar
     var statusLabel = win.add("statictext", undefined, "");
@@ -803,6 +838,469 @@
     };
 
     // =========================================================================
+    // --- TIMING EXPORT & PREMIERE PRO SYNC ENGINE ---
+    // =========================================================================
+
+    function safeJsonStringify(obj, indent) {
+        if (typeof JSON !== "undefined" && JSON.stringify) {
+            try { return JSON.stringify(obj, null, 2); } catch (eJSON) {}
+        }
+        indent = indent || "";
+        if (obj === null) return "null";
+        if (obj === undefined) return "null";
+        var type = typeof obj;
+        if (type === "number" || type === "boolean") return String(obj);
+        if (type === "string") {
+            return '"' + obj.replace(/\\/g, "\\\\")
+                            .replace(/"/g, '\\"')
+                            .replace(/\n/g, "\\n")
+                            .replace(/\r/g, "\\r")
+                            .replace(/\t/g, "\\t") + '"';
+        }
+        if (obj instanceof Array) {
+            var arr = [];
+            for (var i = 0; i < obj.length; i++) {
+                arr.push(indent + "  " + safeJsonStringify(obj[i], indent + "  "));
+            }
+            return "[\n" + arr.join(",\n") + "\n" + indent + "]";
+        }
+        if (type === "object") {
+            var props = [];
+            for (var k in obj) {
+                if (obj.hasOwnProperty(k)) {
+                    props.push(indent + '  "' + k + '": ' + safeJsonStringify(obj[k], indent + "  "));
+                }
+            }
+            return "{\n" + props.join(",\n") + "\n" + indent + "}";
+        }
+        return '"' + String(obj) + '"';
+    }
+
+    function getPlacementEngineFunctionString() {
+        return '    function placeFootageInActiveSequence(timingItems) {\n'
+            + '        var TICKS_PER_SECOND = 254016000000;\n'
+            + '        var zeroTicks = 0;\n'
+            + '        try { zeroTicks = parseInt(seq.zeroPoint, 10) || 0; } catch (eZ) { zeroTicks = 0; }\n'
+            + '        \n'
+            + '        var binName = "_BatchRendered_Draft";\n'
+            + '        var draftBin = null;\n'
+            + '        try {\n'
+            + '            var root = app.project.rootItem;\n'
+            + '            for (var b = 0; b < root.children.numItems; b++) {\n'
+            + '                var child = root.children[b];\n'
+            + '                if (child.type === ProjectItemType.BIN && child.name === binName) { draftBin = child; break; }\n'
+            + '            }\n'
+            + '            if (!draftBin) { draftBin = root.createBin(binName); }\n'
+            + '        } catch (eBin) { draftBin = app.project.rootItem; }\n'
+            + '        \n'
+            + '        function findProjectItem(filePath) {\n'
+            + '            var cleanTarget = filePath.replace(/\\\\/g, "/").toLowerCase();\n'
+            + '            return searchItemInFolder(app.project.rootItem, cleanTarget);\n'
+            + '        }\n'
+            + '        function searchItemInFolder(folder, cleanTarget) {\n'
+            + '            if (!folder || !folder.children) return null;\n'
+            + '            for (var i = 0; i < folder.children.numItems; i++) {\n'
+            + '                var it = folder.children[i];\n'
+            + '                if (it.type === ProjectItemType.BIN) {\n'
+            + '                    var found = searchItemInFolder(it, cleanTarget);\n'
+            + '                    if (found) return found;\n'
+            + '                } else {\n'
+            + '                    try {\n'
+            + '                        var mPath = it.getMediaPath();\n'
+            + '                        if (mPath && mPath.replace(/\\\\/g, "/").toLowerCase() === cleanTarget) return it;\n'
+            + '                    } catch (eM) {}\n'
+            + '                }\n'
+            + '            }\n'
+            + '            return null;\n'
+            + '        }\n'
+            + '        \n'
+            + '        var filesToImport = [];\n'
+            + '        for (var f = 0; f < timingItems.length; f++) {\n'
+            + '            var tItem = timingItems[f];\n'
+            + '            var existing = findProjectItem(tItem.filePath);\n'
+            + '            if (!existing) {\n'
+            + '                var testFile = new File(tItem.filePath);\n'
+            + '                if (testFile.exists) filesToImport.push(tItem.filePath);\n'
+            + '            }\n'
+            + '        }\n'
+            + '        if (filesToImport.length > 0) {\n'
+            + '            try { app.project.importFiles(filesToImport, true, draftBin, false); } catch (eImp) {}\n'
+            + '        }\n'
+            + '        \n'
+            + '        var vTracks = seq.videoTracks;\n'
+            + '        var topVIdx = vTracks.numTracks - 1;\n'
+            + '        if (topVIdx < 0) return { success: false, message: "Active sequence has no video tracks." };\n'
+            + '        \n'
+            + '        var topVTrack = vTracks[topVIdx];\n'
+            + '        var needNewVTrack = (topVTrack.clips.numItems > 0);\n'
+            + '        if (needNewVTrack) {\n'
+            + '            try {\n'
+            + '                app.enableQE();\n'
+            + '                if (typeof qe !== "undefined" && qe.project) {\n'
+            + '                    var qeSeq = qe.project.getActiveSequence();\n'
+            + '                    if (qeSeq && qeSeq.addTracks) qeSeq.addTracks(1);\n'
+            + '                }\n'
+            + '            } catch (eAddV) {}\n'
+            + '            vTracks = seq.videoTracks;\n'
+            + '            topVIdx = vTracks.numTracks - 1;\n'
+            + '            topVTrack = vTracks[topVIdx];\n'
+            + '        }\n'
+            + '        \n'
+            + '        while (seq.audioTracks.numTracks < 3) {\n'
+            + '            try {\n'
+            + '                app.enableQE();\n'
+            + '                if (typeof qe !== "undefined" && qe.project) {\n'
+            + '                    var qeSeqA = qe.project.getActiveSequence();\n'
+            + '                    if (qeSeqA && qeSeqA.addTracks) qeSeqA.addTracks(0);\n'
+            + '                }\n'
+            + '            } catch (eAddA) { break; }\n'
+            + '        }\n'
+            + '        if (seq.audioTracks.numTracks < 3) return { success: false, message: "Sequence must have at least 3 audio tracks (A1, A2, A3)." };\n'
+            + '        \n'
+            + '        var trackA3 = seq.audioTracks[2];\n'
+            + '        var a3PushedToA4 = false;\n'
+            + '        if (trackA3.clips.numItems > 0) {\n'
+            + '            while (seq.audioTracks.numTracks < 4) {\n'
+            + '                try {\n'
+            + '                    app.enableQE();\n'
+            + '                    if (typeof qe !== "undefined" && qe.project) {\n'
+            + '                        var qeSeqA4 = qe.project.getActiveSequence();\n'
+            + '                        if (qeSeqA4 && qeSeqA4.addTracks) qeSeqA4.addTracks(0);\n'
+            + '                    }\n'
+            + '                } catch (eAddA4) { break; }\n'
+            + '            }\n'
+            + '            if (seq.audioTracks.numTracks >= 4) {\n'
+            + '                var trackA4 = seq.audioTracks[3];\n'
+            + '                var a3ClipsData = [];\n'
+            + '                for (var c = 0; c < trackA3.clips.numItems; c++) {\n'
+            + '                    var clipObj = trackA3.clips[c];\n'
+            + '                    a3ClipsData.push({\n'
+            + '                        clipRef: clipObj,\n'
+            + '                        projectItem: clipObj.projectItem,\n'
+            + '                        startSec: parseFloat(clipObj.start.seconds),\n'
+            + '                        inPointTicks: clipObj.inPoint ? clipObj.inPoint.ticks : null,\n'
+            + '                        outPointTicks: clipObj.outPoint ? clipObj.outPoint.ticks : null\n'
+            + '                    });\n'
+            + '                }\n'
+            + '                for (var m = 0; m < a3ClipsData.length; m++) {\n'
+            + '                    var cData = a3ClipsData[m];\n'
+            + '                    if (cData.projectItem) {\n'
+            + '                        for (var vi = 0; vi < seq.videoTracks.numTracks; vi++) seq.videoTracks[vi].setLocked(1);\n'
+            + '                        for (var ai = 0; ai < seq.audioTracks.numTracks; ai++) seq.audioTracks[ai].setLocked(ai === 3 ? 0 : 1);\n'
+            + '                        try {\n'
+            + '                            trackA4.overwriteClip(cData.projectItem, cData.startSec);\n'
+            + '                            for (var cl = 0; cl < trackA4.clips.numItems; cl++) {\n'
+            + '                                var chkClip = trackA4.clips[cl];\n'
+            + '                                if (Math.abs(parseFloat(chkClip.start.seconds) - cData.startSec) < 0.05) {\n'
+            + '                                    if (cData.inPointTicks && chkClip.inPoint) { var nip = chkClip.inPoint; nip.ticks = cData.inPointTicks; chkClip.inPoint = nip; }\n'
+            + '                                    if (cData.outPointTicks && chkClip.outPoint) { var nop = chkClip.outPoint; nop.ticks = cData.outPointTicks; chkClip.outPoint = nop; }\n'
+            + '                                    break;\n'
+            + '                                }\n'
+            + '                            }\n'
+            + '                        } catch (eMov) {}\n'
+            + '                        try { cData.clipRef.remove(false, false); } catch (eDel) {}\n'
+            + '                    }\n'
+            + '                }\n'
+            + '                a3PushedToA4 = true;\n'
+            + '            }\n'
+            + '        }\n'
+            + '        \n'
+            + '        var origVideoLocks = [];\n'
+            + '        for (var ov = 0; ov < seq.videoTracks.numTracks; ov++) origVideoLocks.push(seq.videoTracks[ov].isLocked());\n'
+            + '        var origAudioLocks = [];\n'
+            + '        for (var oa = 0; oa < seq.audioTracks.numTracks; oa++) origAudioLocks.push(seq.audioTracks[oa].isLocked());\n'
+            + '        \n'
+            + '        var placedCount = 0;\n'
+            + '        var firstStartTicks = null;\n'
+            + '        for (var p = 0; p < timingItems.length; p++) {\n'
+            + '            var item = timingItems[p];\n'
+            + '            var pItem = findProjectItem(item.filePath);\n'
+            + '            if (!pItem) {\n'
+            + '                try {\n'
+            + '                    app.project.importFiles([item.filePath], true, draftBin, false);\n'
+            + '                    pItem = findProjectItem(item.filePath);\n'
+            + '                } catch (eRe) {}\n'
+            + '            }\n'
+            + '            if (!pItem) continue;\n'
+            + '            \n'
+            + '            var clipStartTicks = zeroTicks + Math.round(item.startTimeSeconds * TICKS_PER_SECOND);\n'
+            + '            var clipStartSec = clipStartTicks / TICKS_PER_SECOND;\n'
+            + '            if (firstStartTicks === null || clipStartTicks < firstStartTicks) firstStartTicks = clipStartTicks;\n'
+            + '            \n'
+            + '            for (var v = 0; v < seq.videoTracks.numTracks; v++) seq.videoTracks[v].setLocked(v === topVIdx ? 0 : 1);\n'
+            + '            for (var a = 0; a < seq.audioTracks.numTracks; a++) seq.audioTracks[a].setLocked(a === 2 ? 0 : 1);\n'
+            + '            \n'
+            + '            var placedOk = false;\n'
+            + '            try {\n'
+            + '                var timeObj = new Time();\n'
+            + '                timeObj.seconds = clipStartSec;\n'
+            + '                topVTrack.overwriteClip(pItem, timeObj);\n'
+            + '                placedOk = true;\n'
+            + '            } catch (eOvr1) {\n'
+            + '                try {\n'
+            + '                    topVTrack.overwriteClip(pItem, clipStartSec);\n'
+            + '                    placedOk = true;\n'
+            + '                } catch (eOvr2) {}\n'
+            + '            }\n'
+            + '            if (placedOk) placedCount++;\n'
+            + '        }\n'
+            + '        \n'
+            + '        for (var rv = 0; rv < seq.videoTracks.numTracks; rv++) {\n'
+            + '            if (rv < origVideoLocks.length) seq.videoTracks[rv].setLocked(origVideoLocks[rv] ? 1 : 0);\n'
+            + '            else seq.videoTracks[rv].setLocked(0);\n'
+            + '        }\n'
+            + '        for (var ra = 0; ra < seq.audioTracks.numTracks; ra++) {\n'
+            + '            if (ra < origAudioLocks.length) seq.audioTracks[ra].setLocked(origAudioLocks[ra] ? 1 : 0);\n'
+            + '            else seq.audioTracks[ra].setLocked(0);\n'
+            + '        }\n'
+            + '        \n'
+            + '        if (firstStartTicks !== null) {\n'
+            + '            try { seq.setPlayerPosition(String(firstStartTicks)); } catch (ePlay) {}\n'
+            + '        }\n'
+            + '        \n'
+            + '        var summary = "✓ Placed " + placedCount + " of " + timingItems.length + " footage clip(s) in active sequence!\\n"\n'
+            + '            + "• Video Track: V" + (topVIdx + 1) + (needNewVTrack ? " (New Top Track)" : " (Top Track)") + "\\n"\n'
+            + '            + "• Audio Track: A3" + (a3PushedToA4 ? " (Existing A3 clips pushed to A4)" : " (Clean placement)");\n'
+            + '        return {\n'
+            + '            success: true,\n'
+            + '            placedCount: placedCount,\n'
+            + '            totalCount: timingItems.length,\n'
+            + '            videoTrack: "V" + (topVIdx + 1),\n'
+            + '            audioTrack: "A3",\n'
+            + '            a3PushedToA4: a3PushedToA4,\n'
+            + '            message: summary\n'
+            + '        };\n'
+            + '    }\n';
+    }
+
+    function getGeneratedPProScript(itemsJsonLiteral, compName) {
+        return '// Place_Footage_In_PPro.jsx — Auto-generated 1-Click Placement Script for Premiere Pro\n'
+            + '// Generated by After Effects BatchRendering.jsx for comp: "' + compName + '"\n'
+            + '//\n'
+            + '// INSTRUCTIONS:\n'
+            + '// 1. Open Adobe Premiere Pro with your target sequence active.\n'
+            + '// 2. Run this script (File > Scripts > Run Script... or drag into Premiere).\n'
+            + '// 3. Video will be placed on top of everything; Audio will be placed on A3.\n'
+            + '//    (If A3 is not empty, existing A3 clips are automatically pushed down to A4).\n\n'
+            + '(function () {\n'
+            + '    if (typeof app === "undefined" || !app.project) {\n'
+            + '        alert("Please run this script inside Adobe Premiere Pro.");\n'
+            + '        return;\n'
+            + '    }\n'
+            + '    var seq = app.project.activeSequence;\n'
+            + '    if (!seq) {\n'
+            + '        alert("No active sequence found in Premiere Pro.\\nPlease open the target sequence first.");\n'
+            + '        return;\n'
+            + '    }\n\n'
+            + '    var TIMING_ITEMS = ' + itemsJsonLiteral + ';\n\n'
+            + '    var result = placeFootageInActiveSequence(TIMING_ITEMS);\n'
+            + '    if (result.success) {\n'
+            + '        alert(result.message);\n'
+            + '    } else {\n'
+            + '        alert("Placement Error:\\n" + result.message);\n'
+            + '    }\n\n'
+            + getPlacementEngineFunctionString() + '\n'
+            + '})();\n';
+    }
+
+    function getBridgeTalkPlacementScript(itemsJsonLiteral) {
+        return '(function () {\n'
+            + '    if (typeof app === "undefined" || !app.project) {\n'
+            + '        return "ERROR: No active Premiere Pro project.";\n'
+            + '    }\n'
+            + '    var seq = app.project.activeSequence;\n'
+            + '    if (!seq) {\n'
+            + '        return "ERROR: No active sequence found in Premiere Pro. Please open your sequence.";\n'
+            + '    }\n'
+            + '    var TIMING_ITEMS = ' + itemsJsonLiteral + ';\n'
+            + '    var result = placeFootageInActiveSequence(TIMING_ITEMS);\n'
+            + '    return result.message;\n'
+            + getPlacementEngineFunctionString() + '\n'
+            + '})();\n';
+    }
+
+    function collectTimingItems(draftFolder) {
+        if (!targetComp) return [];
+        var fps = targetComp.frameRate;
+        var parentName = sanitizePath(getParentFolderName());
+        var ext = ".mp4";
+        var nameCount = {};
+        var items = [];
+        var count = 0;
+
+        for (var i = 0; i < ranges.length; i++) {
+            var r = ranges[i];
+            if (r.durationFrames <= 0) continue;
+
+            var mmss = getMMSS(r.inFrame, fps);
+            var suffix = r.suffix ? "_" + r.suffix : "";
+            var baseName = "RF_" + parentName + "_" + mmss + suffix;
+
+            var finalName = baseName;
+            var directFile = new File((draftFolder.fsName + "/" + baseName + ext).replace(/\\/g, "/"));
+            if (nameCount[baseName] === undefined && directFile.exists) {
+                finalName = baseName;
+            } else {
+                var counter = 1;
+                while (nameCount[finalName] !== undefined || (nameCount[baseName] !== undefined && new File((draftFolder.fsName + "/" + finalName + ext).replace(/\\/g, "/")).exists)) {
+                    finalName = baseName + "_" + counter;
+                    counter++;
+                }
+            }
+            nameCount[finalName] = 1;
+
+            count++;
+            items.push({
+                index: count,
+                fileName: finalName + ext,
+                filePath: (draftFolder.fsName + "/" + finalName + ext).replace(/\\/g, "/"),
+                inFrame: r.inFrame,
+                outFrame: r.outFrame,
+                durationFrames: r.durationFrames,
+                startTimeSeconds: frameToSeconds(r.inFrame, fps),
+                durationSeconds: frameToSeconds(r.durationFrames, fps),
+                inTimecode: r.inTimecode,
+                outTimecode: r.outTimecode,
+                durTimecode: r.durTimecode,
+                suffix: r.suffix || "",
+                compName: targetComp.name,
+                fps: fps,
+                dropFrame: targetComp.dropFrame
+            });
+        }
+        return items;
+    }
+
+    function exportPProTimingData(timingItems, draftFolder, comp) {
+        logMsg("=== Exporting Premiere Pro Timing Data ===");
+        if (!timingItems || timingItems.length === 0) {
+            logMsg("Warning: No timing items to export.");
+            return false;
+        }
+
+        ensureFolderExists(draftFolder);
+
+        // 1. JSON Export
+        try {
+            var jsonPayload = {
+                metadata: {
+                    generator: "BatchRendering.jsx (After Effects)",
+                    exportDate: (new Date()).toString(),
+                    projectName: app.project.file ? app.project.file.name : "Untitled",
+                    compName: comp.name,
+                    compWidth: comp.width,
+                    compHeight: comp.height,
+                    fps: comp.frameRate,
+                    dropFrame: comp.dropFrame,
+                    totalClips: timingItems.length,
+                    draftFolder: draftFolder.fsName.replace(/\\/g, "/")
+                },
+                items: timingItems
+            };
+            var jsonStr = safeJsonStringify(jsonPayload, "");
+            var jsonFile = new File((draftFolder.fsName + "/PPro_Footage_Timing.json").replace(/\\/g, "/"));
+            if (jsonFile.open("w")) {
+                jsonFile.write(jsonStr);
+                jsonFile.close();
+                logMsg("✓ Exported JSON: " + jsonFile.fsName);
+            }
+        } catch (eJson) {
+            logMsg("Error exporting JSON: " + eJson.message);
+        }
+
+        // 2. CSV Export
+        try {
+            var csvRows = [
+                "Index,File Name,File Path,Start Time (s),Duration (s),In Frame,Out Frame,Duration Frames,In Timecode,Out Timecode,Duration Timecode,Suffix,Comp Name,FPS"
+            ];
+            for (var c = 0; c < timingItems.length; c++) {
+                var it = timingItems[c];
+                var row = [
+                    it.index,
+                    '"' + it.fileName + '"',
+                    '"' + it.filePath + '"',
+                    it.startTimeSeconds.toFixed(4),
+                    it.durationSeconds.toFixed(4),
+                    it.inFrame,
+                    it.outFrame,
+                    it.durationFrames,
+                    it.inTimecode,
+                    it.outTimecode,
+                    it.durTimecode,
+                    '"' + (it.suffix || "") + '"',
+                    '"' + it.compName + '"',
+                    it.fps
+                ];
+                csvRows.push(row.join(","));
+            }
+            var csvFile = new File((draftFolder.fsName + "/PPro_Footage_Timing.csv").replace(/\\/g, "/"));
+            if (csvFile.open("w")) {
+                csvFile.write(csvRows.join("\r\n"));
+                csvFile.close();
+                logMsg("✓ Exported CSV: " + csvFile.fsName);
+            }
+        } catch (eCsv) {
+            logMsg("Error exporting CSV: " + eCsv.message);
+        }
+
+        // 3. Self-contained 1-Click JSX Script
+        try {
+            var itemsJsonLiteral = safeJsonStringify(timingItems, "    ");
+            var pproScriptContent = getGeneratedPProScript(itemsJsonLiteral, comp.name);
+            var jsxFile = new File((draftFolder.fsName + "/Place_Footage_In_PPro.jsx").replace(/\\/g, "/"));
+            if (jsxFile.open("w")) {
+                jsxFile.write(pproScriptContent);
+                jsxFile.close();
+                logMsg("✓ Generated 1-Click PPro Script: " + jsxFile.fsName);
+            }
+        } catch (eJsx) {
+            logMsg("Error generating 1-click JSX: " + eJsx.message);
+        }
+
+        return true;
+    }
+
+    function syncToPremiereViaBridgeTalk(timingItems, draftFolder) {
+        logMsg("=== Starting BridgeTalk Sync to Premiere Pro ===");
+        if (typeof BridgeTalk === "undefined") {
+            logMsg("BridgeTalk is not defined in this environment.");
+            alert("BridgeTalk is unavailable. Please run 'Place_Footage_In_PPro.jsx' in Premiere Pro directly.");
+            return false;
+        }
+
+        var bt = new BridgeTalk();
+        bt.target = "premiere";
+
+        var itemsJsonLiteral = safeJsonStringify(timingItems, "    ");
+        bt.body = getBridgeTalkPlacementScript(itemsJsonLiteral);
+
+        bt.onResult = function (resObj) {
+            var res = resObj.body || "";
+            logMsg("BridgeTalk Result from Premiere:\n" + res);
+            setStatus("✓ Premiere Synced: " + timingItems.length + " clips placed.");
+            alert("Premiere Pro Sync Result:\n\n" + res);
+        };
+
+        bt.onError = function (errObj) {
+            var err = errObj.body || "Unknown BridgeTalk error";
+            logMsg("BridgeTalk Error: " + err);
+            setStatus("✗ Premiere sync error: " + err);
+            alert("BridgeTalk Error:\n" + err + "\n\nYou can also run 'Place_Footage_In_PPro.jsx' directly inside Premiere Pro.");
+        };
+
+        var sent = bt.send();
+        if (!sent) {
+            logMsg("Could not send BridgeTalk message. Is Premiere Pro running?");
+            alert("Could not connect to Premiere Pro via BridgeTalk.\n\nPlease make sure Adobe Premiere Pro is open with an active sequence, or run 'Place_Footage_In_PPro.jsx' from the Draft folder.");
+            return false;
+        }
+
+        logMsg("✓ BridgeTalk message sent to Premiere Pro. Waiting for result...");
+        setStatus("⚡ Sent to Premiere Pro...");
+        return true;
+    }
+
+    // =========================================================================
     // --- RENDER QUEUE LOGIC ---
     // =========================================================================
 
@@ -851,7 +1349,10 @@
 
         var nameCount = {};
         var renderNow = cbRenderNow.value;
+        var exportPPro = cbExportPPro.value;
+        var syncPPro = cbSyncToPPro.value;
         var createdItems = [];
+        var timingItems = [];
 
         app.beginUndoGroup("Batch Rendering — " + ranges.length + " ranges");
 
@@ -911,6 +1412,24 @@
                     fileNameWithExt: finalName + ext
                 });
 
+                timingItems.push({
+                    index: queued + 1,
+                    fileName: finalName + ext,
+                    filePath: (draftFolder.fsName + "/" + finalName + ext).replace(/\\/g, "/"),
+                    inFrame: r.inFrame,
+                    outFrame: r.outFrame,
+                    durationFrames: r.durationFrames,
+                    startTimeSeconds: frameToSeconds(r.inFrame, fps),
+                    durationSeconds: frameToSeconds(r.durationFrames, fps),
+                    inTimecode: r.inTimecode,
+                    outTimecode: r.outTimecode,
+                    durTimecode: r.durTimecode,
+                    suffix: r.suffix || "",
+                    compName: targetComp.name,
+                    fps: fps,
+                    dropFrame: targetComp.dropFrame
+                });
+
                 queued++;
             }
 
@@ -951,18 +1470,77 @@
             showLogDialog();
         }
 
+        // Export Premiere Pro timing data if option enabled
+        if (exportPPro && timingItems.length > 0) {
+            exportPProTimingData(timingItems, draftFolder, targetComp);
+        }
+
         if (renderNow) {
             logMsg("Triggering app.project.renderQueue.render()...");
             try {
                 app.project.renderQueue.render();
                 logMsg("✓ app.project.renderQueue.render() completed successfully.");
-                setStatus("✓ Render complete.");
+                setStatus("✓ Render complete." + (exportPPro ? " Timing data exported." : ""));
+
+                if (syncPPro && timingItems.length > 0) {
+                    syncToPremiereViaBridgeTalk(timingItems, draftFolder);
+                }
             } catch (rErr) {
                 logMsg("✗ Render Error: " + rErr.message);
                 setStatus("✗ Render Error: " + rErr.message);
                 showLogDialog();
             }
         }
+    };
+
+    // --- BUTTON EVENT HANDLERS ---
+
+    btnSyncPPro.onClick = function () {
+        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
+        if (ranges.length === 0) { setStatus("⚠ No ranges to sync. Add ranges first."); return; }
+
+        var rootFolder = getOutputRootFolder();
+        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
+        ensureFolderExists(draftFolder);
+
+        var timingItems = collectTimingItems(draftFolder);
+        if (timingItems.length === 0) {
+            setStatus("⚠ No valid ranges to sync.");
+            return;
+        }
+
+        exportPProTimingData(timingItems, draftFolder, targetComp);
+        syncToPremiereViaBridgeTalk(timingItems, draftFolder);
+    };
+
+    btnExportPPro.onClick = function () {
+        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
+        if (ranges.length === 0) { setStatus("⚠ No ranges to export. Add ranges first."); return; }
+
+        var rootFolder = getOutputRootFolder();
+        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
+        ensureFolderExists(draftFolder);
+
+        var timingItems = collectTimingItems(draftFolder);
+        if (timingItems.length === 0) {
+            setStatus("⚠ No valid ranges to export.");
+            return;
+        }
+
+        var success = exportPProTimingData(timingItems, draftFolder, targetComp);
+        if (success) {
+            setStatus("✓ Exported PPro timing: " + timingItems.length + " clips → Draft/");
+            alert("✓ Exported Premiere Pro Timing Data!\n\nFiles created in Draft/:\n• PPro_Footage_Timing.json\n• PPro_Footage_Timing.csv\n• Place_Footage_In_PPro.jsx\n\nRun 'Place_Footage_In_PPro.jsx' in Premiere Pro for 1-click placement!");
+        } else {
+            setStatus("✗ Export failed. Check log.");
+        }
+    };
+
+    btnOpenDraft.onClick = function () {
+        var rootFolder = getOutputRootFolder();
+        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
+        ensureFolderExists(draftFolder);
+        draftFolder.execute();
     };
 
     // =========================================================================

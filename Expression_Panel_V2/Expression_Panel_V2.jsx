@@ -3879,6 +3879,36 @@
             }
         };
 
+        // React to Audio Amplitude Checkbox
+        var reactAudioCheck = dialog.add("checkbox", undefined, "React to audio amplitude");
+        reactAudioCheck.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        reactAudioCheck.helpTip = "Squish Y axis (100% to 99% ping-pong) reacting to Audio Amplitude like lipsync in Add Mouth";
+        reactAudioCheck.onClick = function () {
+            if (reactAudioCheck.value) {
+                presetGroup.enabled = false;
+                yScalePanel.enabled = false;
+                speedGroup.enabled = true;
+                randomSpeedCheck.enabled = false;
+                stopTimeGroup.enabled = false;
+                stopHereCheck.enabled = false;
+                useMarkersCheck.enabled = false;
+                yMinInput.text = "100";
+                yMaxInput.text = "99";
+                speedInput.text = "3";
+            } else {
+                presetGroup.enabled = true;
+                yScalePanel.enabled = true;
+                speedGroup.enabled = true;
+                randomSpeedCheck.enabled = true;
+                useMarkersCheck.enabled = true;
+                stopTimeGroup.enabled = !useMarkersCheck.value;
+                stopHereCheck.enabled = !useMarkersCheck.value;
+                yMinInput.text = "100";
+                yMaxInput.text = "102";
+                speedInput.text = "9";
+            }
+        };
+
         // Preset buttons
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
@@ -3967,13 +3997,14 @@
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
         okBtn.onClick = function () {
+            var isReactAudio = reactAudioCheck.value;
             var yMin = parseFloat(yMinInput.text);
             var yMax = parseFloat(yMaxInput.text);
             var speed = parseFloat(speedInput.text);
             var stopTimeStr = stopTimeInput.text;
             var useMarkers = useMarkersCheck.value;
 
-            if (isNaN(yMin) || isNaN(yMax) || isNaN(speed)) {
+            if (!isReactAudio && (isNaN(yMin) || isNaN(yMax) || isNaN(speed))) {
                 alert("Please enter valid numbers for all fields");
                 return;
             }
@@ -3991,7 +4022,7 @@
             }
 
             var stopTimeComponents = null;
-            if (!useMarkers && stopTimeStr !== "") {
+            if (!isReactAudio && !useMarkers && stopTimeStr !== "") {
                 var parts = stopTimeStr.split(':');
                 if (parts.length === 4 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1])) && !isNaN(parseInt(parts[2])) && !isNaN(parseInt(parts[3]))) {
                     stopTimeComponents = {
@@ -4006,7 +4037,55 @@
                 }
             }
 
-            app.beginUndoGroup("Apply V Scale");
+            app.beginUndoGroup(isReactAudio ? "Apply Audio React V Scale" : "Apply V Scale");
+
+            // Auto-generate Audio Amplitude layer if missing, like Add Mouth
+            if (isReactAudio) {
+                try {
+                    var audioAmpLayer = null;
+                    for (var a = 1; a <= comp.numLayers; a++) {
+                        if (comp.layer(a).name === "Audio Amplitude") {
+                            audioAmpLayer = comp.layer(a);
+                            break;
+                        }
+                    }
+
+                    if (!audioAmpLayer) {
+                        try {
+                            copyAndSyncAudioSilent();
+                        } catch (e) { }
+
+                        var origSelection = [];
+                        for (var s = 0; s < selectedLayers.length; s++) {
+                            origSelection.push(selectedLayers[s]);
+                        }
+
+                        var generatedAudio = false;
+                        for (var a = 1; a <= comp.numLayers; a++) {
+                            if (comp.layer(a).hasAudio && comp.layer(a).audioEnabled) {
+                                var wasLocked = comp.layer(a).locked;
+                                if (wasLocked) comp.layer(a).locked = false;
+
+                                for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                                comp.layer(a).selected = true;
+
+                                try {
+                                    app.executeCommand(app.findMenuCommandId("Convert Audio to Keyframes"));
+                                    generatedAudio = true;
+                                } catch (e) { }
+
+                                if (wasLocked) comp.layer(a).locked = true;
+                                break;
+                            }
+                        }
+
+                        // Restore selection
+                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        for (var j = 0; j < origSelection.length; j++) origSelection[j].selected = true;
+                        selectedLayers = origSelection;
+                    }
+                } catch (audioErr) { }
+            }
 
             // Move anchor point to bottom center (keeping visual position)
             try {
@@ -4075,69 +4154,174 @@
                 var layer = selectedLayers[i];
                 if (!layer.transform || !layer.transform.scale || layer.locked) continue;
 
-                var speedLine;
-                if (randomSpeedCheck.value) {
-                    speedLine = "framesPerCycle = " + speed + " + (index - 1); // offset by layer index";
-                } else {
-                    speedLine = "framesPerCycle = " + speed + "; // frames per pulse cycle";
-                }
-
                 var expression;
-                if (useMarkers) {
-                    expression = "// Settings\n" +
-                        "minScaleY = " + yMin + ";\n" +
-                        "maxScaleY = " + yMax + ";\n" +
-                        speedLine + "\n" +
-                        "var isFrozen = false;\n" +
-                        "if (marker.numKeys > 0) {\n" +
-                        "    for (var j = 1; j <= marker.numKeys; j++) {\n" +
-                        "        var mk = marker.key(j);\n" +
-                        "        if (mk.time <= time) {\n" +
-                        "            var c = mk.comment.toLowerCase();\n" +
-                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
-                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
-                        "        } else { break; }\n" +
-                        "    }\n" +
-                        "}\n" +
-                        "if (isFrozen) {\n" +
-                        "    value;\n" +
-                        "} else {\n" +
-                        "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                        "    s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n" +
-                        "    scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                        "    [100, scaleY];\n" +
-                        "}";
-                } else if (stopTimeComponents) {
-                    var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
-                    expression = "// Settings\n" +
-                        "minScaleY = " + yMin + ";\n" +
-                        "maxScaleY = " + yMax + ";\n" +
-                        speedLine + "\n" +
-                        "stopTime = " + stopTimeCalculation + "\n" +
-                        "t = Math.min(time, stopTime);\n" +
-                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                        "s = (Math.sin(t * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
-                        "// Interpolate scale using linear easing\n" +
-                        "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                        "[100, scaleY]";
+                if (isReactAudio) {
+                    var halfCycle = (isNaN(speed) || speed < 1) ? 3 : Math.round(speed);
+                    expression = [
+                        'try {',
+                        '    var ampLayer = thisComp.layer("Audio Amplitude");',
+                        '    var ampSlider = ampLayer.effect("Both Channels")("Slider");',
+                        '    var m = marker;',
+                        '    if (m.numKeys === 0 && hasParent && parent.marker && parent.marker.numKeys > 0) {',
+                        '        m = parent.marker;',
+                        '    }',
+                        '    var isFrozen = false;',
+                        '    var stopTime = -1;',
+                        '    if (m && m.numKeys > 0) {',
+                        '        for (var i = 1; i <= m.numKeys; i++) {',
+                        '            var mk = m.key(i);',
+                        '            if (mk.time <= time) {',
+                        '                var c = mk.comment.toLowerCase();',
+                        '                if (c.indexOf("stop") !== -1 || c.indexOf("l_st") !== -1) {',
+                        '                    isFrozen = true;',
+                        '                    stopTime = mk.time;',
+                        '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1 || c.indexOf("l_sy") !== -1) {',
+                        '                    isFrozen = false;',
+                        '                    stopTime = -1;',
+                        '                }',
+                        '            } else {',
+                        '                break;',
+                        '            }',
+                        '        }',
+                        '    }',
+                        '    ',
+                        '    var fd = thisComp.frameDuration;',
+                        '    var halfCycle = ' + halfCycle + ';',
+                        '    var fullCycle = halfCycle * 2;',
+                        '    var threshold = 3.5;',
+                        '    ',
+                        '    if (isFrozen) {',
+                        '        var dt = time - stopTime;',
+                        '        var transDur = halfCycle * fd;',
+                        '        if (stopTime >= 0 && dt >= 0 && dt < transDur) {',
+                        '            var blend = linear(dt, 0, transDur, 0, 1);',
+                        '            var scaleY = linear(blend, 0, 1, 99.0, 100);',
+                        '            [100, scaleY];',
+                        '        } else {',
+                        '            [100, 100];',
+                        '        }',
+                        '    } else {',
+                        '        var a0 = ampSlider.valueAtTime(time);',
+                        '        var aPrev = (time >= fd) ? ampSlider.valueAtTime(time - fd) : a0;',
+                        '        var aNext = ampSlider.valueAtTime(time + fd);',
+                        '        var smoothAmp = (aPrev + a0 * 2 + aNext) / 4;',
+                        '        ',
+                        '        if (smoothAmp >= threshold) {',
+                        '            var framesSinceOnset = 0;',
+                        '            for (var k = 1; k <= 60; k++) {',
+                        '                if (time - k * fd < 0) { framesSinceOnset = k; break; }',
+                        '                var pastA0 = ampSlider.valueAtTime(time - k * fd);',
+                        '                var pastAPrev = (time - (k + 1) * fd >= 0) ? ampSlider.valueAtTime(time - (k + 1) * fd) : pastA0;',
+                        '                var pastANext = ampSlider.valueAtTime(time - (k - 1) * fd);',
+                        '                var pastSmooth = (pastAPrev + pastA0 * 2 + pastANext) / 4;',
+                        '                if (pastSmooth < threshold) {',
+                        '                    framesSinceOnset = k - 1;',
+                        '                    break;',
+                        '                }',
+                        '                framesSinceOnset = k;',
+                        '            }',
+                        '            var t = framesSinceOnset % fullCycle;',
+                        '            var squishProgress = (t <= halfCycle) ? linear(t, 0, halfCycle, 0, 1) : linear(t, halfCycle, fullCycle, 1, 0);',
+                        '            var squishAmt = linear(smoothAmp, threshold, 25, 0.35, 1.0);',
+                        '            var scaleY = 100 - squishProgress * squishAmt * 1;',
+                        '            [100, scaleY];',
+                        '        } else {',
+                        '            var framesSinceActive = 0;',
+                        '            for (var k = 1; k <= halfCycle; k++) {',
+                        '                if (time - k * fd >= 0) {',
+                        '                    var pastA0 = ampSlider.valueAtTime(time - k * fd);',
+                        '                    var pastAPrev = (time - (k + 1) * fd >= 0) ? ampSlider.valueAtTime(time - (k + 1) * fd) : pastA0;',
+                        '                    var pastANext = ampSlider.valueAtTime(time - (k - 1) * fd);',
+                        '                    var pastSmooth = (pastAPrev + pastA0 * 2 + pastANext) / 4;',
+                        '                    if (pastSmooth >= threshold) {',
+                        '                        framesSinceActive = k;',
+                        '                        break;',
+                        '                    }',
+                        '                }',
+                        '            }',
+                        '            if (framesSinceActive > 0) {',
+                        '                var lastActiveTime = time - framesSinceActive * fd;',
+                        '                var lastA0 = ampSlider.valueAtTime(lastActiveTime);',
+                        '                var lastAPrev = (lastActiveTime >= fd) ? ampSlider.valueAtTime(lastActiveTime - fd) : lastA0;',
+                        '                var lastANext = ampSlider.valueAtTime(lastActiveTime + fd);',
+                        '                var lastSmooth = (lastAPrev + lastA0 * 2 + lastANext) / 4;',
+                        '                var lastSquishAmt = linear(lastSmooth, threshold, 25, 0.35, 1.0);',
+                        '                var startY = 100 - 1.0 * lastSquishAmt * 1;',
+                        '                var scaleY = linear(framesSinceActive, 0, halfCycle, startY, 100);',
+                        '                [100, scaleY];',
+                        '            } else {',
+                        '                [100, 100];',
+                        '            }',
+                        '        }',
+                        '    }',
+                        '} catch(e) {',
+                        '    value;',
+                        '}'
+                    ].join('\n');
                 } else {
-                    expression = "// Settings\n" +
-                        "minScaleY = " + yMin + ";\n" +
-                        "maxScaleY = " + yMax + ";\n" +
-                        speedLine + "\n\n" +
-                        "// Calculate oscillation\n" +
-                        "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
-                        "s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
-                        "// Interpolate scale using linear easing\n" +
-                        "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                        "[100, scaleY]";
+                    var speedLine;
+                    if (randomSpeedCheck.value) {
+                        speedLine = "framesPerCycle = " + speed + " + (index - 1); // offset by layer index";
+                    } else {
+                        speedLine = "framesPerCycle = " + speed + "; // frames per pulse cycle";
+                    }
+
+                    if (useMarkers) {
+                        expression = "// Settings\n" +
+                            "minScaleY = " + yMin + ";\n" +
+                            "maxScaleY = " + yMax + ";\n" +
+                            speedLine + "\n" +
+                            "var isFrozen = false;\n" +
+                            "if (marker.numKeys > 0) {\n" +
+                            "    for (var j = 1; j <= marker.numKeys; j++) {\n" +
+                            "        var mk = marker.key(j);\n" +
+                            "        if (mk.time <= time) {\n" +
+                            "            var c = mk.comment.toLowerCase();\n" +
+                            "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                            "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                            "        } else { break; }\n" +
+                            "    }\n" +
+                            "}\n" +
+                            "if (isFrozen) {\n" +
+                            "    value;\n" +
+                            "} else {\n" +
+                            "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                            "    s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n" +
+                            "    scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                            "    [100, scaleY];\n" +
+                            "}";
+                    } else if (stopTimeComponents) {
+                        var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
+                        expression = "// Settings\n" +
+                            "minScaleY = " + yMin + ";\n" +
+                            "maxScaleY = " + yMax + ";\n" +
+                            speedLine + "\n" +
+                            "stopTime = " + stopTimeCalculation + "\n" +
+                            "t = Math.min(time, stopTime);\n" +
+                            "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                            "s = (Math.sin(t * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                            "// Interpolate scale using linear easing\n" +
+                            "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                            "[100, scaleY]";
+                    } else {
+                        expression = "// Settings\n" +
+                            "minScaleY = " + yMin + ";\n" +
+                            "maxScaleY = " + yMax + ";\n" +
+                            speedLine + "\n\n" +
+                            "// Calculate oscillation\n" +
+                            "freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
+                            "s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
+                            "// Interpolate scale using linear easing\n" +
+                            "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
+                            "[100, scaleY]";
+                    }
                 }
 
                 layer.transform.scale.expression = expression;
             }
 
             app.endUndoGroup();
-            updateStatus("Applied V Scale expression to selected layer(s)");
+            updateStatus(isReactAudio ? "Applied Audio React V Scale expression to selected layer(s)" : "Applied V Scale expression to selected layer(s)");
             dialog.close();
         };
 

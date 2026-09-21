@@ -1,7 +1,7 @@
 // List Jumper - Jump to timeline positions based on XLSX word data
 // Developed for After Effects
 
-(function () {
+(function (thisObj) {
 
     // Global variables
     var searchData = [];
@@ -11,13 +11,15 @@
     var filePathText;
     var selectedFile = null;
     var currentPlayheadTime = -1;
-    var searchForwardOnlyCheckbox;
-    var autoMoveCheckbox;
-    var exactJumpCheckbox;
-    var addMarkerCheckbox;
-    var markerCountLabel;
-    var calibrationInput; // Calibration input field
+    var searchForwardOnlyCheckbox = { value: true };
+    var autoMoveCheckbox = { value: false };
+    var exactJumpCheckbox = { value: false };
+    var addMarkerCheckbox = { value: true };
+    var prefixSCheckbox = { value: false };
+    var markerCountLabel = { text: "M: 0" };
+    var calibrationInput = { text: "0" };
     var markerCount = 0; // Counter for marker comments (1, 2, 3...)
+    var lastActiveCompId = null; // Track active comp to auto-reset marker counter
     var isProgrammaticSelection = false; // Flag to prevent double execution
     var isJumping = false; // Flag to prevent jumpToTime from executing multiple times
     var isMovingLayer = false; // Flag to prevent moveNextLayerToCurrentTime from executing multiple times
@@ -94,17 +96,17 @@
     }
 
     // Main function to create the List Jumper window
-    function createListJumperWindow() {
-        var win = new Window("palette", "List Jumper", undefined);
+    function createListJumperWindow(thisObj) {
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "List Jumper", undefined);
         win.orientation = "column";
         win.alignChildren = ["fill", "top"];
         win.spacing = 5;
         win.margins = 8;
-        win.preferredSize.width = 350;
 
         // File selector group
         var fileGroup = win.add("group");
         fileGroup.orientation = "row";
+        fileGroup.alignment = ["fill", "top"];
         fileGroup.alignChildren = ["left", "center"];
         fileGroup.spacing = 5;
 
@@ -112,165 +114,155 @@
         fileBtn.preferredSize.width = 50;
         fileBtn.preferredSize.height = 22;
 
+        var lastFileBtn = fileGroup.add("button", undefined, "Last");
+        lastFileBtn.preferredSize.width = 40;
+        lastFileBtn.preferredSize.height = 22;
+        lastFileBtn.helpTip = "Open last opened file";
+
         filePathText = fileGroup.add("statictext", undefined, "No file");
-        filePathText.preferredSize.width = 280;
+        filePathText.alignment = ["fill", "center"];
         filePathText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Search container
         var searchContainer = win.add("group");
         searchContainer.orientation = "column";
+        searchContainer.alignment = ["fill", "top"];
         searchContainer.alignChildren = ["fill", "top"];
         searchContainer.spacing = 3;
 
-        // Search input row
         var searchInputRow = searchContainer.add("group");
         searchInputRow.orientation = "row";
-        searchInputRow.alignChildren = ["left", "center"];
+        searchInputRow.alignment = ["fill", "top"];
+        searchInputRow.alignChildren = ["fill", "center"];
         searchInputRow.spacing = 5;
 
         var searchLabel = searchInputRow.add("statictext", undefined, "Search:");
         searchLabel.preferredSize.width = 45;
 
         searchInput = searchInputRow.add("edittext", undefined, "");
-        searchInput.preferredSize.width = 285;
-        searchInput.preferredSize.height = 22;
+        searchInput.alignment = ["fill", "center"];
         searchInput.helpTip = "Type to search words, then press Enter. Press 1-9 to jump to results.";
 
         // Buttons row (below input)
         var buttonsRow = searchContainer.add("group");
         buttonsRow.orientation = "row";
-        buttonsRow.alignChildren = ["right", "center"];
+        buttonsRow.alignment = ["fill", "top"];
+        buttonsRow.alignChildren = ["left", "center"];
         buttonsRow.spacing = 5;
 
         var searchBtn = buttonsRow.add("button", undefined, "Search");
-        searchBtn.preferredSize.width = 60;
+        searchBtn.preferredSize.width = 50;
         searchBtn.preferredSize.height = 22;
 
         var showAllBtn = buttonsRow.add("button", undefined, "Show All");
-        showAllBtn.preferredSize.width = 60;
+        showAllBtn.preferredSize.width = 55;
         showAllBtn.preferredSize.height = 22;
 
-        // Search direction checkbox
-        var searchDirectionRow = searchContainer.add("group");
-        searchDirectionRow.orientation = "row";
-        searchDirectionRow.alignChildren = ["left", "center"];
-        searchDirectionRow.spacing = 5;
+        var syncMarkerBtn = buttonsRow.add("button", undefined, "Sync to Marker");
+        syncMarkerBtn.preferredSize.height = 22;
+        syncMarkerBtn.helpTip = "Shift sequence layers (S1..S7) to matching markers and cut intersecting layers at the next marker";
 
-        searchForwardOnlyCheckbox = searchDirectionRow.add("checkbox", undefined, "Search Forward Only");
-        searchForwardOnlyCheckbox.value = true; // Default: search forward (downward)
-        searchForwardOnlyCheckbox.helpTip = "When checked, only shows results at or after current playhead time";
-        searchForwardOnlyCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var settingsBtn = buttonsRow.add("button", undefined, "Settings");
+        settingsBtn.preferredSize.width = 50;
+        settingsBtn.preferredSize.height = 22;
+        settingsBtn.helpTip = "Open settings menu";
 
-        // Auto-move layer checkbox
-        var autoMoveRow = searchContainer.add("group");
-        autoMoveRow.orientation = "row";
-        autoMoveRow.alignChildren = ["left", "center"];
-        autoMoveRow.spacing = 5;
+        settingsBtn.onClick = function () {
+            var dlg = new Window("dialog", "Settings");
+            dlg.orientation = "column";
+            dlg.alignChildren = ["left", "top"];
+            dlg.spacing = 8;
+            dlg.margins = 15;
 
-        autoMoveCheckbox = autoMoveRow.add("checkbox", undefined, "Auto-move next layer to time");
-        autoMoveCheckbox.value = false; // Default: disabled
-        autoMoveCheckbox.helpTip = "When enabled, automatically move the layer above the selected one to the jumped time";
-        autoMoveCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var cbSearchForward = dlg.add("checkbox", undefined, "Search Forward Only");
+            cbSearchForward.value = searchForwardOnlyCheckbox.value;
 
-        // Exact jump checkbox
-        var exactJumpRow = searchContainer.add("group");
-        exactJumpRow.orientation = "row";
-        exactJumpRow.alignChildren = ["left", "center"];
-        exactJumpRow.spacing = 5;
+            var cbAutoMove = dlg.add("checkbox", undefined, "Auto-move next layer to time");
+            cbAutoMove.value = autoMoveCheckbox.value;
 
-        exactJumpCheckbox = exactJumpRow.add("checkbox", undefined, "Exact Jump");
-        exactJumpCheckbox.value = false; // Default: disabled (jump to next word)
-        exactJumpCheckbox.helpTip = "When enabled, jump to the matched word's time instead of the next word's time";
-        exactJumpCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var cbExactJump = dlg.add("checkbox", undefined, "Exact Jump");
+            cbExactJump.value = exactJumpCheckbox.value;
 
-        // Add Marker checkbox + Reset button
-        var markerRow = searchContainer.add("group");
-        markerRow.orientation = "row";
-        markerRow.alignChildren = ["left", "center"];
-        markerRow.spacing = 5;
+            var markerGroup = dlg.add("group");
+            markerGroup.orientation = "row";
+            var cbAddMarker = markerGroup.add("checkbox", undefined, "Add Marker");
+            cbAddMarker.value = addMarkerCheckbox.value;
 
-        addMarkerCheckbox = markerRow.add("checkbox", undefined, "Add Marker");
-        addMarkerCheckbox.value = true; // Default: enabled
-        addMarkerCheckbox.helpTip = "When enabled, adds a composition marker (like pressing *) with incrementing comment (1, 2, 3...) at the jumped time";
-        addMarkerCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var cbPrefixS = markerGroup.add("checkbox", undefined, "Prefix 's'");
+            cbPrefixS.value = prefixSCheckbox.value;
+            cbPrefixS.helpTip = "Add markers as 's1', 's2' instead of '1', '2'";
 
-        markerCountLabel = markerRow.add("statictext", undefined, "Count: 0");
-        markerCountLabel.preferredSize.width = 55;
-        markerCountLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var markerLabel = markerGroup.add("statictext", undefined, "Count: " + markerCount);
+            markerLabel.preferredSize.width = 50;
 
-        var resetMarkerBtn = markerRow.add("button", undefined, "Reset");
-        resetMarkerBtn.preferredSize.width = 45;
-        resetMarkerBtn.preferredSize.height = 22;
-        resetMarkerBtn.helpTip = "Reset marker counter back to 0";
-        resetMarkerBtn.onClick = function () {
-            markerCount = 0;
-            markerCountLabel.text = "Count: 0";
-        };
+            var btnResetMarker = markerGroup.add("button", undefined, "Reset");
+            btnResetMarker.preferredSize.width = 45;
+            btnResetMarker.onClick = function () {
+                markerCount = 0;
+                markerLabel.text = "Count: 0";
+                updateMarkerCountUI();
+            };
 
-        // Calibration row
-        var calibrationRow = searchContainer.add("group");
-        calibrationRow.orientation = "row";
-        calibrationRow.alignChildren = ["left", "center"];
-        calibrationRow.spacing = 5;
+            var calGroup = dlg.add("group");
+            calGroup.orientation = "row";
+            calGroup.add("statictext", undefined, "Calibration:");
+            var calInput = calGroup.add("edittext", undefined, calibrationInput.text);
+            calInput.preferredSize.width = 40;
+            calGroup.add("statictext", undefined, "frames");
 
-        var calLabel = calibrationRow.add("statictext", undefined, "Calibration:");
-        calLabel.preferredSize.width = 65;
-        calLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+            var btnGroup = dlg.add("group");
+            btnGroup.orientation = "row";
+            btnGroup.alignChildren = ["right", "center"];
+            btnGroup.alignment = ["fill", "bottom"];
+            btnGroup.margins = [0, 10, 0, 0];
+            var btnCancel = btnGroup.add("button", undefined, "Cancel");
+            var btnOk = btnGroup.add("button", undefined, "OK");
 
-        calibrationInput = calibrationRow.add("edittext", undefined, "0");
-        calibrationInput.preferredSize.width = 50;
-        calibrationInput.preferredSize.height = 22;
-        calibrationInput.helpTip = "Frame offset (+/-) for all jumps";
+            btnCancel.onClick = function () { dlg.close(); };
+            btnOk.onClick = function () {
+                searchForwardOnlyCheckbox.value = cbSearchForward.value;
+                autoMoveCheckbox.value = cbAutoMove.value;
+                exactJumpCheckbox.value = cbExactJump.value;
+                addMarkerCheckbox.value = cbAddMarker.value;
+                prefixSCheckbox.value = cbPrefixS.value;
+                calibrationInput.text = calInput.text;
+                dlg.close();
+                safeExecute(function () { filterAndDisplayResults(searchInput.text); });
+            };
 
-        var framesLabel = calibrationRow.add("statictext", undefined, "frames");
-        framesLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-        var calPlusBtn = calibrationRow.add("button", undefined, "+1");
-        calPlusBtn.preferredSize.width = 35;
-        calPlusBtn.preferredSize.height = 22;
-        calPlusBtn.helpTip = "Add 1 frame to calibration";
-        calPlusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current + 1).toString();
-        };
-
-        var calMinusBtn = calibrationRow.add("button", undefined, "-1");
-        calMinusBtn.preferredSize.width = 35;
-        calMinusBtn.preferredSize.height = 22;
-        calMinusBtn.helpTip = "Subtract 1 frame from calibration";
-        calMinusBtn.onClick = function () {
-            var current = parseFloat(calibrationInput.text) || 0;
-            calibrationInput.text = (current - 1).toString();
-        };
-
-        var calResetBtn = calibrationRow.add("button", undefined, "Reset");
-        calResetBtn.preferredSize.width = 45;
-        calResetBtn.preferredSize.height = 22;
-        calResetBtn.helpTip = "Reset calibration to 0";
-        calResetBtn.onClick = function () {
-            calibrationInput.text = "0";
+            dlg.show();
         };
 
         // Results list
         var listLabel = win.add("statictext", undefined, "Results:");
+        listLabel.alignment = ["left", "top"];
         listLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         listbox = win.add("listbox", undefined, [], { multiselect: false });
-        listbox.preferredSize.width = 334;
-        listbox.preferredSize.height = 100;
+        listbox.alignment = ["fill", "fill"];
 
         // Status bar
         var statusGroup = win.add("group");
         statusGroup.orientation = "row";
+        statusGroup.alignment = ["fill", "bottom"];
         statusGroup.alignChildren = ["fill", "center"];
 
         statusText = statusGroup.add("statictext", undefined, "Ready");
         statusText.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
         statusText.alignment = ["fill", "center"];
 
+        markerCountLabel = statusGroup.add("statictext", undefined, "M: 0");
+        markerCountLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 8);
+        markerCountLabel.alignment = ["right", "center"];
+        markerCountLabel.preferredSize.width = 38;
+        markerCountLabel.helpTip = "Marker count for active comp (resets on comp switch)";
+
         // Event handlers
         fileBtn.onClick = function () {
             safeExecute(function () { selectFile(); });
+        };
+
+        lastFileBtn.onClick = function () {
+            safeExecute(function () { openLastFile(); });
         };
 
         // Re-adding addEventListener but with deferred execution to conquer Line 0 crashes!
@@ -307,15 +299,11 @@
             safeExecute(function () { filterAndDisplayResults(""); });
         };
 
-        searchForwardOnlyCheckbox.onClick = function () {
-            // Re-filter when checkbox state changes
-            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
+        syncMarkerBtn.onClick = function () {
+            safeExecute(function () { syncLayersToMarkers(); });
         };
 
-        exactJumpCheckbox.onClick = function () {
-            // Re-filter when checkbox state changes to update display format
-            safeExecute(function () { filterAndDisplayResults(searchInput.text); });
-        };
+
 
         listbox.onChange = function () {
             // Skip if this is a programmatic selection (from keyboard shortcut)
@@ -384,8 +372,22 @@
             handleNumberKeyJump(event, listbox);
         });
 
-        win.center();
-        win.show();
+        // Auto-check active composition switch on window focus
+        win.onActivate = function () {
+            safeExecute(function () {
+                var comp = getTargetComp();
+                if (comp) {
+                    checkAndResetMarkerCountIfCompChanged(comp);
+                }
+            });
+        };
+
+        win.onResizing = win.onResize = function () {
+            this.layout.resize();
+        };
+
+        win.layout.layout(true);
+        return win;
     }
 
     // File selection
@@ -398,10 +400,40 @@
                 filePathText.text = file.name;
                 statusText.text = "Loading file...";
                 readCSVFile(file);
+
+                // Save last file path
+                if (app.settings) {
+                    app.settings.saveSetting("ListJumper", "LastFilePath", file.fsName);
+                }
             }
         } catch (error) {
             statusText.text = "Error selecting file: " + error.message;
             alert("Error selecting file: " + error.message);
+        }
+    }
+
+    // Open last file
+    function openLastFile() {
+        try {
+            if (app.settings && app.settings.haveSetting("ListJumper", "LastFilePath")) {
+                var lastPath = app.settings.getSetting("ListJumper", "LastFilePath");
+                var file = new File(lastPath);
+                if (file.exists) {
+                    selectedFile = file;
+                    filePathText.text = file.name;
+                    statusText.text = "Loading file...";
+                    readCSVFile(file);
+                } else {
+                    statusText.text = "Last file not found.";
+                    alert("Last opened file no longer exists at:\n" + lastPath);
+                }
+            } else {
+                statusText.text = "No last file saved.";
+                alert("No last file saved.");
+            }
+        } catch (error) {
+            statusText.text = "Error loading last file: " + error.message;
+            alert("Error loading last file: " + error.message);
         }
     }
 
@@ -537,6 +569,246 @@
             }
         }
         return null;
+    }
+
+    // Update marker count label in the UI
+    function updateMarkerCountUI() {
+        try {
+            if (markerCountLabel && markerCountLabel.text !== undefined) {
+                markerCountLabel.text = "M: " + markerCount;
+            }
+        } catch (e) { }
+    }
+
+    // Auto reset marker counter whenever a new composition/precomp becomes active
+    function checkAndResetMarkerCountIfCompChanged(comp) {
+        if (!comp || !(comp instanceof CompItem)) return;
+        if (lastActiveCompId === null) {
+            lastActiveCompId = comp.id;
+        } else if (lastActiveCompId !== comp.id) {
+            lastActiveCompId = comp.id;
+            markerCount = 0;
+            updateMarkerCountUI();
+        }
+    }
+
+    // Helper to extract sequence number (e.g. "s1", "S1", "s01", "S01", "S1 D.psd", "s1_arm", "Scene 1", or marker comment "1")
+    function extractSeqNum(str) {
+        if (!str) return null;
+        var clean = trim(str.toString().replace(/\.[a-z0-9]+$/i, ''));
+
+        // Match sequence prefix 's' or 'scene' case-insensitively:
+        // Matches: S1, s1, S01, s01, S_01, S1 D, s1_arm, s1-arm, s1 1, S2, s7, Scene 1, Scene_02, etc.
+        var matchS = clean.match(/(?:^|[\s_.\-\/\\])(?:s|scene)[\s_.\-\/\\]*(\d+)(?:[\s_.\-\/\\]|$)/i);
+        if (matchS) {
+            return parseInt(matchS[1], 10);
+        }
+
+        // Match pure number (e.g. for marker comments "1", "2", "01")
+        var matchPureNum = clean.match(/^\s*(\d+)\s*$/);
+        if (matchPureNum) {
+            return parseInt(matchPureNum[1], 10);
+        }
+
+        return null;
+    }
+
+    // Sync sequence layers (s1..s7):
+    // Marker 1: S1 is trimmed at Marker 1 (not pushed), S2 starts at Marker 1.
+    // Marker 2: S2 is trimmed at Marker 2, S3 starts at Marker 2.
+    // Marker 'End': trims the final sequence.
+    function syncLayersToMarkers() {
+        if (!canAccessAE()) {
+            try { statusText.text = "⚠ AE is busy (close any dialog first)"; } catch (e) { }
+            return;
+        }
+
+        var comp = getTargetComp();
+        if (!comp || !(comp instanceof CompItem)) {
+            alert("Please open or select a composition first.");
+            return;
+        }
+
+        checkAndResetMarkerCountIfCompChanged(comp);
+
+        // 1. Gather and parse all marker transitions
+        var transitions = {}; // 1 -> time (cut S1 / start S2), 2 -> time (cut S2 / start S3), etc.
+        var endMarkerTime = null;
+        var rawMarkers = []; // { time, comment }
+
+        function checkMarker(comment, time) {
+            if (!comment) {
+                rawMarkers.push({ time: time, comment: "" });
+                return;
+            }
+            var clean = trim(comment.toString());
+            rawMarkers.push({ time: time, comment: clean });
+
+            // Check for "End" marker
+            if (/^end$/i.test(clean) || /[\s_.\-\/\\]end$/i.test(clean)) {
+                if (endMarkerTime === null || time > endMarkerTime) {
+                    endMarkerTime = time;
+                }
+                return;
+            }
+
+            // Check if marker is a pure number: "1", "2", "3" ...
+            // Marker 1 is transition 1 (cut S1, start S2)
+            // Marker 2 is transition 2 (cut S2, start S3)
+            var pureNum = clean.match(/^\s*(\d+)\s*$/);
+            if (pureNum) {
+                var n = parseInt(pureNum[1], 10);
+                if (n >= 1) {
+                    if (transitions[n] === undefined || time < transitions[n]) {
+                        transitions[n] = time;
+                    }
+                }
+                return;
+            }
+
+            // Check if marker is prefixed: "s2", "S2", "s3", "Scene 2"
+            // Marker "S2" indicates start of S2 -> transition 1
+            // Marker "S3" indicates start of S3 -> transition 2
+            var matchS = clean.match(/(?:^|[\s_.\-\/\\])(?:s|scene)[\s_.\-\/\\]*(\d+)(?:[\s_.\-\/\\]|$)/i);
+            if (matchS) {
+                var seq = parseInt(matchS[1], 10);
+                if (seq >= 2) {
+                    var transIdx = seq - 1;
+                    if (transitions[transIdx] === undefined || time < transitions[transIdx]) {
+                        transitions[transIdx] = time;
+                    }
+                }
+            }
+        }
+
+        // Scan composition markers
+        if (comp.markerProperty && comp.markerProperty.numKeys > 0) {
+            for (var k = 1; k <= comp.markerProperty.numKeys; k++) {
+                var mTime = comp.markerProperty.keyTime(k);
+                var mVal = comp.markerProperty.keyValue(k);
+                var comment = mVal.comment || mVal.cuePointName || "";
+                checkMarker(comment, mTime);
+            }
+        }
+
+        // Fallback: check layer markers if comp has no markers
+        var transCount = 0;
+        for (var t in transitions) {
+            if (transitions.hasOwnProperty(t)) transCount++;
+        }
+
+        if (transCount === 0 && endMarkerTime === null) {
+            for (var l = 1; l <= comp.numLayers; l++) {
+                var lyr = comp.layer(l);
+                if (lyr.marker && lyr.marker.numKeys > 0) {
+                    for (var mk = 1; mk <= lyr.marker.numKeys; mk++) {
+                        var mTime = lyr.marker.keyTime(mk);
+                        var mVal = lyr.marker.keyValue(mk);
+                        var comment = mVal.comment || mVal.cuePointName || "";
+                        checkMarker(comment, mTime);
+                    }
+                }
+            }
+            for (var t in transitions) {
+                if (transitions.hasOwnProperty(t)) transCount++;
+            }
+        }
+
+        // Fallback: if no labeled transitions were found, sort markers chronologically
+        if (transCount === 0 && rawMarkers.length > 0) {
+            rawMarkers.sort(function (a, b) { return a.time - b.time; });
+            for (var r = 0; r < rawMarkers.length; r++) {
+                if (rawMarkers[r].comment && (/^end$/i.test(rawMarkers[r].comment) || /[\s_.\-\/\\]end$/i.test(rawMarkers[r].comment))) {
+                    endMarkerTime = rawMarkers[r].time;
+                } else {
+                    transCount++;
+                    transitions[transCount] = rawMarkers[r].time;
+                }
+            }
+        }
+
+        if (transCount === 0 && endMarkerTime === null) {
+            alert("No sequence markers (e.g. 1..7, S2..S7, or End) found in '" + comp.name + "'.\nAdd markers using List Jumper first.");
+            return;
+        }
+
+        // 2. Process layers in active comp inside an undo group
+        app.beginUndoGroup("Sync Layers to Markers");
+        var movedCount = 0;
+        var cutCount = 0;
+        var skippedLocked = 0;
+
+        try {
+            for (var i = 1; i <= comp.numLayers; i++) {
+                var layer = comp.layer(i);
+
+                if (layer.locked) {
+                    var testSeq = extractSeqNum(layer.name);
+                    if (testSeq !== null) {
+                        skippedLocked++;
+                    }
+                    continue;
+                }
+
+                var sNum = extractSeqNum(layer.name);
+                if (sNum === null) {
+                    continue; // Skip non-sequence layers (e.g. audio, camera, adjustment layers, etc.)
+                }
+
+                if (sNum === 1) {
+                    // S1 layers: DO NOT push start time! S1 starts at the beginning (0).
+                    // Trim outPoint at Marker 1 (Transition 1)
+                    var cutTime1 = transitions[1];
+                    if (cutTime1 !== undefined && cutTime1 > layer.inPoint) {
+                        if (layer.outPoint > cutTime1) {
+                            layer.outPoint = Math.min(cutTime1, comp.duration);
+                            cutCount++;
+                        }
+                    }
+                } else {
+                    // S2, S3, S4... layers:
+                    // Shift layer so visible inPoint lands exactly at Marker (sNum - 1)
+                    var transIdx = sNum - 1;
+                    var startTimeForSeq = transitions[transIdx];
+
+                    if (startTimeForSeq !== undefined) {
+                        var inOffset = layer.inPoint - layer.startTime;
+                        layer.startTime = startTimeForSeq - inOffset;
+                        movedCount++;
+
+                        // Determine cut point: next marker transition (sNum) or 'End' marker
+                        var nextCutTime = transitions[sNum];
+                        if (nextCutTime === undefined && endMarkerTime !== null) {
+                            nextCutTime = endMarkerTime;
+                        }
+
+                        if (nextCutTime !== undefined && nextCutTime > layer.inPoint) {
+                            if (layer.outPoint > nextCutTime) {
+                                layer.outPoint = Math.min(nextCutTime, comp.duration);
+                                cutCount++;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            alert("Error syncing layers: " + err.message);
+        } finally {
+            app.endUndoGroup();
+        }
+
+        // 3. Update status feedback
+        var msg = "Sync complete: ";
+        var details = [];
+        if (cutCount > 0) details.push(cutCount + " layer(s) trimmed");
+        if (movedCount > 0) details.push(movedCount + " layer(s) shifted");
+        if (skippedLocked > 0) details.push(skippedLocked + " locked skipped");
+        msg += details.length > 0 ? details.join(", ") : "No matching sequence layers changed";
+        statusText.text = msg;
+
+        if (movedCount === 0 && cutCount === 0) {
+            alert("No layers matching sequence names (e.g. S1..S7) were modified in '" + comp.name + "'.\nCheck layer names and markers.");
+        }
     }
 
     // Get current playhead time from main_comp (always use main_comp for search filtering)
@@ -780,6 +1052,9 @@
                 return;
             }
 
+            // Auto-reset marker counter if active composition changed
+            checkAndResetMarkerCountIfCompChanged(comp);
+
             // Apply calibration offset (in frames)
             var calibrationFrames = parseFloat(calibrationInput.text) || 0;
             var frameRate = comp.frameRate || 30; // Get comp frame rate, default to 30fps
@@ -810,10 +1085,10 @@
             if (addMarkerCheckbox.value) {
                 try {
                     markerCount++;
-                    var markerValue = new MarkerValue(markerCount.toString());
+                    var markerPrefix = prefixSCheckbox.value ? "s" : "";
+                    var markerValue = new MarkerValue(markerPrefix + markerCount.toString());
                     comp.markerProperty.setValueAtTime(localSeconds, markerValue);
-                    // Update the counter label in the UI
-                    try { markerCountLabel.text = "Count: " + markerCount; } catch (e) { }
+                    updateMarkerCountUI();
                 } catch (markerError) {
                     // If marker already exists at this exact time, skip silently
                 }
@@ -898,7 +1173,11 @@
     }
 
     // Start the script
-    createListJumperWindow();
+    var myPanel = createListJumperWindow(thisObj);
+    if (myPanel != null && myPanel instanceof Window) {
+        myPanel.center();
+        myPanel.show();
+    }
 
-})();
+})(this);
 
