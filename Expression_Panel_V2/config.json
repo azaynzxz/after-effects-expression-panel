@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "name": "Expression Panel V2 Configuration & Presets",
+  "description": "Configuration file and custom user presets for Expression Panel V2. Editable by user, scripts, or AI tools.",
+  "settings": {
+    "autoSave": true,
+    "theme": "dark"
+  },
+  "presets": {
+    "vScale": [
+      { "name": "100,102,24", "min": 100, "max": 102, "frames": 24 },
+      { "name": "100,102,54", "min": 100, "max": 102, "frames": 54 },
+      { "name": "100,102,12", "min": 100, "max": 102, "frames": 12 },
+      { "name": "100,103,8", "min": 100, "max": 103, "frames": 8 },
+      { "name": "100,103,4", "min": 100, "max": 103, "frames": 4 },
+      { "name": "100,106,6", "min": 100, "max": 106, "frames": 6 },
+      { "name": "100,106,3", "min": 100, "max": 106, "frames": 3 },
+      { "name": "100,102,9", "min": 100, "max": 102, "frames": 9 }
+    ],
+    "scalePulse": [
+      { "name": "95,105,24", "min": 95, "max": 105, "frames": 24 },
+      { "name": "90,110,12", "min": 90, "max": 110, "frames": 12 },
+      { "name": "85,115,8", "min": 85, "max": 115, "frames": 8 },
+      { "name": "95,105,12", "min": 95, "max": 105, "frames": 12 },
+      { "name": "90,110,6", "min": 90, "max": 110, "frames": 6 },
+      { "name": "80,120,16", "min": 80, "max": 120, "frames": 16 }
+    ],
+    "waterDistortion": [
+      { "name": "Subtle", "amount": 25, "size": 150, "speed": 250 },
+      { "name": "Normal", "amount": 50, "size": 150, "speed": 360 },
+      { "name": "Strong", "amount": 25, "size": 75, "speed": 780 },
+      { "name": "Fire", "amount": 90, "size": 35, "speed": 988 }
+    ]
+  }
+}

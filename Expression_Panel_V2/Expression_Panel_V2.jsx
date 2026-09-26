@@ -33,7 +33,684 @@
     };
     var globalStatusText = null;
 
-    // Create the main panel function
+    // =========================================================================
+    // CONFIG & PRESET MANAGER (JSON CRUD)
+    // =========================================================================
+    if (typeof JSON === "undefined") {
+        JSON = {
+            parse: function (jsonStr) {
+                return eval("(" + jsonStr + ")");
+            },
+            stringify: (function () {
+                var toString = Object.prototype.toString;
+                var isArray = Array.isArray || function (a) { return toString.call(a) === '[object Array]'; };
+                var escReg = /[\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+                var escMap = { '\b': '\\b', '\t': '\\t', '\n': '\\n', '\f': '\\f', '\r': '\\r', '"': '\\"', '\\': '\\\\' };
+                function quote(string) {
+                    escReg.lastIndex = 0;
+                    return escReg.test(string) ? '"' + string.replace(escReg, function (a) {
+                        var c = escMap[a];
+                        return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                    }) + '"' : '"' + string + '"';
+                }
+                function str(key, holder) {
+                    var value = holder[key];
+                    if (value && typeof value === 'object' && typeof value.toJSON === 'function') {
+                        value = value.toJSON(key);
+                    }
+                    switch (typeof value) {
+                        case 'string': return quote(value);
+                        case 'number': return isFinite(value) ? String(value) : 'null';
+                        case 'boolean': return String(value);
+                        case 'null': return 'null';
+                        case 'object':
+                            if (!value) return 'null';
+                            var partial = [];
+                            if (isArray(value)) {
+                                for (var i = 0; i < value.length; i++) {
+                                    partial[i] = str(i, value) || 'null';
+                                }
+                                return '[' + partial.join(',') + ']';
+                            } else {
+                                for (var k in value) {
+                                    if (Object.prototype.hasOwnProperty.call(value, k)) {
+                                        var v = str(k, value);
+                                        if (v) partial.push(quote(k) + ':' + v);
+                                    }
+                                }
+                                return '{' + partial.join(',') + '}';
+                            }
+                    }
+                    return undefined;
+                }
+                return function (value) { return str('', { '': value }); };
+            })()
+        };
+    }
+
+    function getAEYear() {
+        try {
+            var v = parseFloat(app.version);
+            if (!isNaN(v) && v > 0) {
+                if (v >= 20) {
+                    return String(Math.floor(v) + 2000);
+                }
+            }
+        } catch (e) {}
+        return "2026";
+    }
+
+    function getUserPresetFolder() {
+        var docs = Folder.myDocuments;
+        var year = getAEYear();
+        var targetFolder = new Folder(docs.fsName + "/Adobe/After Effects " + year + "/Expression Panel Preset");
+        if (!targetFolder.exists) {
+            var adobeFolder = new Folder(docs.fsName + "/Adobe");
+            if (!adobeFolder.exists) adobeFolder.create();
+            var aeFolder = new Folder(adobeFolder.fsName + "/After Effects " + year);
+            if (!aeFolder.exists) aeFolder.create();
+            targetFolder.create();
+        }
+        return targetFolder;
+    }
+
+    function getConfigFile() {
+        var scriptDir = "";
+        try {
+            if ($.fileName) {
+                scriptDir = (new File($.fileName)).parent.fsName;
+            }
+        } catch (e) {}
+
+        var isProgramFiles = false;
+        if (scriptDir) {
+            var lower = scriptDir.toLowerCase();
+            if (lower.indexOf("program files") !== -1 || lower.indexOf("/applications") !== -1) {
+                isProgramFiles = true;
+            }
+        }
+
+        // If running from custom dev folder outside Program Files and local config.json exists, use it
+        if (scriptDir && !isProgramFiles) {
+            var localFile = new File(scriptDir + "/config.json");
+            if (localFile.exists) {
+                return localFile;
+            }
+        }
+
+        // Primary location for deployed panels: User Documents Expression Panel Preset folder
+        // "C:\Users\<user>\Documents\Adobe\After Effects <year>\Expression Panel Preset\config.json"
+        try {
+            var userFolder = getUserPresetFolder();
+            if (userFolder && userFolder.exists) {
+                var userConfigFile = new File(userFolder.fsName + "/config.json");
+                // If user config doesn't exist yet, seed it from scriptDir (if available)
+                if (!userConfigFile.exists && scriptDir) {
+                    var bundledConfig = new File(scriptDir + "/config.json");
+                    if (bundledConfig.exists) {
+                        try {
+                            bundledConfig.copy(userConfigFile.fsName);
+                        } catch (cpErr) {}
+                    }
+                }
+                return userConfigFile;
+            }
+        } catch (err) {}
+
+        // Fallback: local scriptDir if outside Program Files
+        if (scriptDir && !isProgramFiles) {
+            return new File(scriptDir + "/config.json");
+        }
+
+        // Final fallback: Roaming UserData
+        var fallbackDir = Folder.userData.fsName + "/Expression_Panel_V2";
+        var fbFolder = new Folder(fallbackDir);
+        if (!fbFolder.exists) fbFolder.create();
+        return new File(fallbackDir + "/config.json");
+    }
+
+    function getDefaultConfig() {
+        return {
+            "version": "2.0.0",
+            "name": "Expression Panel V2 Configuration & Presets",
+            "description": "Configuration file and custom user presets for Expression Panel V2. Editable by user, scripts, or AI tools.",
+            "settings": {
+                "autoSave": true,
+                "theme": "dark"
+            },
+            "presets": {
+                "vScale": [
+                    { "name": "100,102,24", "min": 100, "max": 102, "frames": 24 },
+                    { "name": "100,102,54", "min": 100, "max": 102, "frames": 54 },
+                    { "name": "100,102,12", "min": 100, "max": 102, "frames": 12 },
+                    { "name": "100,103,8", "min": 100, "max": 103, "frames": 8 },
+                    { "name": "100,103,4", "min": 100, "max": 103, "frames": 4 },
+                    { "name": "100,106,6", "min": 100, "max": 106, "frames": 6 },
+                    { "name": "100,106,3", "min": 100, "max": 106, "frames": 3 },
+                    { "name": "100,102,9", "min": 100, "max": 102, "frames": 9 }
+                ],
+                "scalePulse": [
+                    { "name": "95,105,24", "min": 95, "max": 105, "frames": 24 },
+                    { "name": "90,110,12", "min": 90, "max": 110, "frames": 12 },
+                    { "name": "85,115,8", "min": 85, "max": 115, "frames": 8 },
+                    { "name": "95,105,12", "min": 95, "max": 105, "frames": 12 },
+                    { "name": "90,110,6", "min": 90, "max": 110, "frames": 6 },
+                    { "name": "80,120,16", "min": 80, "max": 120, "frames": 16 }
+                ],
+                "waterDistortion": [
+                    { "name": "Subtle", "amount": 25, "size": 150, "speed": 250 },
+                    { "name": "Normal", "amount": 50, "size": 150, "speed": 360 },
+                    { "name": "Strong", "amount": 25, "size": 75, "speed": 780 },
+                    { "name": "Fire", "amount": 90, "size": 35, "speed": 988 }
+                ]
+            }
+        };
+    }
+
+    function loadConfig() {
+        var configFile = getConfigFile();
+        if (!configFile.exists) {
+            var defaultConfig = getDefaultConfig();
+            saveConfig(defaultConfig);
+            return defaultConfig;
+        }
+        try {
+            configFile.open("r");
+            var content = configFile.read();
+            configFile.close();
+            if (content && content.length > 0) {
+                var parsed = JSON.parse(content);
+                if (parsed && parsed.presets) {
+                    for (var cat in parsed.presets) {
+                        if (parsed.presets.hasOwnProperty(cat)) {
+                            var arr = parsed.presets[cat];
+                            if (arr instanceof Array) {
+                                for (var i = 0; i < arr.length; i++) {
+                                    var item = arr[i];
+                                    if (item && item.name) {
+                                        var parts = item.name.split(',');
+                                        if (parts.length === 3) {
+                                            var n1 = parseFloat(parts[0]);
+                                            var n2 = parseFloat(parts[1]);
+                                            var n3 = parseFloat(parts[2]);
+                                            if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                                                if (cat === "waterDistortion") {
+                                                    item.amount = n1;
+                                                    item.size = n2;
+                                                    item.speed = n3;
+                                                } else {
+                                                    item.min = n1;
+                                                    item.max = n2;
+                                                    item.frames = n3;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return parsed;
+            }
+        } catch (e) {}
+        return getDefaultConfig();
+    }
+
+    function saveConfig(configData) {
+        try {
+            var configFile = getConfigFile();
+            configFile.open("w");
+            configFile.encoding = "UTF-8";
+            configFile.write(JSON.stringify(configData));
+            configFile.close();
+            return true;
+        } catch (e) {
+            alert("Error saving config.json: " + e.message);
+            return false;
+        }
+    }
+
+    function getPresets(category) {
+        var config = loadConfig();
+        if (config && config.presets && config.presets[category]) {
+            return config.presets[category];
+        }
+        return [];
+    }
+
+    function addPreset(category, presetObj) {
+        var config = loadConfig();
+        if (!config.presets) config.presets = {};
+        if (!config.presets[category]) config.presets[category] = [];
+        config.presets[category].push(presetObj);
+        return saveConfig(config);
+    }
+
+    function deletePreset(category, index) {
+        var config = loadConfig();
+        if (config && config.presets && config.presets[category]) {
+            if (index >= 0 && index < config.presets[category].length) {
+                config.presets[category].splice(index, 1);
+                return saveConfig(config);
+            }
+        }
+        return false;
+    }
+
+    function updatePreset(category, index, newPresetObj) {
+        var config = loadConfig();
+        if (config && config.presets && config.presets[category]) {
+            if (index >= 0 && index < config.presets[category].length) {
+                config.presets[category][index] = newPresetObj;
+                return saveConfig(config);
+            }
+        }
+        return false;
+    }
+
+    function movePresetUp(category, index) {
+        var config = loadConfig();
+        if (config && config.presets && config.presets[category]) {
+            var arr = config.presets[category];
+            if (index > 0 && index < arr.length) {
+                var temp = arr[index - 1];
+                arr[index - 1] = arr[index];
+                arr[index] = temp;
+                return saveConfig(config);
+            }
+        }
+        return false;
+    }
+
+    function movePresetDown(category, index) {
+        var config = loadConfig();
+        if (config && config.presets && config.presets[category]) {
+            var arr = config.presets[category];
+            if (index >= 0 && index < arr.length - 1) {
+                var temp = arr[index + 1];
+                arr[index + 1] = arr[index];
+                arr[index] = temp;
+                return saveConfig(config);
+            }
+        }
+        return false;
+    }
+
+    function resetCategoryPresets(category) {
+        var config = loadConfig();
+        var defaults = getDefaultConfig();
+        if (!config.presets) config.presets = {};
+        if (defaults.presets && defaults.presets[category]) {
+            config.presets[category] = defaults.presets[category];
+            return saveConfig(config);
+        }
+        return false;
+    }
+
+    // =========================================================================
+    // GLOBAL PRESET MANAGER DIALOG (Full CRUD & Reorder)
+    // =========================================================================
+    function showGlobalPresetManager(initialCategory, onUpdateCallback) {
+        var dialog = new Window("dialog", "Preset Manager (JSON Settings)");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 8;
+        dialog.margins = 10;
+        dialog.preferredSize.width = 380;
+
+        // Category selection
+        var catGroup = dialog.add("group");
+        catGroup.orientation = "row";
+        catGroup.alignChildren = ["left", "center"];
+        catGroup.spacing = 6;
+        var catLbl = catGroup.add("statictext", undefined, "Category:");
+        catLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 10);
+        var catDropdown = catGroup.add("dropdownlist", undefined, [
+            "V Scale (Vertical)",
+            "Scale Pulse",
+            "Water Distortion"
+        ]);
+        catDropdown.preferredSize = [200, 22];
+
+        var catKeys = ["vScale", "scalePulse", "waterDistortion"];
+        var currentCatKey = initialCategory || "vScale";
+        for (var k = 0; k < catKeys.length; k++) {
+            if (catKeys[k] === currentCatKey) {
+                catDropdown.selection = k;
+                break;
+            }
+        }
+        if (!catDropdown.selection) catDropdown.selection = 0;
+
+        // Main section: Listbox on left, Reorder & Action buttons on right
+        var listSection = dialog.add("group");
+        listSection.orientation = "row";
+        listSection.alignChildren = ["fill", "top"];
+        listSection.spacing = 6;
+
+        var listbox = listSection.add("listbox", undefined, []);
+        listbox.preferredSize = [250, 160];
+
+        var reorderCol = listSection.add("group");
+        reorderCol.orientation = "column";
+        reorderCol.alignChildren = ["fill", "top"];
+        reorderCol.spacing = 4;
+
+        var btnUp = reorderCol.add("button", undefined, "▲ Move Up");
+        btnUp.preferredSize = [95, 22];
+        btnUp.helpTip = "Move selected preset up in list";
+
+        var btnDown = reorderCol.add("button", undefined, "▼ Move Down");
+        btnDown.preferredSize = [95, 22];
+        btnDown.helpTip = "Move selected preset down in list";
+
+        var btnDelete = reorderCol.add("button", undefined, "✖ Delete");
+        btnDelete.preferredSize = [95, 22];
+        btnDelete.helpTip = "Delete selected preset from config.json";
+
+        var btnReset = reorderCol.add("button", undefined, "↺ Reset Cat.");
+        btnReset.preferredSize = [95, 22];
+        btnReset.helpTip = "Reset current category to factory presets";
+
+        // Edit / Details panel below
+        var editPanel = dialog.add("panel", undefined, "Edit Selected Preset / Add New");
+        editPanel.orientation = "column";
+        editPanel.alignChildren = ["fill", "top"];
+        editPanel.spacing = 5;
+        editPanel.margins = 8;
+
+        // Row 1: Name input
+        var nameRow = editPanel.add("group");
+        nameRow.orientation = "row";
+        nameRow.alignChildren = ["left", "center"];
+        nameRow.spacing = 4;
+        var nameLbl = nameRow.add("statictext", undefined, "Name / Label:");
+        nameLbl.preferredSize.width = 80;
+        var nameInput = nameRow.add("edittext", undefined, "");
+        nameInput.preferredSize = [250, 20];
+        nameInput.onChange = function () {
+            var val = nameInput.text;
+            if (val) {
+                var parts = val.split(',');
+                if (parts.length === 3) {
+                    var n1 = parseFloat(parts[0]);
+                    var n2 = parseFloat(parts[1]);
+                    var n3 = parseFloat(parts[2]);
+                    if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                        p1Input.text = String(n1);
+                        p2Input.text = String(n2);
+                        p3Input.text = String(n3);
+                    }
+                }
+            }
+        };
+
+        // Parameter Row
+        var paramRow = editPanel.add("group");
+        paramRow.orientation = "row";
+        paramRow.alignChildren = ["left", "center"];
+        paramRow.spacing = 6;
+
+        var p1Lbl = paramRow.add("statictext", undefined, "Min (%):");
+        var p1Input = paramRow.add("edittext", undefined, "");
+        p1Input.preferredSize = [48, 20];
+
+        var p2Lbl = paramRow.add("statictext", undefined, "Max (%):");
+        var p2Input = paramRow.add("edittext", undefined, "");
+        p2Input.preferredSize = [48, 20];
+
+        var p3Lbl = paramRow.add("statictext", undefined, "Frames:");
+        var p3Input = paramRow.add("edittext", undefined, "");
+        p3Input.preferredSize = [48, 20];
+
+        // Action buttons inside edit panel
+        var editBtnsRow = editPanel.add("group");
+        editBtnsRow.orientation = "row";
+        editBtnsRow.alignment = "right";
+        editBtnsRow.spacing = 6;
+
+        var btnUpdate = editBtnsRow.add("button", undefined, "✔ Update Selected");
+        btnUpdate.preferredSize = [120, 22];
+        btnUpdate.helpTip = "Save edits to the selected preset";
+
+        var btnAddNew = editBtnsRow.add("button", undefined, "+ Add as New");
+        btnAddNew.preferredSize = [100, 22];
+        btnAddNew.helpTip = "Create a new preset from the current values";
+
+        // Refresh List & Details
+        function updateParamLabels() {
+            var cat = catKeys[catDropdown.selection ? catDropdown.selection.index : 0];
+            if (cat === "waterDistortion") {
+                p1Lbl.text = "Amount:";
+                p2Lbl.text = "Size:";
+                p3Lbl.text = "Speed:";
+            } else {
+                p1Lbl.text = "Min (%):";
+                p2Lbl.text = "Max (%):";
+                p3Lbl.text = "Frames:";
+            }
+        }
+
+        function refreshList(selectIndex) {
+            updateParamLabels();
+            var cat = catKeys[catDropdown.selection ? catDropdown.selection.index : 0];
+            var presets = getPresets(cat);
+
+            listbox.removeAll();
+            for (var i = 0; i < presets.length; i++) {
+                var p = presets[i];
+                var displayStr = "";
+                if (cat === "waterDistortion") {
+                    displayStr = (p.name || ("Preset " + (i + 1))) + "  [Amt:" + p.amount + ", Sz:" + p.size + ", Spd:" + p.speed + "]";
+                } else {
+                    displayStr = (p.name || (p.min + "," + p.max + "," + p.frames)) + "  [" + p.min + "%, " + p.max + "%, " + p.frames + "f]";
+                }
+                listbox.add("item", displayStr);
+            }
+
+            if (presets.length > 0) {
+                var targetIdx = 0;
+                if (typeof selectIndex === "number" && selectIndex >= 0 && selectIndex < presets.length) {
+                    targetIdx = selectIndex;
+                }
+                listbox.selection = targetIdx;
+                populateFields(presets[targetIdx], cat);
+            } else {
+                nameInput.text = "";
+                p1Input.text = "";
+                p2Input.text = "";
+                p3Input.text = "";
+            }
+        }
+
+        function populateFields(p, cat) {
+            if (!p) return;
+            nameInput.text = p.name || "";
+            if (cat === "waterDistortion") {
+                p1Input.text = String(p.amount !== undefined ? p.amount : "");
+                p2Input.text = String(p.size !== undefined ? p.size : "");
+                p3Input.text = String(p.speed !== undefined ? p.speed : "");
+            } else {
+                p1Input.text = String(p.min !== undefined ? p.min : "");
+                p2Input.text = String(p.max !== undefined ? p.max : "");
+                p3Input.text = String(p.frames !== undefined ? p.frames : "");
+            }
+        }
+
+        catDropdown.onChange = function () {
+            refreshList(0);
+        };
+
+        listbox.onChange = function () {
+            if (!listbox.selection) return;
+            var cat = catKeys[catDropdown.selection.index];
+            var presets = getPresets(cat);
+            var idx = listbox.selection.index;
+            if (idx >= 0 && idx < presets.length) {
+                populateFields(presets[idx], cat);
+            }
+        };
+
+        btnUpdate.onClick = function () {
+            if (!listbox.selection) {
+                alert("Please select a preset in the list to update.");
+                return;
+            }
+            var idx = listbox.selection.index;
+            var cat = catKeys[catDropdown.selection.index];
+            var p1 = parseFloat(p1Input.text);
+            var p2 = parseFloat(p2Input.text);
+            var p3 = parseFloat(p3Input.text);
+            var name = nameInput.text;
+            if (name) {
+                var parts = name.split(',');
+                if (parts.length === 3) {
+                    var n1 = parseFloat(parts[0]);
+                    var n2 = parseFloat(parts[1]);
+                    var n3 = parseFloat(parts[2]);
+                    if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                        p1 = n1;
+                        p2 = n2;
+                        p3 = n3;
+                    }
+                }
+            }
+
+            if (isNaN(p1) || isNaN(p2) || isNaN(p3)) {
+                alert("Please enter valid numeric values for all parameters.");
+                return;
+            }
+            if (!name) name = p1 + "," + p2 + "," + p3;
+
+            var updatedObj = {};
+            if (cat === "waterDistortion") {
+                updatedObj = { name: name, amount: p1, size: p2, speed: p3 };
+            } else {
+                updatedObj = { name: name, min: p1, max: p2, frames: p3 };
+            }
+            updatePreset(cat, idx, updatedObj);
+            refreshList(idx);
+            if (typeof onUpdateCallback === "function") {
+                try { onUpdateCallback(); } catch(e) {}
+            }
+        };
+
+        btnAddNew.onClick = function () {
+            var cat = catKeys[catDropdown.selection.index];
+            var p1 = parseFloat(p1Input.text);
+            var p2 = parseFloat(p2Input.text);
+            var p3 = parseFloat(p3Input.text);
+            var name = nameInput.text;
+
+            if (isNaN(p1) || isNaN(p2) || isNaN(p3)) {
+                alert("Please enter valid numeric values before adding a new preset.");
+                return;
+            }
+            if (!name) name = p1 + "," + p2 + "," + p3;
+
+            var newObj = {};
+            if (cat === "waterDistortion") {
+                newObj = { name: name, amount: p1, size: p2, speed: p3 };
+            } else {
+                newObj = { name: name, min: p1, max: p2, frames: p3 };
+            }
+            addPreset(cat, newObj);
+            var presets = getPresets(cat);
+            refreshList(presets.length - 1);
+            if (typeof onUpdateCallback === "function") {
+                try { onUpdateCallback(); } catch(e) {}
+            }
+        };
+
+        btnDelete.onClick = function () {
+            if (!listbox.selection) {
+                alert("Please select a preset to delete.");
+                return;
+            }
+            var idx = listbox.selection.index;
+            var cat = catKeys[catDropdown.selection.index];
+            var presetName = listbox.selection.text;
+
+            if (confirm("Delete preset '" + presetName + "'?")) {
+                deletePreset(cat, idx);
+                var nextIdx = Math.max(0, idx - 1);
+                refreshList(nextIdx);
+                if (typeof onUpdateCallback === "function") {
+                    try { onUpdateCallback(); } catch(e) {}
+                }
+            }
+        };
+
+        btnUp.onClick = function () {
+            if (!listbox.selection || listbox.selection.index <= 0) return;
+            var idx = listbox.selection.index;
+            var cat = catKeys[catDropdown.selection.index];
+            movePresetUp(cat, idx);
+            refreshList(idx - 1);
+            if (typeof onUpdateCallback === "function") {
+                try { onUpdateCallback(); } catch(e) {}
+            }
+        };
+
+        btnDown.onClick = function () {
+            if (!listbox.selection) return;
+            var idx = listbox.selection.index;
+            var cat = catKeys[catDropdown.selection.index];
+            var presets = getPresets(cat);
+            if (idx >= presets.length - 1) return;
+            movePresetDown(cat, idx);
+            refreshList(idx + 1);
+            if (typeof onUpdateCallback === "function") {
+                try { onUpdateCallback(); } catch(e) {}
+            }
+        };
+
+        btnReset.onClick = function () {
+            var cat = catKeys[catDropdown.selection.index];
+            if (confirm("Reset all presets in this category to default factory presets?")) {
+                resetCategoryPresets(cat);
+                refreshList(0);
+                if (typeof onUpdateCallback === "function") {
+                    try { onUpdateCallback(); } catch(e) {}
+                }
+            }
+        };
+
+        // Bottom dialog buttons
+        var bottomRow = dialog.add("group");
+        bottomRow.orientation = "row";
+        bottomRow.alignChildren = ["fill", "center"];
+        bottomRow.spacing = 6;
+
+        var btnOpenFolder = bottomRow.add("button", undefined, "📁 Open config.json Folder");
+        btnOpenFolder.preferredSize = [170, 22];
+        btnOpenFolder.helpTip = "Open folder containing config.json in File Explorer";
+        btnOpenFolder.onClick = function () {
+            var cfg = getConfigFile();
+            if (cfg && cfg.parent && cfg.parent.exists) {
+                cfg.parent.execute();
+            } else {
+                Folder.myDocuments.execute();
+            }
+        };
+
+        var spacerBottom = bottomRow.add("group");
+        spacerBottom.alignment = ["fill", "center"];
+
+        var btnClose = bottomRow.add("button", undefined, "Done");
+        btnClose.preferredSize = [70, 22];
+        btnClose.onClick = function () {
+            dialog.close();
+            if (typeof onUpdateCallback === "function") {
+                try { onUpdateCallback(); } catch(e) {}
+            }
+        };
+
+        refreshList(0);
+        dialog.center();
+        dialog.show();
+    }
     function createPanel(thisObj) {
         // Determine if this is a dockable panel or standalone window
         var myPanel = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Panel");
@@ -174,37 +851,48 @@
         tabGroup.spacing = 1;
         tabGroup.margins = [0, 1, 0, 1];
 
+        function applyTabButtonStyle(btn, activeChar, inactiveChar, isActive) {
+            btn.text = isActive ? activeChar : inactiveChar;
+            btn.size = [18, 18];
+            btn.preferredSize = [18, 18];
+            btn.minimumSize = [18, 18];
+            btn.maximumSize = [18, 18];
+            try {
+                btn.graphics.font = ScriptUI.newFont("Segoe UI Symbol", isActive ? "BOLD" : "REGULAR", 10);
+            } catch (e) {}
+        }
+
         var btnFav = tabGroup.add("button", undefined, "♥");
-        btnFav.preferredSize = [18, 18];
         btnFav.helpTip = "Favourites";
 
         var btnBasic = tabGroup.add("button", undefined, "★");
-        btnBasic.preferredSize = [18, 18];
         btnBasic.helpTip = "Basic Animations";
 
-        var btnComplex = tabGroup.add("button", undefined, "✵");
-        btnComplex.preferredSize = [18, 18];
+        var btnComplex = tabGroup.add("button", undefined, "✦");
         btnComplex.helpTip = "Complex Animations";
 
-        var btnUtil = tabGroup.add("button", undefined, "⚙");
-        btnUtil.preferredSize = [18, 18];
+        var btnUtil = tabGroup.add("button", undefined, "◆");
         btnUtil.helpTip = "Utilities";
 
         var btnLoops = tabGroup.add("button", undefined, "↻");
-        btnLoops.preferredSize = [18, 18];
         btnLoops.helpTip = "Loops";
 
-        var btnTools = tabGroup.add("button", undefined, "⚒");
-        btnTools.preferredSize = [18, 18];
+        var btnTools = tabGroup.add("button", undefined, "✚");
         btnTools.helpTip = "Tools";
 
         var btnLayerUtil = tabGroup.add("button", undefined, "☰");
-        btnLayerUtil.preferredSize = [18, 18];
         btnLayerUtil.helpTip = "Layer Utilities";
 
         var btnAnticipate = tabGroup.add("button", undefined, "⤾");
-        btnAnticipate.preferredSize = [18, 18];
         btnAnticipate.helpTip = "Auto Anticipation & Overshoot";
+
+        var tabBtnList = [btnFav, btnBasic, btnComplex, btnUtil, btnLoops, btnTools, btnLayerUtil, btnAnticipate];
+        var tabActiveIcons =   ["♥", "★", "✦", "◆", "↻", "✚", "☰", "⤾"];
+        var tabInactiveIcons = ["♡", "☆", "✧", "◇", "↺", "✛", "☷", "↶"];
+
+        for (var tbi = 0; tbi < tabBtnList.length; tbi++) {
+            applyTabButtonStyle(tabBtnList[tbi], tabActiveIcons[tbi], tabInactiveIcons[tbi], tbi === 0);
+        }
 
         // Stack Container for Tab contents
         var containerStack = myPanel.add("group");
@@ -679,7 +1367,8 @@
             ["◫ Sync PSDs", "Sync PSDs", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx";
                 $.evalFile(new File(scriptFile));
-            }, "Open Sync PSDs to Timeline script"]
+            }, "Open Sync PSDs to Timeline script"],
+            ["⚙ Presets", "Preset Manager", function () { showGlobalPresetManager(); }, "Open Global Preset Manager to edit, delete, and reorder presets"]
         ];
 
         for (var i = 0; i < toolPairs.length; i += 2) {
@@ -1237,7 +1926,9 @@
             },
             // Anticipation
             { label: "⤾ Auto Anticipate", key: "Auto Anticipation", actionFn: function () { showTab(7); }, helpTip: "Auto Anticipation & Overshoot Settings" },
-            { label: "Apply Anticipation", key: "Apply Anticipation", actionFn: function () { showTab(7); }, helpTip: "Apply anticipation & overshoot" }
+            { label: "Apply Anticipation", key: "Apply Anticipation", actionFn: function () { showTab(7); }, helpTip: "Apply anticipation & overshoot" },
+            // Presets Configuration
+            { label: "⚙ Preset Manager", key: "Preset Manager", actionFn: function () { showGlobalPresetManager(); }, helpTip: "Manage, edit, delete, and rearrange presets in config.json" }
         ];
 
         var currentActiveTab = 0;
@@ -1262,15 +1953,10 @@
             tabAnticipate.visible = (index === 7);
             tabSearch.visible = false;
 
-            // Highlight active button using brackets, others clean
-            btnFav.text = (index === 0) ? "[♥]" : "♥";
-            btnBasic.text = (index === 1) ? "[★]" : "★";
-            btnComplex.text = (index === 2) ? "[✵]" : "✵";
-            btnUtil.text = (index === 3) ? "[⚙]" : "⚙";
-            btnLoops.text = (index === 4) ? "[↻]" : "↻";
-            btnTools.text = (index === 5) ? "[⚒]" : "⚒";
-            btnLayerUtil.text = (index === 6) ? "[☰]" : "☰";
-            btnAnticipate.text = (index === 7) ? "[⤾]" : "⤾";
+            // Highlight active button using filled/bold glyphs, others outline/regular
+            for (var tbi = 0; tbi < tabBtnList.length; tbi++) {
+                applyTabButtonStyle(tabBtnList[tbi], tabActiveIcons[tbi], tabInactiveIcons[tbi], tbi === index);
+            }
 
             myPanel.layout.layout(true);
         }
@@ -1309,15 +1995,10 @@
             tabAnticipate.visible = false;
             tabSearch.visible = true;
 
-            // Remove highlight brackets from tab headers
-            btnFav.text = "♥";
-            btnBasic.text = "★";
-            btnComplex.text = "✵";
-            btnUtil.text = "⚙";
-            btnLoops.text = "↻";
-            btnTools.text = "⚒";
-            btnLayerUtil.text = "☰";
-            btnAnticipate.text = "⤾";
+            // Set all tab headers to inactive/outline
+            for (var tbi = 0; tbi < tabBtnList.length; tbi++) {
+                applyTabButtonStyle(tabBtnList[tbi], tabActiveIcons[tbi], tabInactiveIcons[tbi], false);
+            }
 
             // Find matches
             var matches = [];
@@ -1879,25 +2560,38 @@
         var presLbl = presetGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
+        function applyRotation(speedVal, isReverse) {
+            if (isNaN(speedVal)) {
+                alert("Please enter a valid number");
+                return;
+            }
+            if (isReverse) {
+                speedVal = -speedVal;
+            }
+            var expression = "// Settings\nspeed = " + speedVal + "; // degrees per second\n\n// Rotation animation\ntime * speed";
+            handleExpressionClick("Time Rotation", expression);
+            dialog.close();
+        }
+
         var slowBtn = presetGroup.add("button", undefined, "Slow");
         slowBtn.preferredSize = [40, 18];
+        slowBtn.helpTip = "Apply 90°/s rotation directly";
         slowBtn.onClick = function () {
-            speedInput.text = "90";
-            directionCheck.value = false;
+            applyRotation(90, false);
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Norm");
         normalBtn.preferredSize = [40, 18];
+        normalBtn.helpTip = "Apply 360°/s rotation directly";
         normalBtn.onClick = function () {
-            speedInput.text = "360";
-            directionCheck.value = false;
+            applyRotation(360, false);
         };
 
         var fastBtn = presetGroup.add("button", undefined, "Fast");
         fastBtn.preferredSize = [40, 18];
+        fastBtn.helpTip = "Apply 720°/s rotation directly";
         fastBtn.onClick = function () {
-            speedInput.text = "720";
-            directionCheck.value = false;
+            applyRotation(720, false);
         };
 
         var buttonGroup = dialog.add("group");
@@ -1907,24 +2601,10 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom rotation speed";
         okBtn.onClick = function () {
             var speed = parseFloat(speedInput.text);
-            if (!isNaN(speed)) {
-                if (directionCheck.value) {
-                    speed = -speed;
-                }
-                var expression = "// Settings\nspeed = " + speed + "; // degrees per second\n\n// Rotation animation\ntime * speed";
-                handleExpressionClick("Time Rotation", expression);
-                dialog.close();
-            } else {
-                alert("Please enter a valid number");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyRotation(speed, directionCheck.value);
         };
 
         dialog.center();
@@ -1984,11 +2664,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -2052,11 +2728,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -2253,6 +2925,12 @@
         var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
         presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
+        function applyUpDownPreset(amp, frames) {
+            ampInput.text = amp.toString();
+            framesInput.text = frames.toString();
+            okBtn.onClick();
+        }
+
         // First row of presets
         var presetRow1 = presetGroup.add("group");
         presetRow1.orientation = "row";
@@ -2261,31 +2939,23 @@
 
         var subtleBtn = presetRow1.add("button", undefined, "Subtle");
         subtleBtn.preferredSize = [50, 18];
-        subtleBtn.onClick = function () {
-            ampInput.text = "12";
-            framesInput.text = "12";
-        };
+        subtleBtn.helpTip = "Apply Subtle (12, 12) directly";
+        subtleBtn.onClick = function () { applyUpDownPreset("12", "12"); };
 
         var normalBtn = presetRow1.add("button", undefined, "Norm");
         normalBtn.preferredSize = [50, 18];
-        normalBtn.onClick = function () {
-            ampInput.text = "50";
-            framesInput.text = "5";
-        };
+        normalBtn.helpTip = "Apply Normal (50, 5) directly";
+        normalBtn.onClick = function () { applyUpDownPreset("50", "5"); };
 
         var crazyBtn = presetRow1.add("button", undefined, "Crazy");
         crazyBtn.preferredSize = [50, 18];
-        crazyBtn.onClick = function () {
-            ampInput.text = "20";
-            framesInput.text = "3";
-        };
+        crazyBtn.helpTip = "Apply Crazy (20, 3) directly";
+        crazyBtn.onClick = function () { applyUpDownPreset("20", "3"); };
 
         var preset1Btn = presetRow1.add("button", undefined, "7,9");
         preset1Btn.preferredSize = [50, 18];
-        preset1Btn.onClick = function () {
-            ampInput.text = "7";
-            framesInput.text = "9";
-        };
+        preset1Btn.helpTip = "Apply 7, 9 directly";
+        preset1Btn.onClick = function () { applyUpDownPreset("7", "9"); };
 
         // Second row of presets
         var presetRow2 = presetGroup.add("group");
@@ -2295,31 +2965,23 @@
 
         var preset2Btn = presetRow2.add("button", undefined, "24,24");
         preset2Btn.preferredSize = [50, 18];
-        preset2Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "24";
-        };
+        preset2Btn.helpTip = "Apply 24, 24 directly";
+        preset2Btn.onClick = function () { applyUpDownPreset("24", "24"); };
 
         var preset3Btn = presetRow2.add("button", undefined, "35,24");
         preset3Btn.preferredSize = [50, 18];
-        preset3Btn.onClick = function () {
-            ampInput.text = "35";
-            framesInput.text = "24";
-        };
+        preset3Btn.helpTip = "Apply 35, 24 directly";
+        preset3Btn.onClick = function () { applyUpDownPreset("35", "24"); };
 
         var preset4Btn = presetRow2.add("button", undefined, "24,12");
         preset4Btn.preferredSize = [50, 18];
-        preset4Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "12";
-        };
+        preset4Btn.helpTip = "Apply 24, 12 directly";
+        preset4Btn.onClick = function () { applyUpDownPreset("24", "12"); };
 
         var preset5Btn = presetRow2.add("button", undefined, "50,24");
         preset5Btn.preferredSize = [50, 18];
-        preset5Btn.onClick = function () {
-            ampInput.text = "50";
-            framesInput.text = "24";
-        };
+        preset5Btn.helpTip = "Apply 50, 24 directly";
+        preset5Btn.onClick = function () { applyUpDownPreset("50", "24"); };
 
         // Third row of presets
         var presetRow3 = presetGroup.add("group");
@@ -2329,24 +2991,18 @@
 
         var preset6Btn = presetRow3.add("button", undefined, "35,12");
         preset6Btn.preferredSize = [50, 18];
-        preset6Btn.onClick = function () {
-            ampInput.text = "35";
-            framesInput.text = "12";
-        };
+        preset6Btn.helpTip = "Apply 35, 12 directly";
+        preset6Btn.onClick = function () { applyUpDownPreset("35", "12"); };
 
         var preset7Btn = presetRow3.add("button", undefined, "12,57");
         preset7Btn.preferredSize = [50, 18];
-        preset7Btn.onClick = function () {
-            ampInput.text = "12";
-            framesInput.text = "57";
-        };
+        preset7Btn.helpTip = "Apply 12, 57 directly";
+        preset7Btn.onClick = function () { applyUpDownPreset("12", "57"); };
 
         var preset8Btn = presetRow3.add("button", undefined, "24,72");
         preset8Btn.preferredSize = [50, 18];
-        preset8Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "72";
-        };
+        preset8Btn.helpTip = "Apply 24, 72 directly";
+        preset8Btn.onClick = function () { applyUpDownPreset("24", "72"); };
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
@@ -2612,11 +3268,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -2745,6 +3397,12 @@
         var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
         presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
+        function applyLeftRightPreset(amp, frames) {
+            ampInput.text = amp.toString();
+            framesInput.text = frames.toString();
+            okBtn.onClick();
+        }
+
         // First row of presets
         var presetRow1 = presetGroup.add("group");
         presetRow1.orientation = "row";
@@ -2753,31 +3411,23 @@
 
         var subtleBtn = presetRow1.add("button", undefined, "Subtle");
         subtleBtn.preferredSize = [50, 18];
-        subtleBtn.onClick = function () {
-            ampInput.text = "12";
-            framesInput.text = "12";
-        };
+        subtleBtn.helpTip = "Apply Subtle (12, 12) directly";
+        subtleBtn.onClick = function () { applyLeftRightPreset("12", "12"); };
 
         var normalBtn = presetRow1.add("button", undefined, "Norm");
         normalBtn.preferredSize = [50, 18];
-        normalBtn.onClick = function () {
-            ampInput.text = "50";
-            framesInput.text = "5";
-        };
+        normalBtn.helpTip = "Apply Normal (50, 5) directly";
+        normalBtn.onClick = function () { applyLeftRightPreset("50", "5"); };
 
         var crazyBtn = presetRow1.add("button", undefined, "Crazy");
         crazyBtn.preferredSize = [50, 18];
-        crazyBtn.onClick = function () {
-            ampInput.text = "20";
-            framesInput.text = "3";
-        };
+        crazyBtn.helpTip = "Apply Crazy (20, 3) directly";
+        crazyBtn.onClick = function () { applyLeftRightPreset("20", "3"); };
 
         var preset1Btn = presetRow1.add("button", undefined, "7,9");
         preset1Btn.preferredSize = [50, 18];
-        preset1Btn.onClick = function () {
-            ampInput.text = "7";
-            framesInput.text = "9";
-        };
+        preset1Btn.helpTip = "Apply 7, 9 directly";
+        preset1Btn.onClick = function () { applyLeftRightPreset("7", "9"); };
 
         // Second row of presets
         var presetRow2 = presetGroup.add("group");
@@ -2787,31 +3437,23 @@
 
         var preset2Btn = presetRow2.add("button", undefined, "24,24");
         preset2Btn.preferredSize = [50, 18];
-        preset2Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "24";
-        };
+        preset2Btn.helpTip = "Apply 24, 24 directly";
+        preset2Btn.onClick = function () { applyLeftRightPreset("24", "24"); };
 
         var preset3Btn = presetRow2.add("button", undefined, "35,24");
         preset3Btn.preferredSize = [50, 18];
-        preset3Btn.onClick = function () {
-            ampInput.text = "35";
-            framesInput.text = "24";
-        };
+        preset3Btn.helpTip = "Apply 35, 24 directly";
+        preset3Btn.onClick = function () { applyLeftRightPreset("35", "24"); };
 
         var preset4Btn = presetRow2.add("button", undefined, "24,12");
         preset4Btn.preferredSize = [50, 18];
-        preset4Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "12";
-        };
+        preset4Btn.helpTip = "Apply 24, 12 directly";
+        preset4Btn.onClick = function () { applyLeftRightPreset("24", "12"); };
 
         var preset5Btn = presetRow2.add("button", undefined, "50,24");
         preset5Btn.preferredSize = [50, 18];
-        preset5Btn.onClick = function () {
-            ampInput.text = "50";
-            framesInput.text = "24";
-        };
+        preset5Btn.helpTip = "Apply 50, 24 directly";
+        preset5Btn.onClick = function () { applyLeftRightPreset("50", "24"); };
 
         // Third row of presets
         var presetRow3 = presetGroup.add("group");
@@ -2821,24 +3463,18 @@
 
         var preset6Btn = presetRow3.add("button", undefined, "35,12");
         preset6Btn.preferredSize = [50, 18];
-        preset6Btn.onClick = function () {
-            ampInput.text = "35";
-            framesInput.text = "12";
-        };
+        preset6Btn.helpTip = "Apply 35, 12 directly";
+        preset6Btn.onClick = function () { applyLeftRightPreset("35", "12"); };
 
         var preset7Btn = presetRow3.add("button", undefined, "12,57");
         preset7Btn.preferredSize = [50, 18];
-        preset7Btn.onClick = function () {
-            ampInput.text = "12";
-            framesInput.text = "57";
-        };
+        preset7Btn.helpTip = "Apply 12, 57 directly";
+        preset7Btn.onClick = function () { applyLeftRightPreset("12", "57"); };
 
         var preset8Btn = presetRow3.add("button", undefined, "24,72");
         preset8Btn.preferredSize = [50, 18];
-        preset8Btn.onClick = function () {
-            ampInput.text = "24";
-            framesInput.text = "72";
-        };
+        preset8Btn.helpTip = "Apply 24, 72 directly";
+        preset8Btn.onClick = function () { applyLeftRightPreset("24", "72"); };
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
@@ -2990,10 +3626,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -3041,25 +3674,35 @@
         var presLbl = presetGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
+        function applyWaterFloat(fVal, aVal) {
+            if (!fVal || !aVal || isNaN(parseFloat(fVal)) || isNaN(parseFloat(aVal))) {
+                alert("Please enter valid numbers");
+                return;
+            }
+            var expression = "wiggle(" + fVal + "," + aVal + ")";
+            handleExpressionClick("Water Float", expression);
+            dialog.close();
+        }
+
         var gentleBtn = presetGroup.add("button", undefined, "Gentle");
         gentleBtn.preferredSize = [45, 18];
+        gentleBtn.helpTip = "Apply Gentle float (0.5, 30) directly";
         gentleBtn.onClick = function () {
-            freqInput.text = "0.5";
-            ampInput.text = "30";
+            applyWaterFloat(0.5, 30);
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Norm");
         normalBtn.preferredSize = [45, 18];
+        normalBtn.helpTip = "Apply Normal float (1, 50) directly";
         normalBtn.onClick = function () {
-            freqInput.text = "1";
-            ampInput.text = "50";
+            applyWaterFloat(1, 50);
         };
 
         var roughBtn = presetGroup.add("button", undefined, "Rough");
         roughBtn.preferredSize = [45, 18];
+        roughBtn.helpTip = "Apply Rough float (2, 70) directly";
         roughBtn.onClick = function () {
-            freqInput.text = "2";
-            ampInput.text = "70";
+            applyWaterFloat(2, 70);
         };
 
         var buttonGroup = dialog.add("group");
@@ -3069,23 +3712,9 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom values";
         okBtn.onClick = function () {
-            var freq = freqInput.text;
-            var amp = ampInput.text;
-
-            if (freq && amp && !isNaN(parseFloat(freq)) && !isNaN(parseFloat(amp))) {
-                var expression = "wiggle(" + freq + "," + amp + ")";
-                handleExpressionClick("Water Float", expression);
-                dialog.close();
-            } else {
-                alert("Please enter valid numbers");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyWaterFloat(freqInput.text, ampInput.text);
         };
 
         dialog.center();
@@ -3101,46 +3730,56 @@
         dialog.margins = 8;
         dialog.preferredSize.width = 240;
 
+        // Helper font
+        var regFont = ScriptUI.newFont("Arial", "REGULAR", 9);
+        var boldFont = ScriptUI.newFont("Arial", "BOLD", 9);
+
         // Offset setting
         var offsetGroup = dialog.add("group");
         offsetGroup.orientation = "row";
         offsetGroup.alignChildren = ["left", "center"];
-        offsetGroup.spacing = 2;
+        offsetGroup.spacing = 4;
         var lblDelay = offsetGroup.add("statictext", undefined, "Delay (s):");
-        lblDelay.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        lblDelay.preferredSize = [55, 18];
+        lblDelay.graphics.font = regFont;
         var offsetInput = offsetGroup.add("edittext", undefined, "0.5");
-        offsetInput.preferredSize = [60, 18];
+        offsetInput.preferredSize = [55, 18];
 
         // Frames per toggle setting
         var framesGroup = dialog.add("group");
         framesGroup.orientation = "row";
         framesGroup.alignChildren = ["left", "center"];
-        framesGroup.spacing = 2;
+        framesGroup.spacing = 4;
         var lblFrames = framesGroup.add("statictext", undefined, "Frames:");
-        lblFrames.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        lblFrames.preferredSize = [55, 18];
+        lblFrames.graphics.font = regFont;
         var framesInput = framesGroup.add("edittext", undefined, "12");
-        framesInput.preferredSize = [60, 18];
+        framesInput.preferredSize = [55, 18];
 
         // Value range setting
         var rangeGroup = dialog.add("group");
         rangeGroup.orientation = "row";
         rangeGroup.alignChildren = ["left", "center"];
-        rangeGroup.spacing = 2;
+        rangeGroup.spacing = 4;
         var lblRange = rangeGroup.add("statictext", undefined, "Range:");
-        lblRange.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        lblRange.preferredSize = [55, 18];
+        lblRange.graphics.font = regFont;
         var minInput = rangeGroup.add("edittext", undefined, "0");
-        minInput.preferredSize = [40, 18];
+        minInput.preferredSize = [35, 18];
         var lblTo = rangeGroup.add("statictext", undefined, "to");
-        lblTo.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        lblTo.graphics.font = regFont;
         var maxInput = rangeGroup.add("edittext", undefined, "100");
-        maxInput.preferredSize = [40, 18];
+        maxInput.preferredSize = [35, 18];
 
         // Smooth checkbox
         var smoothGroup = dialog.add("group");
         smoothGroup.orientation = "row";
         smoothGroup.alignChildren = ["left", "center"];
+        smoothGroup.spacing = 4;
+        var smoothSpacer = smoothGroup.add("statictext", undefined, "");
+        smoothSpacer.preferredSize = [55, 18];
         var smoothCheckbox = smoothGroup.add("checkbox", undefined, "Smooth");
-        smoothCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        smoothCheckbox.graphics.font = regFont;
         smoothCheckbox.value = false;
 
         // Preset buttons
@@ -3150,42 +3789,65 @@
         presetGroup.spacing = 2;
 
         var presLbl = presetGroup.add("statictext", undefined, "Presets:");
-        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        presLbl.preferredSize = [48, 18];
+        presLbl.graphics.font = boldFont;
+
+        function applyGlitter(offset, frames, minVal, maxVal, smooth) {
+            if (!offset || !frames || minVal === undefined || maxVal === undefined ||
+                isNaN(parseFloat(offset)) || isNaN(parseFloat(frames)) ||
+                isNaN(parseFloat(minVal)) || isNaN(parseFloat(maxVal))) {
+                alert("Please enter valid numbers");
+                return;
+            }
+            var expression;
+            if (smooth) {
+                expression = "offset = " + offset + ";\n" +
+                    "framesPerToggle = " + frames + ";\n" +
+                    "minVal = " + minVal + ";\n" +
+                    "maxVal = " + maxVal + ";\n" +
+                    "cycleTime = framesToTime(framesPerToggle * 2);\n" +
+                    "t = (time - offset) % cycleTime;\n" +
+                    "progress = t / cycleTime;\n" +
+                    "sineWave = Math.sin(progress * Math.PI * 2);\n" +
+                    "normalized = (sineWave + 1) / 2;\n" +
+                    "flicker = linear(normalized, 0, 1, minVal, maxVal);\n" +
+                    "flicker";
+            } else {
+                expression = "offset = " + offset + ";\n" +
+                    "framesPerToggle = " + frames + ";\n" +
+                    "flicker = Math.floor(timeToFrames(time - offset)) % (framesPerToggle * 2) < framesPerToggle ? " + maxVal + " : " + minVal + ";\n" +
+                    "flicker";
+            }
+            handleExpressionClick("Glitter", expression);
+            dialog.close();
+        }
 
         var fastBtn = presetGroup.add("button", undefined, "Fast");
-        fastBtn.preferredSize = [35, 18];
+        fastBtn.preferredSize = [38, 18];
+        fastBtn.helpTip = "Apply Fast glitter (6f) directly";
         fastBtn.onClick = function () {
-            offsetInput.text = "0";
-            framesInput.text = "6";
-            minInput.text = "0";
-            maxInput.text = "100";
+            applyGlitter(0, 6, 0, 100, smoothCheckbox.value);
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Norm");
-        normalBtn.preferredSize = [35, 18];
+        normalBtn.preferredSize = [38, 18];
+        normalBtn.helpTip = "Apply Normal glitter (12f) directly";
         normalBtn.onClick = function () {
-            offsetInput.text = "0.5";
-            framesInput.text = "12";
-            minInput.text = "0";
-            maxInput.text = "100";
+            applyGlitter(0.5, 12, 0, 100, smoothCheckbox.value);
         };
 
         var slowBtn = presetGroup.add("button", undefined, "Slow");
-        slowBtn.preferredSize = [35, 18];
+        slowBtn.preferredSize = [38, 18];
+        slowBtn.helpTip = "Apply Slow glitter (24f) directly";
         slowBtn.onClick = function () {
-            offsetInput.text = "1";
-            framesInput.text = "24";
-            minInput.text = "0";
-            maxInput.text = "100";
+            applyGlitter(1, 24, 0, 100, smoothCheckbox.value);
         };
 
         var subtleBtn = presetGroup.add("button", undefined, "Subt");
-        subtleBtn.preferredSize = [35, 18];
+        subtleBtn.preferredSize = [38, 18];
+        subtleBtn.helpTip = "Apply Subtle glitter (50-100) directly";
         subtleBtn.onClick = function () {
-            offsetInput.text = "0.5";
-            framesInput.text = "12";
-            minInput.text = "50";
-            maxInput.text = "100";
+            applyGlitter(0.5, 12, 50, 100, smoothCheckbox.value);
         };
 
         var buttonGroup = dialog.add("group");
@@ -3195,48 +3857,9 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom glitter values";
         okBtn.onClick = function () {
-            var offset = offsetInput.text;
-            var frames = framesInput.text;
-            var minVal = minInput.text;
-            var maxVal = maxInput.text;
-            var smooth = smoothCheckbox.value;
-
-            if (offset && frames && minVal && maxVal &&
-                !isNaN(parseFloat(offset)) && !isNaN(parseFloat(frames)) &&
-                !isNaN(parseFloat(minVal)) && !isNaN(parseFloat(maxVal))) {
-                var expression;
-                if (smooth) {
-                    // Smooth transition using sine wave interpolation
-                    expression = "offset = " + offset + ";\n" +
-                        "framesPerToggle = " + frames + ";\n" +
-                        "minVal = " + minVal + ";\n" +
-                        "maxVal = " + maxVal + ";\n" +
-                        "cycleTime = framesToTime(framesPerToggle * 2);\n" +
-                        "t = (time - offset) % cycleTime;\n" +
-                        "progress = t / cycleTime;\n" +
-                        "sineWave = Math.sin(progress * Math.PI * 2);\n" +
-                        "normalized = (sineWave + 1) / 2;\n" +
-                        "flicker = linear(normalized, 0, 1, minVal, maxVal);\n" +
-                        "flicker";
-                } else {
-                    // Abrupt blinking (original behavior)
-                    expression = "offset = " + offset + ";\n" +
-                        "framesPerToggle = " + frames + ";\n" +
-                        "flicker = Math.floor(timeToFrames(time - offset)) % (framesPerToggle * 2) < framesPerToggle ? " + maxVal + " : " + minVal + ";\n" +
-                        "flicker";
-                }
-                handleExpressionClick("Glitter", expression);
-                dialog.close();
-            } else {
-                alert("Please enter valid numbers");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyGlitter(offsetInput.text, framesInput.text, minInput.text, maxInput.text, smoothCheckbox.value);
         };
 
         dialog.center();
@@ -3356,32 +3979,38 @@
 
         var slowFishBtn = presetGroup.add("button", undefined, "Slow");
         slowFishBtn.preferredSize = [50, 18];
+        slowFishBtn.helpTip = "Apply Slow directly";
         slowFishBtn.onClick = function () {
             speedInput.text = "100";
             freqInput.text = "0.8";
             ampInput.text = "3";
             rotFreqInput.text = "0.4";
             rotAmpInput.text = "3";
+            okBtn.onClick();
         };
 
         var normalFishBtn = presetGroup.add("button", undefined, "Norm");
         normalFishBtn.preferredSize = [50, 18];
+        normalFishBtn.helpTip = "Apply Normal directly";
         normalFishBtn.onClick = function () {
             speedInput.text = "150";
             freqInput.text = "1";
             ampInput.text = "5";
             rotFreqInput.text = "0.5";
             rotAmpInput.text = "5";
+            okBtn.onClick();
         };
 
         var fastFishBtn = presetGroup.add("button", undefined, "Fast");
         fastFishBtn.preferredSize = [50, 18];
+        fastFishBtn.helpTip = "Apply Fast directly";
         fastFishBtn.onClick = function () {
             speedInput.text = "250";
             freqInput.text = "1.5";
             ampInput.text = "8";
             rotFreqInput.text = "0.75";
             rotAmpInput.text = "8";
+            okBtn.onClick();
         };
 
         var buttonGroup = dialog.add("group");
@@ -3391,6 +4020,7 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom fish animation values";
         okBtn.onClick = function () {
             var speed = parseFloat(speedInput.text);
             var freq = parseFloat(freqInput.text);
@@ -3422,12 +4052,6 @@
             } else {
                 alert("Please enter valid numbers");
             }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
         };
 
         dialog.center();
@@ -3578,7 +4202,7 @@
             }
         };
 
-        // Preset buttons
+        // Preset buttons dynamically loaded from config.json
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
@@ -3586,74 +4210,30 @@
 
         var presetLabelGroup = presetGroup.add("group");
         presetLabelGroup.orientation = "row";
-        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        presetLabelGroup.alignChildren = ["left", "center"];
+        presetLabelGroup.spacing = 4;
+
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        presLbl.helpTip = "Click any preset to apply directly. (Min %, Max %, Frames)";
 
-        var presetRow1 = presetGroup.add("group");
-        presetRow1.orientation = "row";
-        presetRow1.spacing = 2;
+        var addPresetBtn = presetLabelGroup.add("button", undefined, "+");
+        addPresetBtn.preferredSize = [20, 18];
+        addPresetBtn.helpTip = "Add current input values as a custom preset into config.json";
 
-        var btn1 = presetRow1.add("button", undefined, "95,105,24");
-        btn1.preferredSize = [60, 18];
-        btn1.onClick = function () {
-            minInput.text = "95";
-            maxInput.text = "105";
-            speedInput.text = "24";
+        var managePresetBtn = presetLabelGroup.add("button", undefined, "⚙");
+        managePresetBtn.preferredSize = [20, 18];
+        managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
+        managePresetBtn.onClick = function () {
+            showGlobalPresetManager("scalePulse", refreshScalePulsePresets);
         };
 
-        var btn2 = presetRow1.add("button", undefined, "90,110,12");
-        btn2.preferredSize = [60, 18];
-        btn2.onClick = function () {
-            minInput.text = "90";
-            maxInput.text = "110";
-            speedInput.text = "12";
-        };
+        var presetButtonsContainer = presetGroup.add("group");
+        presetButtonsContainer.orientation = "column";
+        presetButtonsContainer.alignChildren = ["fill", "top"];
+        presetButtonsContainer.spacing = 2;
 
-        var btn3 = presetRow1.add("button", undefined, "85,115,8");
-        btn3.preferredSize = [60, 18];
-        btn3.onClick = function () {
-            minInput.text = "85";
-            maxInput.text = "115";
-            speedInput.text = "8";
-        };
-
-        var presetRow2 = presetGroup.add("group");
-        presetRow2.orientation = "row";
-        presetRow2.spacing = 2;
-
-        var btn4 = presetRow2.add("button", undefined, "95,105,12");
-        btn4.preferredSize = [60, 18];
-        btn4.onClick = function () {
-            minInput.text = "95";
-            maxInput.text = "105";
-            speedInput.text = "12";
-        };
-
-        var btn5 = presetRow2.add("button", undefined, "90,110,6");
-        btn5.preferredSize = [60, 18];
-        btn5.onClick = function () {
-            minInput.text = "90";
-            maxInput.text = "110";
-            speedInput.text = "6";
-        };
-
-        var btn6 = presetRow2.add("button", undefined, "80,120,16");
-        btn6.preferredSize = [60, 18];
-        btn6.onClick = function () {
-            minInput.text = "80";
-            maxInput.text = "120";
-            speedInput.text = "16";
-        };
-
-        // Buttons
-        var buttonGroup = dialog.add("group");
-        buttonGroup.orientation = "row";
-        buttonGroup.alignment = "center";
-        buttonGroup.spacing = 4;
-
-        var okBtn = buttonGroup.add("button", undefined, "Apply");
-        okBtn.preferredSize = [60, 18];
-        okBtn.onClick = function () {
+        function applyScalePulse() {
             var minVal = parseFloat(minInput.text);
             var maxVal = parseFloat(maxInput.text);
             var speed = parseFloat(speedInput.text);
@@ -3662,19 +4242,19 @@
 
             if (isNaN(minVal) || isNaN(maxVal) || isNaN(speed)) {
                 alert("Please enter valid numbers for all fields");
-                return;
+                return false;
             }
 
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
                 alert("Please select a composition.");
-                return;
+                return false;
             }
 
             var selectedLayers = comp.selectedLayers;
             if (selectedLayers.length === 0) {
                 alert("Please select at least one layer.");
-                return;
+                return false;
             }
 
             var stopTimeComponents = null;
@@ -3689,7 +4269,7 @@
                     };
                 } else {
                     alert("Invalid time format. Please use H:MM:SS:FF or leave it empty.");
-                    return;
+                    return false;
                 }
             }
 
@@ -3763,11 +4343,102 @@
             app.endUndoGroup();
             updateStatus("Applied Scale Pulse expression to selected layer(s)");
             dialog.close();
+            return true;
+        }
+
+        function refreshScalePulsePresets() {
+            while (presetButtonsContainer.children.length > 0) {
+                presetButtonsContainer.remove(presetButtonsContainer.children[0]);
+            }
+
+            var presets = getPresets("scalePulse");
+            var currentRow = null;
+            for (var i = 0; i < presets.length; i++) {
+                if (i % 3 === 0) {
+                    currentRow = presetButtonsContainer.add("group");
+                    currentRow.orientation = "row";
+                    currentRow.spacing = 2;
+                }
+                (function (p, index) {
+                    var minVal = p.min;
+                    var maxVal = p.max;
+                    var framesVal = p.frames;
+                    if (p.name) {
+                        var parts = p.name.split(',');
+                        if (parts.length === 3) {
+                            var n1 = parseFloat(parts[0]);
+                            var n2 = parseFloat(parts[1]);
+                            var n3 = parseFloat(parts[2]);
+                            if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                                minVal = n1;
+                                maxVal = n2;
+                                framesVal = n3;
+                            }
+                        }
+                    }
+                    if (minVal === undefined) minVal = 95;
+                    if (maxVal === undefined) maxVal = 105;
+                    if (framesVal === undefined) framesVal = 12;
+
+                    var btnName = p.name || (minVal + "," + maxVal + "," + framesVal);
+                    var btn = currentRow.add("button", undefined, btnName);
+                    btn.preferredSize = [60, 18];
+                    btn.helpTip = "Click to apply (" + minVal + "%, " + maxVal + "%, " + framesVal + "f). Alt+Click to delete.";
+                    btn.onClick = function () {
+                        if (ScriptUI.environment && ScriptUI.environment.keyboardState && ScriptUI.environment.keyboardState.altKey) {
+                            if (confirm("Delete preset '" + btnName + "' from config.json?")) {
+                                deletePreset("scalePulse", index);
+                                refreshScalePulsePresets();
+                            }
+                        } else {
+                            minInput.text = String(minVal);
+                            maxInput.text = String(maxVal);
+                            speedInput.text = String(framesVal);
+                            applyScalePulse();
+                        }
+                    };
+                })(presets[i], i);
+            }
+            dialog.layout.layout(true);
+        }
+
+        addPresetBtn.onClick = function () {
+            var minVal = parseFloat(minInput.text);
+            var maxVal = parseFloat(maxInput.text);
+            var speedVal = parseFloat(speedInput.text);
+
+            if (isNaN(minVal) || isNaN(maxVal) || isNaN(speedVal)) {
+                alert("Please enter valid numeric values before adding a preset.");
+                return;
+            }
+
+            var defaultName = minVal + "," + maxVal + "," + speedVal;
+            var presetName = prompt("Enter a name for this preset:", defaultName);
+            if (presetName !== null && presetName !== "") {
+                var newPreset = {
+                    name: presetName,
+                    min: minVal,
+                    max: maxVal,
+                    frames: speedVal
+                };
+                addPreset("scalePulse", newPreset);
+                refreshScalePulsePresets();
+            }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.onClick = function () {
-            dialog.close();
+        refreshScalePulsePresets();
+
+        // Buttons
+        var buttonGroup = dialog.add("group");
+        buttonGroup.orientation = "row";
+        buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
+
+        var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom scale pulse values";
+        okBtn.onClick = function () {
+            applyScalePulse();
         };
 
         // Layout and show dialog
@@ -3909,7 +4580,7 @@
             }
         };
 
-        // Preset buttons
+        // Preset buttons dynamically loaded from config.json
         var presetGroup = dialog.add("group");
         presetGroup.orientation = "column";
         presetGroup.alignChildren = ["fill", "top"];
@@ -3917,86 +4588,30 @@
 
         var presetLabelGroup = presetGroup.add("group");
         presetLabelGroup.orientation = "row";
-        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets (Min, Max, Frames):");
+        presetLabelGroup.alignChildren = ["left", "center"];
+        presetLabelGroup.spacing = 4;
+
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        presLbl.helpTip = "Click any preset to apply directly. (Min %, Max %, Frames)";
 
-        var presetRow1 = presetGroup.add("group");
-        presetRow1.orientation = "row";
-        presetRow1.spacing = 2;
+        var addPresetBtn = presetLabelGroup.add("button", undefined, "+");
+        addPresetBtn.preferredSize = [20, 18];
+        addPresetBtn.helpTip = "Add current input values as a custom preset into config.json";
 
-        var btn1 = presetRow1.add("button", undefined, "100,102,24");
-        btn1.preferredSize = [60, 18];
-        btn1.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "102";
-            speedInput.text = "24";
+        var managePresetBtn = presetLabelGroup.add("button", undefined, "⚙");
+        managePresetBtn.preferredSize = [20, 18];
+        managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
+        managePresetBtn.onClick = function () {
+            showGlobalPresetManager("vScale", refreshVScalePresets);
         };
 
-        var btn2 = presetRow1.add("button", undefined, "100,102,12");
-        btn2.preferredSize = [60, 18];
-        btn2.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "102";
-            speedInput.text = "12";
-        };
+        var presetButtonsContainer = presetGroup.add("group");
+        presetButtonsContainer.orientation = "column";
+        presetButtonsContainer.alignChildren = ["fill", "top"];
+        presetButtonsContainer.spacing = 2;
 
-        var btn3 = presetRow1.add("button", undefined, "100,103,8");
-        btn3.preferredSize = [60, 18];
-        btn3.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "103";
-            speedInput.text = "8";
-        };
-
-        var presetRow2 = presetGroup.add("group");
-        presetRow2.orientation = "row";
-        presetRow2.spacing = 2;
-
-        var btn4 = presetRow2.add("button", undefined, "100,103,4");
-        btn4.preferredSize = [60, 18];
-        btn4.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "103";
-            speedInput.text = "4";
-        };
-
-        var btn5 = presetRow2.add("button", undefined, "100,106,6");
-        btn5.preferredSize = [60, 18];
-        btn5.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "106";
-            speedInput.text = "6";
-        };
-
-        var btn6 = presetRow2.add("button", undefined, "100,106,3");
-        btn6.preferredSize = [60, 18];
-        btn6.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "106";
-            speedInput.text = "3";
-        };
-
-        var presetRow3 = presetGroup.add("group");
-        presetRow3.orientation = "row";
-        presetRow3.spacing = 2;
-
-        var btn7 = presetRow3.add("button", undefined, "100,102,9");
-        btn7.preferredSize = [60, 18];
-        btn7.onClick = function () {
-            yMinInput.text = "100";
-            yMaxInput.text = "102";
-            speedInput.text = "9";
-        };
-
-        // Buttons
-        var buttonGroup = dialog.add("group");
-        buttonGroup.orientation = "row";
-        buttonGroup.alignment = "center";
-        buttonGroup.spacing = 4;
-
-        var okBtn = buttonGroup.add("button", undefined, "Apply");
-        okBtn.preferredSize = [60, 18];
-        okBtn.onClick = function () {
+        function applyVScale() {
             var isReactAudio = reactAudioCheck.value;
             var yMin = parseFloat(yMinInput.text);
             var yMax = parseFloat(yMaxInput.text);
@@ -4006,19 +4621,19 @@
 
             if (!isReactAudio && (isNaN(yMin) || isNaN(yMax) || isNaN(speed))) {
                 alert("Please enter valid numbers for all fields");
-                return;
+                return false;
             }
 
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
                 alert("Please select a composition.");
-                return;
+                return false;
             }
 
             var selectedLayers = comp.selectedLayers;
             if (selectedLayers.length === 0) {
                 alert("Please select at least one layer.");
-                return;
+                return false;
             }
 
             var stopTimeComponents = null;
@@ -4033,7 +4648,7 @@
                     };
                 } else {
                     alert("Invalid time format. Please use H:MM:SS:FF or leave it empty.");
-                    return;
+                    return false;
                 }
             }
 
@@ -4323,12 +4938,102 @@
             app.endUndoGroup();
             updateStatus(isReactAudio ? "Applied Audio React V Scale expression to selected layer(s)" : "Applied V Scale expression to selected layer(s)");
             dialog.close();
+            return true;
+        }
+
+        function refreshVScalePresets() {
+            while (presetButtonsContainer.children.length > 0) {
+                presetButtonsContainer.remove(presetButtonsContainer.children[0]);
+            }
+
+            var presets = getPresets("vScale");
+            var currentRow = null;
+            for (var i = 0; i < presets.length; i++) {
+                if (i % 3 === 0) {
+                    currentRow = presetButtonsContainer.add("group");
+                    currentRow.orientation = "row";
+                    currentRow.spacing = 2;
+                }
+                (function (p, index) {
+                    var minVal = p.min;
+                    var maxVal = p.max;
+                    var framesVal = p.frames;
+                    if (p.name) {
+                        var parts = p.name.split(',');
+                        if (parts.length === 3) {
+                            var n1 = parseFloat(parts[0]);
+                            var n2 = parseFloat(parts[1]);
+                            var n3 = parseFloat(parts[2]);
+                            if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                                minVal = n1;
+                                maxVal = n2;
+                                framesVal = n3;
+                            }
+                        }
+                    }
+                    if (minVal === undefined) minVal = 100;
+                    if (maxVal === undefined) maxVal = 102;
+                    if (framesVal === undefined) framesVal = 9;
+
+                    var btnName = p.name || (minVal + "," + maxVal + "," + framesVal);
+                    var btn = currentRow.add("button", undefined, btnName);
+                    btn.preferredSize = [60, 18];
+                    btn.helpTip = "Click to apply (" + minVal + "%, " + maxVal + "%, " + framesVal + "f). Alt+Click to delete.";
+                    btn.onClick = function () {
+                        if (ScriptUI.environment && ScriptUI.environment.keyboardState && ScriptUI.environment.keyboardState.altKey) {
+                            if (confirm("Delete preset '" + btnName + "' from config.json?")) {
+                                deletePreset("vScale", index);
+                                refreshVScalePresets();
+                            }
+                        } else {
+                            yMinInput.text = String(minVal);
+                            yMaxInput.text = String(maxVal);
+                            speedInput.text = String(framesVal);
+                            applyVScale();
+                        }
+                    };
+                })(presets[i], i);
+            }
+            dialog.layout.layout(true);
+        }
+
+        addPresetBtn.onClick = function () {
+            var minVal = parseFloat(yMinInput.text);
+            var maxVal = parseFloat(yMaxInput.text);
+            var speedVal = parseFloat(speedInput.text);
+
+            if (isNaN(minVal) || isNaN(maxVal) || isNaN(speedVal)) {
+                alert("Please enter valid numeric values before adding a preset.");
+                return;
+            }
+
+            var defaultName = minVal + "," + maxVal + "," + speedVal;
+            var presetName = prompt("Enter a name for this preset:", defaultName);
+            if (presetName !== null && presetName !== "") {
+                var newPreset = {
+                    name: presetName,
+                    min: minVal,
+                    max: maxVal,
+                    frames: speedVal
+                };
+                addPreset("vScale", newPreset);
+                refreshVScalePresets();
+            }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+        refreshVScalePresets();
+
+        // Buttons
+        var buttonGroup = dialog.add("group");
+        buttonGroup.orientation = "row";
+        buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
+
+        var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom vertical scale values";
+        okBtn.onClick = function () {
+            applyVScale();
         };
 
         // Layout and show dialog
@@ -4618,14 +5323,6 @@
             } else {
                 alert("Please enter a valid number");
             }
-        };
-
-        // Cancel button
-        var cancelBtn = dialog.add("button", undefined, "Cancel");
-        cancelBtn.alignment = "center";
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
         };
 
         dialog.center();
@@ -4972,8 +5669,7 @@
 
             var applyBtn = buttonGroup.add("button", undefined, "Apply");
             applyBtn.preferredSize = [60, 18];
-            var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-            cancelBtn.preferredSize = [60, 18];
+            applyBtn.helpTip = "Apply custom zoom amount";
 
             // Sort layers descending (bottom first)
             var sortedLayers = [];
@@ -5004,9 +5700,6 @@
                     return;
                 }
                 applyAutoZoom(comp, sortedLayers, val);
-                dialog.close();
-            };
-            cancelBtn.onClick = function () {
                 dialog.close();
             };
 
@@ -6583,84 +7276,194 @@
         dialog.preferredSize.width = 240;
 
         var inputPanel = dialog.add("panel", undefined, "Parameters");
-        inputPanel.orientation = "column";
-        inputPanel.alignChildren = ["fill", "top"];
-        inputPanel.spacing = 2;
-        inputPanel.margins = 6;
+        inputPanel.orientation = "row";
+        inputPanel.alignChildren = ["center", "center"];
+        inputPanel.spacing = 10;
+        inputPanel.margins = [10, 8, 10, 10];
 
-        // Amount setting
+        // Amount column
         var amountGroup = inputPanel.add("group");
-        amountGroup.orientation = "row";
-        amountGroup.alignChildren = ["left", "center"];
+        amountGroup.orientation = "column";
+        amountGroup.alignChildren = ["center", "center"];
         amountGroup.spacing = 2;
-        var amtLbl = amountGroup.add("statictext", undefined, "Amount:");
+        var amtLbl = amountGroup.add("statictext", undefined, "Amount");
         amtLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var amountInput = amountGroup.add("edittext", undefined, "10");
-        amountInput.preferredSize = [40, 18];
+        amountInput.preferredSize = [50, 20];
         amountInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Size setting
+        // Size column
         var sizeGroup = inputPanel.add("group");
-        sizeGroup.orientation = "row";
-        sizeGroup.alignChildren = ["left", "center"];
+        sizeGroup.orientation = "column";
+        sizeGroup.alignChildren = ["center", "center"];
         sizeGroup.spacing = 2;
-        var sizeLbl = sizeGroup.add("statictext", undefined, "Size:");
+        var sizeLbl = sizeGroup.add("statictext", undefined, "Size");
         sizeLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var sizeInput = sizeGroup.add("edittext", undefined, "100");
-        sizeInput.preferredSize = [40, 18];
+        sizeInput.preferredSize = [50, 20];
         sizeInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-        // Evolution Speed
+        // Evolution Speed column
         var speedGroup = inputPanel.add("group");
-        speedGroup.orientation = "row";
-        speedGroup.alignChildren = ["left", "center"];
+        speedGroup.orientation = "column";
+        speedGroup.alignChildren = ["center", "center"];
         speedGroup.spacing = 2;
-        var speedLbl = speedGroup.add("statictext", undefined, "Speed:");
+        var speedLbl = speedGroup.add("statictext", undefined, "Speed");
         speedLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
         var speedInput = speedGroup.add("edittext", undefined, "100");
-        speedInput.preferredSize = [40, 18];
+        speedInput.preferredSize = [50, 20];
         speedInput.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
         // Preset buttons
+        // Preset buttons dynamically loaded from config.json
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        var presetLabelGroup = presetGroup.add("group");
+        presetLabelGroup.orientation = "row";
+        presetLabelGroup.alignChildren = ["left", "center"];
+        presetLabelGroup.spacing = 4;
+
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        presLbl.helpTip = "Click any preset to apply directly.";
 
-        var subtleBtn = presetGroup.add("button", undefined, "Subtle");
-        subtleBtn.preferredSize = [42, 18];
-        subtleBtn.onClick = function () {
-            amountInput.text = "25";
-            sizeInput.text = "150";
-            speedInput.text = "250";
+        var addPresetBtn = presetLabelGroup.add("button", undefined, "+");
+        addPresetBtn.preferredSize = [20, 18];
+        addPresetBtn.helpTip = "Add current input values as a custom preset into config.json";
+
+        var managePresetBtn = presetLabelGroup.add("button", undefined, "⚙");
+        managePresetBtn.preferredSize = [20, 18];
+        managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
+        managePresetBtn.onClick = function () {
+            showGlobalPresetManager("waterDistortion", refreshWaterDistortionPresets);
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Normal");
-        normalBtn.preferredSize = [45, 18];
-        normalBtn.onClick = function () {
-            amountInput.text = "50";
-            sizeInput.text = "150";
-            speedInput.text = "360";
+        var presetButtonsContainer = presetGroup.add("group");
+        presetButtonsContainer.orientation = "column";
+        presetButtonsContainer.alignChildren = ["fill", "top"];
+        presetButtonsContainer.spacing = 2;
+
+        function applyWaterDistortion() {
+            var amount = parseFloat(amountInput.text);
+            var size = parseFloat(sizeInput.text);
+            var speed = parseFloat(speedInput.text);
+
+            if (isNaN(amount) || isNaN(size) || isNaN(speed)) {
+                alert("Please enter valid numbers");
+                return false;
+            }
+
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select a composition.");
+                return false;
+            }
+
+            if (comp.selectedLayers.length === 0) {
+                alert("Please select at least one layer in a comp.");
+                updateStatus("No layers selected");
+                return false;
+            }
+
+            app.beginUndoGroup("Add Turbulent Displace with Settings");
+            for (var i = 0; i < comp.selectedLayers.length; i++) {
+                var layer = comp.selectedLayers[i];
+                var effect = layer.Effects.addProperty("ADBE Turbulent Displace");
+
+                if (effect) {
+                    effect.property("Amount").setValue(amount);
+                    effect.property("Size").setValue(size);
+                    effect.property("Evolution").expression = "time * " + speed;
+                }
+            }
+            app.endUndoGroup();
+            updateStatus("Added water distortion to " + comp.selectedLayers.length + " layer(s)");
+            dialog.close();
+            return true;
+        }
+
+        function refreshWaterDistortionPresets() {
+            while (presetButtonsContainer.children.length > 0) {
+                presetButtonsContainer.remove(presetButtonsContainer.children[0]);
+            }
+
+            var presets = getPresets("waterDistortion");
+            var currentRow = null;
+            for (var i = 0; i < presets.length; i++) {
+                if (i % 4 === 0) {
+                    currentRow = presetButtonsContainer.add("group");
+                    currentRow.orientation = "row";
+                    currentRow.spacing = 2;
+                }
+                (function (p, index) {
+                    var amtVal = p.amount;
+                    var szVal = p.size;
+                    var spdVal = p.speed;
+                    if (p.name) {
+                        var parts = p.name.split(',');
+                        if (parts.length === 3) {
+                            var n1 = parseFloat(parts[0]);
+                            var n2 = parseFloat(parts[1]);
+                            var n3 = parseFloat(parts[2]);
+                            if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                                amtVal = n1; szVal = n2; spdVal = n3;
+                            }
+                        }
+                    }
+                    if (amtVal === undefined) amtVal = 50;
+                    if (szVal === undefined) szVal = 150;
+                    if (spdVal === undefined) spdVal = 360;
+
+                    var btnName = p.name || ("Preset " + (index + 1));
+                    var btn = currentRow.add("button", undefined, btnName);
+                    btn.preferredSize = [45, 18];
+                    btn.helpTip = "Click to apply directly (" + amtVal + ", " + szVal + ", " + spdVal + "). Alt+Click to delete.";
+                    btn.onClick = function () {
+                        if (ScriptUI.environment && ScriptUI.environment.keyboardState && ScriptUI.environment.keyboardState.altKey) {
+                            if (confirm("Delete preset '" + btnName + "' from config.json?")) {
+                                deletePreset("waterDistortion", index);
+                                refreshWaterDistortionPresets();
+                            }
+                        } else {
+                            amountInput.text = String(amtVal);
+                            sizeInput.text = String(szVal);
+                            speedInput.text = String(spdVal);
+                            applyWaterDistortion();
+                        }
+                    };
+                })(presets[i], i);
+            }
+            dialog.layout.layout(true);
+        }
+
+        addPresetBtn.onClick = function () {
+            var amountVal = parseFloat(amountInput.text);
+            var sizeVal = parseFloat(sizeInput.text);
+            var speedVal = parseFloat(speedInput.text);
+
+            if (isNaN(amountVal) || isNaN(sizeVal) || isNaN(speedVal)) {
+                alert("Please enter valid numeric values before adding a preset.");
+                return;
+            }
+
+            var defaultName = "Custom " + (getPresets("waterDistortion").length + 1);
+            var presetName = prompt("Enter a name for this preset:", defaultName);
+            if (presetName !== null && presetName !== "") {
+                var newPreset = {
+                    name: presetName,
+                    amount: amountVal,
+                    size: sizeVal,
+                    speed: speedVal
+                };
+                addPreset("waterDistortion", newPreset);
+                refreshWaterDistortionPresets();
+            }
         };
 
-        var strongBtn = presetGroup.add("button", undefined, "Strong");
-        strongBtn.preferredSize = [45, 18];
-        strongBtn.onClick = function () {
-            amountInput.text = "25";
-            sizeInput.text = "75";
-            speedInput.text = "780";
-        };
-
-        var fireBtn = presetGroup.add("button", undefined, "Fire");
-        fireBtn.preferredSize = [35, 18];
-        fireBtn.onClick = function () {
-            amountInput.text = "90";
-            sizeInput.text = "35";
-            speedInput.text = "988";
-        };
+        refreshWaterDistortionPresets();
 
         var buttonGroup = dialog.add("group");
         buttonGroup.orientation = "row";
@@ -6669,43 +7472,9 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom water distortion values";
         okBtn.onClick = function () {
-            var amount = parseFloat(amountInput.text);
-            var size = parseFloat(sizeInput.text);
-            var speed = parseFloat(speedInput.text);
-
-            if (!isNaN(amount) && !isNaN(size) && !isNaN(speed)) {
-                app.beginUndoGroup("Add Turbulent Displace with Settings");
-
-                var comp = app.project.activeItem;
-                if (comp && comp instanceof CompItem && comp.selectedLayers.length > 0) {
-                    for (var i = 0; i < comp.selectedLayers.length; i++) {
-                        var layer = comp.selectedLayers[i];
-                        var effect = layer.Effects.addProperty("ADBE Turbulent Displace");
-
-                        if (effect) {
-                            effect.property("Amount").setValue(amount);
-                            effect.property("Size").setValue(size);
-                            effect.property("Evolution").expression = "time * " + speed;
-                        }
-                    }
-                    updateStatus("Added water distortion to " + comp.selectedLayers.length + " layer(s)");
-                    dialog.close();
-                } else {
-                    alert("Please select at least one layer in a comp.");
-                    updateStatus("No layers selected");
-                }
-
-                app.endUndoGroup();
-            } else {
-                alert("Please enter valid numbers");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyWaterDistortion();
         };
 
         dialog.center();
@@ -6781,10 +7550,8 @@
             buttonGroup.alignment = "center";
             buttonGroup.spacing = 4;
 
-            var applyCustomBtn = buttonGroup.add("button", undefined, "Apply Custom");
-            applyCustomBtn.preferredSize = [80, 18];
-            var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-            cancelBtn.preferredSize = [60, 18];
+            var applyCustomBtn = buttonGroup.add("button", undefined, "Apply");
+            applyCustomBtn.preferredSize = [60, 18];
 
             btnIn12.onClick = function () { applyPinch(comp, selectedLayers, 12); dialog.close(); };
             btnIn15.onClick = function () { applyPinch(comp, selectedLayers, 15); dialog.close(); };
@@ -6797,7 +7564,6 @@
                 if (!isNaN(val)) applyPinch(comp, selectedLayers, val);
                 dialog.close();
             };
-            cancelBtn.onClick = function () { dialog.close(); };
 
             dialog.center();
             dialog.show();
@@ -7007,22 +7773,44 @@
         var presLbl = presetGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
 
+        function applyFlip(flipEvery) {
+            if (isNaN(flipEvery) || flipEvery <= 0) {
+                alert("Please enter a valid positive number for flip frames");
+                return;
+            }
+            var expression = "// Choppy left-right flip\n" +
+                "flipEvery = " + flipEvery + "; // frames to hold before flipping\n\n" +
+                "fd = thisComp.frameDuration;\n" +
+                "frame = Math.floor((time - inPoint) / fd);\n\n" +
+                "if (Math.floor(frame / flipEvery) % 2 == 0){\n" +
+                "    [-100, 100]; // normal\n" +
+                "} else {\n" +
+                "    [100, 100];  // mirrored\n" +
+                "}";
+
+            applyChoppyFlip(expression);
+            dialog.close();
+        }
+
         var fastBtn = presetGroup.add("button", undefined, "2f");
         fastBtn.preferredSize = [40, 18];
+        fastBtn.helpTip = "Apply 2 frames flip directly";
         fastBtn.onClick = function () {
-            flipInput.text = "2";
+            applyFlip(2);
         };
 
         var normalBtn = presetGroup.add("button", undefined, "3f");
         normalBtn.preferredSize = [40, 18];
+        normalBtn.helpTip = "Apply 3 frames flip directly";
         normalBtn.onClick = function () {
-            flipInput.text = "3";
+            applyFlip(3);
         };
 
         var slowBtn = presetGroup.add("button", undefined, "5f");
         slowBtn.preferredSize = [40, 18];
+        slowBtn.helpTip = "Apply 5 frames flip directly";
         slowBtn.onClick = function () {
-            flipInput.text = "5";
+            applyFlip(5);
         };
 
         var buttonGroup = dialog.add("group");
@@ -7032,32 +7820,9 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom flip frames";
         okBtn.onClick = function () {
-            var flipEvery = parseInt(flipInput.text);
-
-            if (!isNaN(flipEvery) && flipEvery > 0) {
-                var expression = "// Choppy left-right flip\n" +
-                    "flipEvery = " + flipEvery + "; // frames to hold before flipping\n\n" +
-                    "fd = thisComp.frameDuration;\n" +
-                    "frame = Math.floor((time - inPoint) / fd);\n\n" +
-                    "if (Math.floor(frame / flipEvery) % 2 == 0){\n" +
-                    "    [-100, 100]; // normal\n" +
-                    "} else {\n" +
-                    "    [100, 100];  // mirrored\n" +
-                    "}";
-
-                // Apply the expression
-                applyChoppyFlip(expression);
-                dialog.close();
-            } else {
-                alert("Please enter a valid positive number for flip frames");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyFlip(parseInt(flipInput.text));
         };
 
         dialog.center();
@@ -7167,15 +7932,44 @@
             "Crazy": { freq: 75, amp: 20 }
         };
 
+        function applyWiggle(freq, amp, useMarkers) {
+            if (isNaN(freq) || isNaN(amp)) {
+                alert("Please enter valid numbers");
+                return;
+            }
+            var expression;
+            if (useMarkers) {
+                expression = "var isFrozen = false;\n" +
+                    "if (marker.numKeys > 0) {\n" +
+                    "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
+                    "        var mk = marker.key(i);\n" +
+                    "        if (mk.time <= time) {\n" +
+                    "            var c = mk.comment.toLowerCase();\n" +
+                    "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
+                    "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
+                    "        } else { break; }\n" +
+                    "    }\n" +
+                    "}\n" +
+                    "if (isFrozen) {\n" +
+                    "    value;\n" +
+                    "} else {\n" +
+                    "    wiggle(" + freq + "," + amp + ");\n" +
+                    "}";
+            } else {
+                expression = "wiggle(" + freq + "," + amp + ")";
+            }
+            handleExpressionClick("Wiggle", expression);
+            dialog.close();
+        }
+
         // Add preset buttons
         for (var presetName in presets) {
             var btn = presetGroup.add("button", undefined, presetName);
             btn.preferredSize = [45, 18];
             btn.preset = presets[presetName];
+            btn.helpTip = "Apply " + presetName + " wiggle directly (" + presets[presetName].freq + ", " + presets[presetName].amp + ")";
             btn.onClick = function () {
-                var preset = this.preset;
-                freqInput.text = preset.freq.toString();
-                ampInput.text = preset.amp.toString();
+                applyWiggle(this.preset.freq, this.preset.amp, useMarkersCheck.value);
             };
         }
 
@@ -7187,44 +7981,11 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom wiggle values";
         okBtn.onClick = function () {
             var freq = parseFloat(freqInput.text);
             var amp = parseFloat(ampInput.text);
-            var useMarkers = useMarkersCheck.value;
-
-            if (!isNaN(freq) && !isNaN(amp)) {
-                var expression;
-                if (useMarkers) {
-                    expression = "var isFrozen = false;\n" +
-                        "if (marker.numKeys > 0) {\n" +
-                        "    for (var i = 1; i <= marker.numKeys; i++) {\n" +
-                        "        var mk = marker.key(i);\n" +
-                        "        if (mk.time <= time) {\n" +
-                        "            var c = mk.comment.toLowerCase();\n" +
-                        "            if (c.indexOf('stop') !== -1) isFrozen = true;\n" +
-                        "            else if (c.indexOf('resume') !== -1 || c.indexOf('sync') !== -1) isFrozen = false;\n" +
-                        "        } else { break; }\n" +
-                        "    }\n" +
-                        "}\n" +
-                        "if (isFrozen) {\n" +
-                        "    value;\n" +
-                        "} else {\n" +
-                        "    wiggle(" + freq + "," + amp + ");\n" +
-                        "}";
-                } else {
-                    expression = "wiggle(" + freq + "," + amp + ")";
-                }
-                handleExpressionClick("Wiggle", expression);
-                dialog.close();
-            } else {
-                alert("Please enter valid numbers");
-            }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
+            applyWiggle(freq, amp, useMarkersCheck.value);
         };
 
         dialog.center();
@@ -7272,8 +8033,10 @@
             var btn = presetGroup.add("button", undefined, presets[i].name);
             btn.preferredSize = [25, 18];
             btn.fps = presets[i].fps;
+            btn.helpTip = "Apply " + presets[i].fps + " FPS directly";
             btn.onClick = function () {
-                fpsInput.text = this.fps.toString();
+                applyPosterizeTime(this.fps, appendCheck.value);
+                dialog.close();
             };
         }
 
@@ -7290,6 +8053,7 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom FPS";
         okBtn.onClick = function () {
             var fps = parseFloat(fpsInput.text);
 
@@ -7299,12 +8063,6 @@
             } else {
                 alert("Please enter a valid number");
             }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
         };
 
         dialog.center();
@@ -7404,8 +8162,10 @@
             var btn = presetGroup.add("button", undefined, presets[i].name);
             btn.preferredSize = [25, 18];
             btn.fps = presets[i].fps;
+            btn.helpTip = "Apply " + presets[i].fps + " FPS directly";
             btn.onClick = function () {
-                fpsInput.text = this.fps.toString();
+                applyBPosterizer(this.fps);
+                dialog.close();
             };
         }
 
@@ -7417,6 +8177,7 @@
 
         var okBtn = buttonGroup.add("button", undefined, "Apply");
         okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply custom FPS";
         okBtn.onClick = function () {
             var fps = parseFloat(fpsInput.text);
 
@@ -7426,12 +8187,6 @@
             } else {
                 alert("Please enter a valid number");
             }
-        };
-
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
         };
 
         dialog.center();
@@ -7596,9 +8351,11 @@
             var btn = presetGroup.add("button", undefined, presets[i].name);
             btn.preferredSize = [42, 18];
             btn.preset = presets[i];
+            btn.helpTip = "Apply " + presets[i].name + " directly";
             btn.onClick = function () {
                 ampInput.text = this.preset.amp.toString();
                 speedInput.text = this.preset.speed.toString();
+                okBtn.onClick();
             };
         }
 
@@ -7676,11 +8433,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -7786,32 +8539,38 @@
 
         var thunderBtn = presetGroup.add("button", undefined, "Thunder");
         thunderBtn.preferredSize = [50, 18];
+        thunderBtn.helpTip = "Apply Thunder directly";
         thunderBtn.onClick = function () {
             highInput.text = "0.7";
             midInput.text = "0.4";
             highRateInput.text = "20";
             midRateInput.text = "8";
             lowRateInput.text = "2";
+            okBtn.onClick();
         };
 
         var laserBtn = presetGroup.add("button", undefined, "Laser");
         laserBtn.preferredSize = [45, 18];
+        laserBtn.helpTip = "Apply Laser directly";
         laserBtn.onClick = function () {
             highInput.text = "0.8";
             midInput.text = "0.5";
             highRateInput.text = "30";
             midRateInput.text = "15";
             lowRateInput.text = "5";
+            okBtn.onClick();
         };
 
         var strobeBtn = presetGroup.add("button", undefined, "Strobe");
         strobeBtn.preferredSize = [45, 18];
+        strobeBtn.helpTip = "Apply Strobe directly";
         strobeBtn.onClick = function () {
             highInput.text = "0.9";
             midInput.text = "0.6";
             highRateInput.text = "40";
             midRateInput.text = "25";
             lowRateInput.text = "10";
+            okBtn.onClick();
         };
 
         // Buttons
@@ -7845,11 +8604,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
         dialog.show();
@@ -7946,34 +8701,42 @@
 
         var walkBtn = presetGroup.add("button", undefined, "Walk");
         walkBtn.preferredSize = [35, 18];
+        walkBtn.helpTip = "Apply Walk directly";
         walkBtn.onClick = function () {
             speedInput.text = "300";
             arcInput.text = "15";
             freqInput.text = "1.5";
+            okBtn.onClick();
         };
 
         var normalBtn = presetGroup.add("button", undefined, "Normal");
         normalBtn.preferredSize = [45, 18];
+        normalBtn.helpTip = "Apply Normal directly";
         normalBtn.onClick = function () {
             speedInput.text = "500";
             arcInput.text = "15";
             freqInput.text = "2";
+            okBtn.onClick();
         };
 
         var runBtn = presetGroup.add("button", undefined, "Run");
         runBtn.preferredSize = [30, 18];
+        runBtn.helpTip = "Apply Run directly";
         runBtn.onClick = function () {
             speedInput.text = "700";
             arcInput.text = "15";
             freqInput.text = "4";
+            okBtn.onClick();
         };
 
         var sprintBtn = presetGroup.add("button", undefined, "Sprint");
         sprintBtn.preferredSize = [40, 18];
+        sprintBtn.helpTip = "Apply Sprint directly";
         sprintBtn.onClick = function () {
             speedInput.text = "1500";
             arcInput.text = "15";
             freqInput.text = "4";
+            okBtn.onClick();
         };
 
         // Buttons
@@ -7999,11 +8762,7 @@
             }
         };
 
-        var cancelBtn = buttonGroup.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () {
-            dialog.close();
-        };
+
 
         dialog.center();
 
@@ -11448,9 +12207,7 @@
         var applyBtn = btnRow.add("button", undefined, "Unprecomp");
         applyBtn.preferredSize = [80, 18];
 
-        var cancelBtn = btnRow.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () { dlg.close(); };
+
 
         applyBtn.onClick = function () {
             try {
@@ -11916,9 +12673,6 @@
         var applyBtn = btnRow.add("button", undefined, "Apply");
         applyBtn.preferredSize = [80, 18];
 
-        var cancelBtn = btnRow.add("button", undefined, "Cancel");
-        cancelBtn.preferredSize = [60, 18];
-        cancelBtn.onClick = function () { dlg.close(); };
 
         applyBtn.onClick = function () {
             try {

@@ -35,7 +35,8 @@ $ScriptsToInstall = @(
     "Anchor_Point_Control.jsx",
     "Sync_PSDs_Timeline.jsx",
     "BatchRendering.jsx",
-    "SmartRig.jsx"
+    "SmartRig.jsx",
+    "config.json"
 )
 
 $SourceDir = $PSScriptRoot
@@ -236,6 +237,27 @@ foreach ($target in $selectedTargets) {
         } else {
             Write-Host "  [SKIP] Not found in source: $script" -ForegroundColor DarkGray
         }
+    }
+    
+    # Initialize User Documents Preset folder (writable by AE without Admin privileges)
+    try {
+        $docsPresetFolder = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "Adobe\After Effects $($target.Version)\Expression Panel Preset"
+        if (-not (Test-Path $docsPresetFolder)) {
+            New-Item -ItemType Directory -Path $docsPresetFolder -Force | Out-Null
+            Write-Host "  [OK] Created User Preset Folder: $docsPresetFolder" -ForegroundColor Cyan
+        }
+        $userConfigFile = Join-Path $docsPresetFolder "config.json"
+        $srcConfig = Join-Path $SourceDir "config.json"
+        if (Test-Path $srcConfig) {
+            if (-not (Test-Path $userConfigFile)) {
+                Copy-Item -Path $srcConfig -Destination $userConfigFile -Force
+                Write-Host "  [OK] Initialized User Preset: $userConfigFile" -ForegroundColor Green
+            } else {
+                Write-Host "  [KEEP] Existing User Preset found: $userConfigFile" -ForegroundColor Yellow
+            }
+        }
+    } catch {
+        Write-Host "  [WARN] Could not initialize User Preset folder: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     Write-Host ""
 }
