@@ -801,12 +801,14 @@
         };
         // --- SMART PICKER LOGIC ---
         var grpBlinkOpacity = tabPicker.add("group");
-        grpBlinkOpacity.orientation = "row";
-        grpBlinkOpacity.alignChildren = ["left", "center"];
-        grpBlinkOpacity.margins = [10, 10, 10, 0];
+        grpBlinkOpacity.orientation = "column";
+        grpBlinkOpacity.alignChildren = ["fill", "top"];
+        grpBlinkOpacity.spacing = 4;
+        grpBlinkOpacity.margins = [2, 4, 2, 2];
 
         var btnBlinkOp = grpBlinkOpacity.add("button", undefined, "Apply Blink to 'eye-open Opacity'");
         btnBlinkOp.helpTip = "Adds an expression to 'eye-open Opacity' in Essential Properties. Blinks (0%) for 4 frames when hitting a 'B' marker.";
+        btnBlinkOp.alignment = ["fill", "top"];
         btnBlinkOp.onClick = function () {
             app.beginUndoGroup("Apply Blink Opacity");
             var comp = app.project.activeItem;
@@ -863,6 +865,7 @@
         };
 
         var btnReloadAll = grpBlinkOpacity.add("button", undefined, "Reload All Pickers");
+        btnReloadAll.alignment = ["fill", "top"];
         btnReloadAll.onClick = function () {
             for (var p = 0; p < pickersData.length; p++) {
                 var pData = pickersData[p];
@@ -887,7 +890,9 @@
         mainScroll.alignment = ["fill", "fill"];
         mainScroll.orientation = "column";
         mainScroll.alignChildren = ["fill", "top"];
-        var MAX_COLUMNS = 8;
+        mainScroll.margins = [4, 4, 4, 4];
+        mainScroll.spacing = 4;
+        var MAX_COLUMNS = 6;
         var pickersData = [
             { id: "eyebrow", label: "Eyebrow Picker", defaultTarget: "eyebrow-slider" },
             { id: "eye_close", label: "Eye Close Picker", defaultTarget: "eye-close-slider" },
@@ -908,45 +913,44 @@
 
             var winDlg = new Window("dialog", "Select Source Comp", undefined, { resizeable: true });
             winDlg.orientation = "column";
-            winDlg.alignChildren = ["fill", "fill"];
-            winDlg.preferredSize.width = 300;
+            winDlg.alignChildren = ["fill", "top"];
+            winDlg.spacing = 5;
+            winDlg.margins = 10;
 
-            var txtSearch = winDlg.add("edittext", undefined, "");
-            txtSearch.helpTip = "Search Source Comp...";
+            winDlg.add("statictext", undefined, "Select Composition containing poses/frames:");
+            var compList = winDlg.add("listbox", undefined, [], { multiselect: false });
+            compList.preferredSize = [250, 200];
 
-            var listComps = winDlg.add("listbox", undefined, []);
-            listComps.preferredSize.height = 200;
-
-            var filteredComps = [];
-            function populate() {
-                listComps.removeAll();
-                filteredComps = [];
-                var q = txtSearch.text.toLowerCase();
-                for (var i = 0; i < allComps.length; i++) {
-                    var c = allComps[i];
-                    if (c.name.toLowerCase().indexOf(q) !== -1) {
-                        listComps.add("item", c.name);
-                        filteredComps.push(c);
-                    }
-                }
-                if (listComps.items.length > 0) listComps.selection = 0;
+            for (var i = 0; i < allComps.length; i++) {
+                compList.add("item", allComps[i].name);
             }
 
-            txtSearch.onChanging = populate;
-            populate();
+            if (allComps.length > 0) {
+                compList.selection = 0;
+            }
 
-            var btnOk = winDlg.add("button", undefined, "Load");
+            var grpDlgButtons = winDlg.add("group");
+            grpDlgButtons.orientation = "row";
+            grpDlgButtons.alignment = ["center", "bottom"];
+
+            var btnOk = grpDlgButtons.add("button", undefined, "OK");
+            var btnCancel = grpDlgButtons.add("button", undefined, "Cancel");
 
             btnOk.onClick = function () {
-                if (!listComps.selection) return;
-                var selComp = filteredComps[listComps.selection.index];
-                winDlg.close(1);
-
-                if (app.settings) {
-                    app.settings.saveSetting("SmartRig", "comp_" + pickerId, selComp.name);
+                if (compList.selection !== null) {
+                    var selectedComp = allComps[compList.selection.index];
+                    winDlg.close(1);
+                    if (app.settings) {
+                        app.settings.saveSetting("SmartRig", "comp_" + pickerId, selectedComp.name);
+                    }
+                    buildPickerGrid(pickerId, selectedComp);
+                } else {
+                    alert("Please select a composition first.");
                 }
+            };
 
-                buildPickerGrid(pickerId, selComp);
+            btnCancel.onClick = function () {
+                winDlg.close(0);
             };
 
             winDlg.show();
@@ -957,41 +961,53 @@
             (function (pData) {
                 var pnl = mainScroll.add("panel", undefined, pData.label);
                 pnl.orientation = "column";
-                pnl.alignChildren = ["left", "top"];
-                pnl.spacing = 2;
-                pnl.margins = 5;
+                pnl.alignChildren = ["fill", "top"];
+                pnl.spacing = 3;
+                pnl.margins = [4, 8, 4, 4];
                 pnl.alignment = ["fill", "top"];
 
-                var grpControls = pnl.add("group");
-                grpControls.orientation = "row";
-                grpControls.alignChildren = ["left", "center"];
-                grpControls.spacing = 4;
-                grpControls.margins = 0;
+                // Row 1: Load button & Target input
+                var grpRow1 = pnl.add("group");
+                grpRow1.orientation = "row";
+                grpRow1.alignChildren = ["left", "center"];
+                grpRow1.spacing = 4;
+                grpRow1.margins = 0;
+                grpRow1.alignment = ["fill", "top"];
 
-                var btnLoad = grpControls.add("button", undefined, "Load");
-                btnLoad.preferredSize.height = 20;
-                grpControls.add("statictext", undefined, "Target:");
+                var btnLoad = grpRow1.add("button", undefined, "Load");
+                btnLoad.preferredSize = [42, 20];
+
+                var lblTarget = grpRow1.add("statictext", undefined, "Target:");
+                lblTarget.preferredSize.width = 40;
 
                 var cachedTarget = "";
                 if (app.settings && app.settings.haveSetting("SmartRig", "target_" + pData.id)) {
                     cachedTarget = app.settings.getSetting("SmartRig", "target_" + pData.id);
                 }
-                var txtTarget = grpControls.add("edittext", undefined, cachedTarget ? cachedTarget : pData.defaultTarget);
-                txtTarget.preferredSize.width = 100;
+                var txtTarget = grpRow1.add("edittext", undefined, cachedTarget ? cachedTarget : pData.defaultTarget);
+                txtTarget.alignment = ["fill", "center"];
                 txtTarget.preferredSize.height = 20;
 
                 txtTarget.onChange = function () {
                     if (app.settings) app.settings.saveSetting("SmartRig", "target_" + pData.id, this.text);
                 };
 
-                var chkManualLimit = grpControls.add("checkbox", undefined, "Limit:");
+                // Row 2: Manual Limit controls
+                var grpRow2 = pnl.add("group");
+                grpRow2.orientation = "row";
+                grpRow2.alignChildren = ["left", "center"];
+                grpRow2.spacing = 4;
+                grpRow2.margins = 0;
+                grpRow2.alignment = ["fill", "top"];
+
+                var chkManualLimit = grpRow2.add("checkbox", undefined, "Limit (Max):");
 
                 var cachedLimit = "100";
                 if (app.settings && app.settings.haveSetting("SmartRig", "limit_val_" + pData.id)) {
                     cachedLimit = app.settings.getSetting("SmartRig", "limit_val_" + pData.id);
                 }
-                var txtManualLimit = grpControls.add("edittext", undefined, cachedLimit);
-                txtManualLimit.preferredSize.width = 40;
+                var txtManualLimit = grpRow2.add("edittext", undefined, cachedLimit);
+                txtManualLimit.preferredSize.width = 45;
                 txtManualLimit.preferredSize.height = 20;
 
                 var cachedCheck = false;
@@ -1013,6 +1029,9 @@
                 var grpGrid = pnl.add("group");
                 grpGrid.orientation = "column";
                 grpGrid.alignChildren = ["left", "top"];
+                grpGrid.alignment = ["fill", "top"];
+                grpGrid.spacing = 2;
+                grpGrid.margins = 0;
 
                 pickersUI[pData.id] = {
                     panel: pnl,
@@ -1266,6 +1285,10 @@
         // The user can now click the global 'Reload All Pickers' button to explicitly load previous picker grids.
         // --- END SMART PICKER LOGIC ---
 
+
+        win.onResizing = win.onResize = function () {
+            this.layout.resize();
+        };
 
         if (win instanceof Window) {
             win.center();
