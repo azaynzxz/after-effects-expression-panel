@@ -159,118 +159,66 @@
             } catch (eImp) {}
         }
 
-        // --- ENSURE TOP VIDEO TRACK ---
+        // --- ENSURE TOP VIDEO TRACK (NEVER OVERWRITE EXISTING) ---
         var vTracks = seq.videoTracks;
-        var topVIdx = vTracks.numTracks - 1;
-        if (topVIdx < 0) {
+        if (vTracks.numTracks === 0) {
             return { success: false, message: "Active sequence has no video tracks." };
         }
 
-        var topVTrack = vTracks[topVIdx];
-        var needNewVTrack = (topVTrack.clips.numItems > 0);
-
-        if (needNewVTrack) {
+        function addVideoTrackAtTop() {
+            var initV = seq.videoTracks.numTracks;
             try {
                 app.enableQE();
                 if (typeof qe !== "undefined" && qe.project) {
                     var qeSeq = qe.project.getActiveSequence();
-                    if (qeSeq && qeSeq.addTracks) {
-                        qeSeq.addTracks(1); // Adds 1 video track at top
-                    }
+                    if (qeSeq && qeSeq.addTracks) qeSeq.addTracks(1, initV - 1, 0, 0);
                 }
-            } catch (eAddV) {}
-            vTracks = seq.videoTracks;
-            topVIdx = vTracks.numTracks - 1;
-            topVTrack = vTracks[topVIdx];
-        }
-
-        // --- ENSURE AUDIO TRACK A3 (Index 2) ---
-        while (seq.audioTracks.numTracks < 3) {
+            } catch (eQ1) {}
+            if (seq.videoTracks.numTracks > initV) return true;
             try {
-                app.enableQE();
                 if (typeof qe !== "undefined" && qe.project) {
-                    var qeSeqA = qe.project.getActiveSequence();
-                    if (qeSeqA && qeSeqA.addTracks) {
-                        qeSeqA.addTracks(0); // Adds audio track
-                    }
+                    var qeSeq2 = qe.project.getActiveSequence();
+                    if (qeSeq2 && qeSeq2.addTracks) qeSeq2.addTracks(1, 0);
                 }
-            } catch (eAddA) {
-                break;
-            }
+            } catch (eQ2) {}
+            return seq.videoTracks.numTracks > initV;
         }
 
-        if (seq.audioTracks.numTracks < 3) {
-            return { success: false, message: "Sequence must have at least 3 audio tracks (A1, A2, A3)." };
-        }
-
-        var trackA3 = seq.audioTracks[2];
-        var a3PushedToA4 = false;
-
-        // Check if A3 is empty or not
-        if (trackA3.clips.numItems > 0) {
-            while (seq.audioTracks.numTracks < 4) {
+        function ensureAudioTracks(minCount) {
+            while (seq.audioTracks.numTracks < minCount) {
+                var curA = seq.audioTracks.numTracks;
                 try {
                     app.enableQE();
                     if (typeof qe !== "undefined" && qe.project) {
-                        var qeSeqA4 = qe.project.getActiveSequence();
-                        if (qeSeqA4 && qeSeqA4.addTracks) {
-                            qeSeqA4.addTracks(0);
-                        }
+                        var qeSeqA = qe.project.getActiveSequence();
+                        if (qeSeqA && qeSeqA.addTracks) qeSeqA.addTracks(0, 0, 1, curA - 1);
                     }
-                } catch (eAddA4) {
-                    break;
-                }
+                } catch (eQA1) {}
+                if (seq.audioTracks.numTracks === curA) break;
             }
+            return seq.audioTracks.numTracks >= minCount;
+        }
 
-            if (seq.audioTracks.numTracks >= 4) {
-                var trackA4 = seq.audioTracks[3];
+        var topVTrack = vTracks[vTracks.numTracks - 1];
+        var needNewVTrack = (topVTrack.clips.numItems > 0);
+        var createdNewVTrack = false;
+        if (needNewVTrack) createdNewVTrack = addVideoTrackAtTop();
 
-                var a3ClipsData = [];
-                for (var c = 0; c < trackA3.clips.numItems; c++) {
-                    var clipObj = trackA3.clips[c];
-                    a3ClipsData.push({
-                        clipRef: clipObj,
-                        projectItem: clipObj.projectItem,
-                        startSec: parseFloat(clipObj.start.seconds),
-                        inPointTicks: clipObj.inPoint ? clipObj.inPoint.ticks : null,
-                        outPointTicks: clipObj.outPoint ? clipObj.outPoint.ticks : null
-                    });
-                }
-
-                for (var m = 0; m < a3ClipsData.length; m++) {
-                    var cData = a3ClipsData[m];
-                    if (cData.projectItem) {
-                        for (var vi = 0; vi < seq.videoTracks.numTracks; vi++) seq.videoTracks[vi].setLocked(1);
-                        for (var ai = 0; ai < seq.audioTracks.numTracks; ai++) seq.audioTracks[ai].setLocked(ai === 3 ? 0 : 1);
-
-                        try {
-                            trackA4.overwriteClip(cData.projectItem, cData.startSec);
-
-                            for (var cl = 0; cl < trackA4.clips.numItems; cl++) {
-                                var chkClip = trackA4.clips[cl];
-                                if (Math.abs(parseFloat(chkClip.start.seconds) - cData.startSec) < 0.05) {
-                                    if (cData.inPointTicks && chkClip.inPoint) {
-                                        var nip = chkClip.inPoint;
-                                        nip.ticks = cData.inPointTicks;
-                                        chkClip.inPoint = nip;
-                                    }
-                                    if (cData.outPointTicks && chkClip.outPoint) {
-                                        var nop = chkClip.outPoint;
-                                        nop.ticks = cData.outPointTicks;
-                                        chkClip.outPoint = nop;
-                                    }
-                                    break;
-                                }
-                            }
-                        } catch (eMov) {}
-
-                        try {
-                            cData.clipRef.remove(false, false);
-                        } catch (eDel) {}
-                    }
-                }
-                a3PushedToA4 = true;
+        var targetVIdx = -1;
+        if (createdNewVTrack) {
+            targetVIdx = seq.videoTracks.numTracks - 1;
+        } else {
+            for (var vi = seq.videoTracks.numTracks - 1; vi >= 0; vi--) {
+                if (seq.videoTracks[vi].clips.numItems === 0) { targetVIdx = vi; break; }
             }
+            if (targetVIdx === -1) targetVIdx = seq.videoTracks.numTracks - 1;
+        }
+        var targetVTrack = seq.videoTracks[targetVIdx];
+
+        // --- ENSURE AUDIO TRACK A3 (Index 2) ---
+        ensureAudioTracks(3);
+        if (seq.audioTracks.numTracks < 3) {
+            return { success: false, message: "Sequence must have at least 3 audio tracks (A1, A2, A3)." };
         }
 
         // --- LOCK-PROTECTED PLACEMENT ---
@@ -297,6 +245,16 @@
             }
             if (!pItem) continue;
 
+            // Normalize audio to 1 mono channel to prevent stacking/staggering
+            try {
+                var normMap = pItem.getAudioChannelMapping();
+                if (normMap) {
+                    normMap.audioClipsNumber = 1;
+                    normMap.audioChannelsType = 0;
+                    pItem.setAudioChannelMapping(normMap);
+                }
+            } catch (eMap) {}
+
             var clipStartTicks = zeroTicks + Math.round(item.startTimeSeconds * TICKS_PER_SECOND);
             var clipStartSec = clipStartTicks / TICKS_PER_SECOND;
 
@@ -305,7 +263,7 @@
             }
 
             for (var v = 0; v < seq.videoTracks.numTracks; v++) {
-                seq.videoTracks[v].setLocked(v === topVIdx ? 0 : 1);
+                seq.videoTracks[v].setLocked(v === targetVIdx ? 0 : 1);
             }
             for (var a = 0; a < seq.audioTracks.numTracks; a++) {
                 seq.audioTracks[a].setLocked(a === 2 ? 0 : 1);
@@ -315,11 +273,11 @@
             try {
                 var timeObj = new Time();
                 timeObj.seconds = clipStartSec;
-                topVTrack.overwriteClip(pItem, timeObj);
+                targetVTrack.overwriteClip(pItem, timeObj);
                 placedOk = true;
             } catch (eOvr1) {
                 try {
-                    topVTrack.overwriteClip(pItem, clipStartSec);
+                    targetVTrack.overwriteClip(pItem, clipStartSec);
                     placedOk = true;
                 } catch (eOvr2) {}
             }
@@ -350,17 +308,16 @@
             } catch (ePlay) {}
         }
 
-        var summary = "✓ Placed " + placedCount + " of " + timingItems.length + " footage clip(s) in active sequence!\n"
-            + "• Video Track: V" + (topVIdx + 1) + (needNewVTrack ? " (New Top Track)" : " (Top Track)") + "\n"
-            + "• Audio Track: A3" + (a3PushedToA4 ? " (Existing A3 clips pushed to A4)" : " (Clean placement)");
+        var summary = "Placed " + placedCount + " of " + timingItems.length + " footage clip(s) in active sequence!\n"
+            + "- Video Track: V" + (targetVIdx + 1) + (createdNewVTrack ? " (New Top Track)" : "") + "\n"
+            + "- Audio Track: A3 (Single layer, strictly on A3)";
 
         return {
             success: true,
             placedCount: placedCount,
             totalCount: timingItems.length,
-            videoTrack: "V" + (topVIdx + 1),
+            videoTrack: "V" + (targetVIdx + 1),
             audioTrack: "A3",
-            a3PushedToA4: a3PushedToA4,
             message: summary
         };
     }

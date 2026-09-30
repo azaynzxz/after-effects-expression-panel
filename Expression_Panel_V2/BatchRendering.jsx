@@ -252,39 +252,62 @@
         return false;
     }
 
-    // --- ROW 1: Header (Comp dropdown, refresh button, Mark In, Mark Out, Layer range, Log) ---
+    // --- ROW 1: Header (Comp dropdown, refresh button, Mark In, Mark Out, Layer range, Span, Log) ---
     var headerRow = win.add("group");
     headerRow.orientation = "row";
     headerRow.alignChildren = ["left", "center"];
     headerRow.spacing = 4;
 
     var compDropdown = headerRow.add("dropdownlist", undefined, []);
-    compDropdown.preferredSize = [130, 24];
+    compDropdown.preferredSize = [118, 24];
 
-    var btnRefresh = headerRow.add("button", undefined, "↻");
-    btnRefresh.preferredSize = [24, 24];
+    var btnRefresh = headerRow.add("button", undefined, "Ref");
+    btnRefresh.preferredSize = [30, 24];
     btnRefresh.helpTip = "Refresh comp list";
 
     var btnMarkIn = headerRow.add("button", undefined, "In");
-    btnMarkIn.preferredSize = [45, 24];
+    btnMarkIn.preferredSize = [36, 24];
     btnMarkIn.helpTip = "Mark In at playhead";
 
     var btnMarkOut = headerRow.add("button", undefined, "Out");
-    btnMarkOut.preferredSize = [45, 24];
+    btnMarkOut.preferredSize = [36, 24];
     btnMarkOut.helpTip = "Mark Out at playhead";
 
     var btnFromLayer = headerRow.add("button", undefined, "+ Layer");
-    btnFromLayer.preferredSize = [55, 24];
-    btnFromLayer.helpTip = "Add range(s) from currently selected layer(s)";
+    btnFromLayer.preferredSize = [54, 24];
+    btnFromLayer.helpTip = "Add range from selected layer(s). If multiple layers selected and 'Span' is checked, combines them into 1 range time.";
+
+    var btnFromSpan = headerRow.add("button", undefined, "+ Span");
+    btnFromSpan.preferredSize = [50, 24];
+    btnFromSpan.helpTip = "Add 1 combined range time spanning from earliest In to latest Out of all selected layers";
 
     var btnLog = headerRow.add("button", undefined, "Log");
-    btnLog.preferredSize = [35, 24];
+    btnLog.preferredSize = [32, 24];
     btnLog.helpTip = "View detailed execution log";
     btnLog.onClick = function () { showLogDialog(); };
 
-    // Pending status label under top bar
-    var pendingLabel = win.add("statictext", undefined, "");
-    pendingLabel.alignment = ["center", "top"];
+    // Sub-header row: multi-layer span checkbox & pending status label
+    var subHeaderRow = win.add("group");
+    subHeaderRow.orientation = "row";
+    subHeaderRow.alignChildren = ["fill", "center"];
+    subHeaderRow.spacing = 6;
+
+    var cbSpanLayers = subHeaderRow.add("checkbox", undefined, "Span multi-layers into 1 range");
+    var savedSpan = "1";
+    if (app.settings && app.settings.haveSetting("BatchRendering", "span_multi_layers")) {
+        savedSpan = app.settings.getSetting("BatchRendering", "span_multi_layers");
+    }
+    cbSpanLayers.value = (savedSpan !== "0");
+    cbSpanLayers.helpTip = "When multiple layers are selected, combine them into 1 range time (earliest In to latest Out) instead of individual clips";
+    cbSpanLayers.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+    cbSpanLayers.onClick = function () {
+        if (app.settings) {
+            app.settings.saveSetting("BatchRendering", "span_multi_layers", this.value ? "1" : "0");
+        }
+    };
+
+    var pendingLabel = subHeaderRow.add("statictext", undefined, "");
+    pendingLabel.alignment = ["right", "center"];
     pendingLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
     // --- ROW 2: Range List Box (Main area) ---
@@ -435,25 +458,35 @@
     btnRender.preferredSize = [270, 28];
     btnRender.graphics.font = ScriptUI.newFont("Arial", "BOLD", 11);
 
-    var pproRow = renderGroup.add("group");
-    pproRow.orientation = "row";
-    pproRow.alignChildren = ["center", "center"];
-    pproRow.spacing = 4;
+    var pproRow1 = renderGroup.add("group");
+    pproRow1.orientation = "row";
+    pproRow1.alignChildren = ["center", "center"];
+    pproRow1.spacing = 4;
 
-    var btnSyncPPro = pproRow.add("button", undefined, "⚡ Sync to Premiere");
-    btnSyncPPro.preferredSize = [120, 22];
-    btnSyncPPro.helpTip = "1-Click BridgeTalk: Send rendered ranges to active Premiere Pro sequence immediately!";
-    btnSyncPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-
-    var btnExportPPro = pproRow.add("button", undefined, "📁 Export Timing");
+    var btnExportPPro = pproRow1.add("button", undefined, "Export Timing");
     btnExportPPro.preferredSize = [95, 22];
     btnExportPPro.helpTip = "Export JSON, CSV, and Place_Footage_In_PPro.jsx to Draft folder without rendering";
     btnExportPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
-    var btnOpenDraft = pproRow.add("button", undefined, "📂 Draft");
-    btnOpenDraft.preferredSize = [50, 22];
+    var btnImportPPro = pproRow1.add("button", undefined, "Import JSON");
+    btnImportPPro.preferredSize = [95, 22];
+    btnImportPPro.helpTip = "Import previously exported timing JSON (e.g. after an AE crash) to reload ranges for re-rendering";
+    btnImportPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+    var btnOpenDraft = pproRow1.add("button", undefined, "Draft");
+    btnOpenDraft.preferredSize = [55, 22];
     btnOpenDraft.helpTip = "Open Draft folder in Windows Explorer";
     btnOpenDraft.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+    var pproRow2 = renderGroup.add("group");
+    pproRow2.orientation = "row";
+    pproRow2.alignChildren = ["center", "center"];
+    pproRow2.spacing = 4;
+
+    var btnSyncPPro = pproRow2.add("button", undefined, "Sync to Premiere (BridgeTalk)");
+    btnSyncPPro.preferredSize = [255, 22];
+    btnSyncPPro.helpTip = "1-Click BridgeTalk: Send rendered ranges to active Premiere Pro sequence immediately!";
+    btnSyncPPro.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
     // Status bar
     var statusLabel = win.add("statictext", undefined, "");
@@ -653,7 +686,14 @@
         previewLabel.text = rootFolder.fsName + "\\Draft\\" + fileName;
     }
 
-    function addRangesFromSelectedLayers() {
+    function getDraftFolder() {
+        var rootFolder = getOutputRootFolder();
+        var draft = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
+        ensureFolderExists(draft);
+        return draft;
+    }
+
+    function addRangesFromSelectedLayers(forceSpan) {
         var active = getActiveComp();
         if (active) {
             setTargetComp(active);
@@ -667,15 +707,45 @@
             }
         }
 
-        if (!targetComp) { setStatus("⚠ No target comp selected."); return false; }
+        if (!targetComp) { setStatus("No target comp selected."); return false; }
 
         var selLayers = targetComp.selectedLayers;
         if (!selLayers || selLayers.length === 0) {
-            setStatus("⚠ No layer selected in target comp.");
+            setStatus("No layer selected in target comp.");
             return false;
         }
 
         var fps = targetComp.frameRate;
+        var shouldSpan = (forceSpan === true) || (cbSpanLayers && cbSpanLayers.value);
+
+        if (selLayers.length > 1 && shouldSpan) {
+            var minIn = Infinity;
+            var maxOut = -Infinity;
+            var layerNames = [];
+
+            for (var i = 0; i < selLayers.length; i++) {
+                var l = selLayers[i];
+                var inF = Math.round(l.inPoint * fps);
+                var outF = Math.round(l.outPoint * fps);
+                if (inF < minIn) minIn = inF;
+                if (outF > maxOut) maxOut = outF;
+                if (l.name) layerNames.push(l.name);
+            }
+
+            if (minIn < 0) minIn = 0;
+            var maxCompF = Math.round(targetComp.duration * fps);
+            if (maxOut > maxCompF) maxOut = maxCompF;
+
+            var spanSuffix = selLayers[0].name;
+            var r = createRangeObj(minIn, maxOut, spanSuffix);
+            ranges.push(r);
+            addRangeUI(r, ranges.length - 1);
+            updatePreview();
+
+            setStatus("Added combined span range from " + selLayers.length + " layers (" + r.inTimecode + " - " + r.outTimecode + ")");
+            logMsg("Added combined span range: frames " + minIn + " - " + maxOut + " (" + selLayers.length + " layers: " + layerNames.join(", ") + ", suffix: " + spanSuffix + ")");
+            return true;
+        }
 
         for (var i = 0; i < selLayers.length; i++) {
             var layer = selLayers[i];
@@ -686,8 +756,9 @@
             ranges.push(r);
             addRangeUI(r, ranges.length - 1);
         }
+        updatePreview();
 
-        setStatus("✓ Added " + selLayers.length + " range(s) from selected layer(s).");
+        setStatus("Added " + selLayers.length + " range(s) from selected layer(s).");
         return true;
     }
 
@@ -705,7 +776,7 @@
     };
 
     btnMarkIn.onClick = function () {
-        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
+        if (!targetComp) { setStatus("No comp selected."); return; }
 
         pendingInFrame = captureFrame(targetComp);
         pendingSuffix = "";
@@ -715,7 +786,7 @@
     };
 
     btnMarkOut.onClick = function () {
-        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
+        if (!targetComp) { setStatus("No comp selected."); return; }
 
         if (pendingInFrame !== null) {
             var outFrame = captureFrame(targetComp);
@@ -730,13 +801,17 @@
             setStatus("Range #" + ranges.length + " added.");
         } else {
             if (!addRangesFromSelectedLayers()) {
-                setStatus("⚠ Mark In first, or select a layer in the timeline.");
+                setStatus("Mark In first, or select a layer in the timeline.");
             }
         }
     };
 
     btnFromLayer.onClick = function () {
-        if (!addRangesFromSelectedLayers()) setStatus("⚠ No layer selected in target comp.");
+        if (!addRangesFromSelectedLayers(false)) setStatus("No layer selected in target comp.");
+    };
+
+    btnFromSpan.onClick = function () {
+        if (!addRangesFromSelectedLayers(true)) setStatus("No layer selected in target comp.");
     };
 
     rangeList.onChange = function () { populateEditFields(); };
@@ -758,8 +833,8 @@
 
     btnUpdateRow.onClick = function () {
         var sel = rangeList.selection;
-        if (sel === null) { setStatus("⚠ Select range(s) to update."); return; }
-        if (!targetComp) { setStatus("⚠ No target comp."); return; }
+        if (sel === null) { setStatus("Select range(s) to update."); return; }
+        if (!targetComp) { setStatus("No target comp."); return; }
 
         var fps = targetComp.frameRate;
         var df = targetComp.dropFrame;
@@ -786,12 +861,12 @@
         }
 
         updatePreview();
-        setStatus("✓ Updated " + items.length + " range(s).");
+        setStatus("Updated " + items.length + " range(s).");
     };
 
     btnDeleteRow.onClick = function () {
         var sel = rangeList.selection;
-        if (sel === null) { setStatus("⚠ Select range(s) to delete."); return; }
+        if (sel === null) { setStatus("Select range(s) to delete."); return; }
 
         var items = (sel instanceof Array) ? sel : [sel];
         var indices = [];
@@ -928,82 +1003,60 @@
             + '        }\n'
             + '        \n'
             + '        var vTracks = seq.videoTracks;\n'
-            + '        var topVIdx = vTracks.numTracks - 1;\n'
-            + '        if (topVIdx < 0) return { success: false, message: "Active sequence has no video tracks." };\n'
+            + '        if (vTracks.numTracks === 0) return { success: false, message: "Active sequence has no video tracks." };\n'
             + '        \n'
-            + '        var topVTrack = vTracks[topVIdx];\n'
-            + '        var needNewVTrack = (topVTrack.clips.numItems > 0);\n'
-            + '        if (needNewVTrack) {\n'
+            + '        function addVideoTrackAtTop() {\n'
+            + '            var initV = seq.videoTracks.numTracks;\n'
             + '            try {\n'
             + '                app.enableQE();\n'
             + '                if (typeof qe !== "undefined" && qe.project) {\n'
             + '                    var qeSeq = qe.project.getActiveSequence();\n'
-            + '                    if (qeSeq && qeSeq.addTracks) qeSeq.addTracks(1);\n'
+            + '                    if (qeSeq && qeSeq.addTracks) qeSeq.addTracks(1, initV - 1, 0, 0);\n'
             + '                }\n'
-            + '            } catch (eAddV) {}\n'
-            + '            vTracks = seq.videoTracks;\n'
-            + '            topVIdx = vTracks.numTracks - 1;\n'
-            + '            topVTrack = vTracks[topVIdx];\n'
-            + '        }\n'
-            + '        \n'
-            + '        while (seq.audioTracks.numTracks < 3) {\n'
+            + '            } catch (eQ1) {}\n'
+            + '            if (seq.videoTracks.numTracks > initV) return true;\n'
             + '            try {\n'
-            + '                app.enableQE();\n'
             + '                if (typeof qe !== "undefined" && qe.project) {\n'
-            + '                    var qeSeqA = qe.project.getActiveSequence();\n'
-            + '                    if (qeSeqA && qeSeqA.addTracks) qeSeqA.addTracks(0);\n'
+            + '                    var qeSeq2 = qe.project.getActiveSequence();\n'
+            + '                    if (qeSeq2 && qeSeq2.addTracks) qeSeq2.addTracks(1, 0);\n'
             + '                }\n'
-            + '            } catch (eAddA) { break; }\n'
+            + '            } catch (eQ2) {}\n'
+            + '            return seq.videoTracks.numTracks > initV;\n'
             + '        }\n'
-            + '        if (seq.audioTracks.numTracks < 3) return { success: false, message: "Sequence must have at least 3 audio tracks (A1, A2, A3)." };\n'
             + '        \n'
-            + '        var trackA3 = seq.audioTracks[2];\n'
-            + '        var a3PushedToA4 = false;\n'
-            + '        if (trackA3.clips.numItems > 0) {\n'
-            + '            while (seq.audioTracks.numTracks < 4) {\n'
+            + '        function ensureAudioTracks(minCount) {\n'
+            + '            while (seq.audioTracks.numTracks < minCount) {\n'
+            + '                var curA = seq.audioTracks.numTracks;\n'
             + '                try {\n'
             + '                    app.enableQE();\n'
             + '                    if (typeof qe !== "undefined" && qe.project) {\n'
-            + '                        var qeSeqA4 = qe.project.getActiveSequence();\n'
-            + '                        if (qeSeqA4 && qeSeqA4.addTracks) qeSeqA4.addTracks(0);\n'
+            + '                        var qeSeqA = qe.project.getActiveSequence();\n'
+            + '                        if (qeSeqA && qeSeqA.addTracks) qeSeqA.addTracks(0, 0, 1, curA - 1);\n'
             + '                    }\n'
-            + '                } catch (eAddA4) { break; }\n'
+            + '                } catch (eQA1) {}\n'
+            + '                if (seq.audioTracks.numTracks === curA) break;\n'
             + '            }\n'
-            + '            if (seq.audioTracks.numTracks >= 4) {\n'
-            + '                var trackA4 = seq.audioTracks[3];\n'
-            + '                var a3ClipsData = [];\n'
-            + '                for (var c = 0; c < trackA3.clips.numItems; c++) {\n'
-            + '                    var clipObj = trackA3.clips[c];\n'
-            + '                    a3ClipsData.push({\n'
-            + '                        clipRef: clipObj,\n'
-            + '                        projectItem: clipObj.projectItem,\n'
-            + '                        startSec: parseFloat(clipObj.start.seconds),\n'
-            + '                        inPointTicks: clipObj.inPoint ? clipObj.inPoint.ticks : null,\n'
-            + '                        outPointTicks: clipObj.outPoint ? clipObj.outPoint.ticks : null\n'
-            + '                    });\n'
-            + '                }\n'
-            + '                for (var m = 0; m < a3ClipsData.length; m++) {\n'
-            + '                    var cData = a3ClipsData[m];\n'
-            + '                    if (cData.projectItem) {\n'
-            + '                        for (var vi = 0; vi < seq.videoTracks.numTracks; vi++) seq.videoTracks[vi].setLocked(1);\n'
-            + '                        for (var ai = 0; ai < seq.audioTracks.numTracks; ai++) seq.audioTracks[ai].setLocked(ai === 3 ? 0 : 1);\n'
-            + '                        try {\n'
-            + '                            trackA4.overwriteClip(cData.projectItem, cData.startSec);\n'
-            + '                            for (var cl = 0; cl < trackA4.clips.numItems; cl++) {\n'
-            + '                                var chkClip = trackA4.clips[cl];\n'
-            + '                                if (Math.abs(parseFloat(chkClip.start.seconds) - cData.startSec) < 0.05) {\n'
-            + '                                    if (cData.inPointTicks && chkClip.inPoint) { var nip = chkClip.inPoint; nip.ticks = cData.inPointTicks; chkClip.inPoint = nip; }\n'
-            + '                                    if (cData.outPointTicks && chkClip.outPoint) { var nop = chkClip.outPoint; nop.ticks = cData.outPointTicks; chkClip.outPoint = nop; }\n'
-            + '                                    break;\n'
-            + '                                }\n'
-            + '                            }\n'
-            + '                        } catch (eMov) {}\n'
-            + '                        try { cData.clipRef.remove(false, false); } catch (eDel) {}\n'
-            + '                    }\n'
-            + '                }\n'
-            + '                a3PushedToA4 = true;\n'
-            + '            }\n'
+            + '            return seq.audioTracks.numTracks >= minCount;\n'
             + '        }\n'
+            + '        \n'
+            + '        var topVTrack = vTracks[vTracks.numTracks - 1];\n'
+            + '        var needNewVTrack = (topVTrack.clips.numItems > 0);\n'
+            + '        var createdNewVTrack = false;\n'
+            + '        if (needNewVTrack) createdNewVTrack = addVideoTrackAtTop();\n'
+            + '        \n'
+            + '        var targetVIdx = -1;\n'
+            + '        if (createdNewVTrack) {\n'
+            + '            targetVIdx = seq.videoTracks.numTracks - 1;\n'
+            + '        } else {\n'
+            + '            for (var vi = seq.videoTracks.numTracks - 1; vi >= 0; vi--) {\n'
+            + '                if (seq.videoTracks[vi].clips.numItems === 0) { targetVIdx = vi; break; }\n'
+            + '            }\n'
+            + '            if (targetVIdx === -1) targetVIdx = seq.videoTracks.numTracks - 1;\n'
+            + '        }\n'
+            + '        var targetVTrack = seq.videoTracks[targetVIdx];\n'
+            + '        \n'
+            + '        ensureAudioTracks(3);\n'
+            + '        if (seq.audioTracks.numTracks < 3) return { success: false, message: "Sequence must have at least 3 audio tracks (A1, A2, A3)." };\n'
             + '        \n'
             + '        var origVideoLocks = [];\n'
             + '        for (var ov = 0; ov < seq.videoTracks.numTracks; ov++) origVideoLocks.push(seq.videoTracks[ov].isLocked());\n'
@@ -1023,22 +1076,31 @@
             + '            }\n'
             + '            if (!pItem) continue;\n'
             + '            \n'
+            + '            try {\n'
+            + '                var normMap = pItem.getAudioChannelMapping();\n'
+            + '                if (normMap) {\n'
+            + '                    normMap.audioClipsNumber = 1;\n'
+            + '                    normMap.audioChannelsType = 0;\n'
+            + '                    pItem.setAudioChannelMapping(normMap);\n'
+            + '                }\n'
+            + '            } catch (eMap) {}\n'
+            + '            \n'
             + '            var clipStartTicks = zeroTicks + Math.round(item.startTimeSeconds * TICKS_PER_SECOND);\n'
             + '            var clipStartSec = clipStartTicks / TICKS_PER_SECOND;\n'
             + '            if (firstStartTicks === null || clipStartTicks < firstStartTicks) firstStartTicks = clipStartTicks;\n'
             + '            \n'
-            + '            for (var v = 0; v < seq.videoTracks.numTracks; v++) seq.videoTracks[v].setLocked(v === topVIdx ? 0 : 1);\n'
+            + '            for (var v = 0; v < seq.videoTracks.numTracks; v++) seq.videoTracks[v].setLocked(v === targetVIdx ? 0 : 1);\n'
             + '            for (var a = 0; a < seq.audioTracks.numTracks; a++) seq.audioTracks[a].setLocked(a === 2 ? 0 : 1);\n'
             + '            \n'
             + '            var placedOk = false;\n'
             + '            try {\n'
             + '                var timeObj = new Time();\n'
             + '                timeObj.seconds = clipStartSec;\n'
-            + '                topVTrack.overwriteClip(pItem, timeObj);\n'
+            + '                targetVTrack.overwriteClip(pItem, timeObj);\n'
             + '                placedOk = true;\n'
             + '            } catch (eOvr1) {\n'
             + '                try {\n'
-            + '                    topVTrack.overwriteClip(pItem, clipStartSec);\n'
+            + '                    targetVTrack.overwriteClip(pItem, clipStartSec);\n'
             + '                    placedOk = true;\n'
             + '                } catch (eOvr2) {}\n'
             + '            }\n'
@@ -1058,16 +1120,15 @@
             + '            try { seq.setPlayerPosition(String(firstStartTicks)); } catch (ePlay) {}\n'
             + '        }\n'
             + '        \n'
-            + '        var summary = "✓ Placed " + placedCount + " of " + timingItems.length + " footage clip(s) in active sequence!\\n"\n'
-            + '            + "• Video Track: V" + (topVIdx + 1) + (needNewVTrack ? " (New Top Track)" : " (Top Track)") + "\\n"\n'
-            + '            + "• Audio Track: A3" + (a3PushedToA4 ? " (Existing A3 clips pushed to A4)" : " (Clean placement)");\n'
+            + '        var summary = "Placed " + placedCount + " of " + timingItems.length + " footage clip(s) in active sequence!\\n"\n'
+            + '            + "- Video Track: V" + (targetVIdx + 1) + (createdNewVTrack ? " (New Top Track)" : "") + "\\n"\n'
+            + '            + "- Audio Track: A3 (Single layer, strictly on A3)";\n'
             + '        return {\n'
             + '            success: true,\n'
             + '            placedCount: placedCount,\n'
             + '            totalCount: timingItems.length,\n'
-            + '            videoTrack: "V" + (topVIdx + 1),\n'
+            + '            videoTrack: "V" + (targetVIdx + 1),\n'
             + '            audioTrack: "A3",\n'
-            + '            a3PushedToA4: a3PushedToA4,\n'
             + '            message: summary\n'
             + '        };\n'
             + '    }\n';
@@ -1202,7 +1263,7 @@
             if (jsonFile.open("w")) {
                 jsonFile.write(jsonStr);
                 jsonFile.close();
-                logMsg("✓ Exported JSON: " + jsonFile.fsName);
+                logMsg("Exported JSON: " + jsonFile.fsName);
             }
         } catch (eJson) {
             logMsg("Error exporting JSON: " + eJson.message);
@@ -1237,7 +1298,7 @@
             if (csvFile.open("w")) {
                 csvFile.write(csvRows.join("\r\n"));
                 csvFile.close();
-                logMsg("✓ Exported CSV: " + csvFile.fsName);
+                logMsg("Exported CSV: " + csvFile.fsName);
             }
         } catch (eCsv) {
             logMsg("Error exporting CSV: " + eCsv.message);
@@ -1251,7 +1312,7 @@
             if (jsxFile.open("w")) {
                 jsxFile.write(pproScriptContent);
                 jsxFile.close();
-                logMsg("✓ Generated 1-Click PPro Script: " + jsxFile.fsName);
+                logMsg("Generated 1-Click PPro Script: " + jsxFile.fsName);
             }
         } catch (eJsx) {
             logMsg("Error generating 1-click JSX: " + eJsx.message);
@@ -1277,14 +1338,14 @@
         bt.onResult = function (resObj) {
             var res = resObj.body || "";
             logMsg("BridgeTalk Result from Premiere:\n" + res);
-            setStatus("✓ Premiere Synced: " + timingItems.length + " clips placed.");
+            setStatus("Premiere Synced: " + timingItems.length + " clips placed.");
             alert("Premiere Pro Sync Result:\n\n" + res);
         };
 
         bt.onError = function (errObj) {
             var err = errObj.body || "Unknown BridgeTalk error";
             logMsg("BridgeTalk Error: " + err);
-            setStatus("✗ Premiere sync error: " + err);
+            setStatus("Premiere sync error: " + err);
             alert("BridgeTalk Error:\n" + err + "\n\nYou can also run 'Place_Footage_In_PPro.jsx' directly inside Premiere Pro.");
         };
 
@@ -1295,9 +1356,216 @@
             return false;
         }
 
-        logMsg("✓ BridgeTalk message sent to Premiere Pro. Waiting for result...");
-        setStatus("⚡ Sent to Premiere Pro...");
+        logMsg("BridgeTalk message sent to Premiere Pro. Waiting for result...");
+        setStatus("Sent to Premiere Pro...");
         return true;
+    }
+
+    function safeJsonParse(jsonStr) {
+        if (typeof JSON !== "undefined" && JSON.parse) {
+            try { return JSON.parse(jsonStr); } catch (e) { }
+        }
+        if (jsonStr.charCodeAt(0) === 0xFEFF) {
+            jsonStr = jsonStr.substring(1);
+        }
+        try {
+            return eval("(" + jsonStr + ")");
+        } catch (errEval) {
+            logMsg("JSON Parse Error: " + errEval.message);
+            return null;
+        }
+    }
+
+    function importPProTimingJson() {
+        var draftFolder = null;
+        try {
+            draftFolder = getDraftFolder();
+        } catch (e) { }
+
+        var defaultFile = null;
+        if (draftFolder && draftFolder.exists) {
+            var candidate = new File((draftFolder.fsName + "/PPro_Footage_Timing.json").replace(/\\/g, "/"));
+            if (candidate.exists) defaultFile = candidate;
+        }
+
+        var filterStr = ($.os.indexOf("Windows") !== -1)
+            ? "JSON Files:*.json,All Files:*.*"
+            : function (f) { return f instanceof Folder || f.name.slice(-5).toLowerCase() === ".json"; };
+
+        var promptTitle = "Select Premiere Pro Timing JSON to Import";
+        var selectedFile = null;
+        if (defaultFile) {
+            selectedFile = defaultFile.openDlg(promptTitle, filterStr);
+        } else {
+            selectedFile = File.openDialog(promptTitle, filterStr);
+        }
+
+        if (!selectedFile) return;
+
+        if (!selectedFile.exists) {
+            alert("Selected file does not exist:\n" + selectedFile.fsName);
+            return;
+        }
+
+        logMsg("=== Importing Premiere Pro Timing Data from JSON ===");
+        logMsg("Selected File: " + selectedFile.fsName);
+
+        var success = selectedFile.open("r");
+        if (!success) {
+            alert("Could not open file for reading:\n" + selectedFile.fsName);
+            return;
+        }
+        var content = selectedFile.read();
+        selectedFile.close();
+
+        if (!content || content.length === 0) {
+            alert("The selected JSON file is empty.");
+            return;
+        }
+
+        var parsed = safeJsonParse(content);
+        if (!parsed) {
+            alert("Failed to parse JSON file.\nPlease make sure the file contains valid JSON.");
+            return;
+        }
+
+        var itemsList = null;
+        if (parsed.items && (parsed.items instanceof Array)) {
+            itemsList = parsed.items;
+        } else if (parsed.ranges && (parsed.ranges instanceof Array)) {
+            itemsList = parsed.ranges;
+        } else if (parsed instanceof Array) {
+            itemsList = parsed;
+        }
+
+        if (!itemsList || itemsList.length === 0) {
+            alert("No timing items found in JSON file:\n" + selectedFile.name);
+            return;
+        }
+
+        // Try to match composition from metadata or items
+        var targetCompName = (parsed.metadata && parsed.metadata.compName)
+            ? parsed.metadata.compName
+            : (itemsList[0].compName || null);
+
+        var matchedComp = null;
+        if (targetCompName) {
+            getAllComps();
+            for (var cId in compLookup) {
+                if (compLookup[cId].name === targetCompName) {
+                    matchedComp = compLookup[cId];
+                    break;
+                }
+            }
+        }
+
+        if (matchedComp) {
+            setTargetComp(matchedComp);
+            if (compDropdown) {
+                for (var j = 0; j < compDropdown.items.length; j++) {
+                    if (compDropdown.items[j].compId === matchedComp.id) {
+                        compDropdown.selection = j;
+                        break;
+                    }
+                }
+            }
+            logMsg("Target comp automatically matched: " + matchedComp.name);
+        } else if (!targetComp) {
+            var active = getActiveComp();
+            if (active) {
+                setTargetComp(active);
+                if (compDropdown) {
+                    for (var j = 0; j < compDropdown.items.length; j++) {
+                        if (compDropdown.items[j].compId === active.id) {
+                            compDropdown.selection = j;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                alert("No target composition active.\nPlease select the target composition in the dropdown first.");
+                return;
+            }
+        }
+
+        var fps = targetComp ? targetComp.frameRate : (parsed.metadata && parsed.metadata.fps ? parsed.metadata.fps : 30);
+        var df = targetComp ? targetComp.dropFrame : false;
+
+        // Ask user if existing ranges should be replaced or appended
+        var shouldReplace = true;
+        if (ranges.length > 0) {
+            var askDlg = new Window("dialog", "Import Timing Options");
+            askDlg.orientation = "column";
+            askDlg.alignChildren = ["fill", "top"];
+            askDlg.spacing = 10;
+            askDlg.margins = 16;
+
+            var msg = "The panel currently has " + ranges.length + " range(s).\n\n"
+                    + "How would you like to load the " + itemsList.length + " imported range(s)?";
+            var lblChoice = askDlg.add("statictext", undefined, msg, { multiline: true });
+            lblChoice.preferredSize.width = 280;
+
+            var btnGrp = askDlg.add("group");
+            btnGrp.orientation = "row";
+            btnGrp.alignment = ["center", "center"];
+            btnGrp.spacing = 8;
+
+            var bReplace = btnGrp.add("button", undefined, "Replace");
+            bReplace.preferredSize = [80, 26];
+            var bAppend = btnGrp.add("button", undefined, "Append");
+            bAppend.preferredSize = [80, 26];
+            var bCancel = btnGrp.add("button", undefined, "Cancel");
+            bCancel.preferredSize = [80, 26];
+
+            var choice = 0;
+            bReplace.onClick = function () { choice = 1; askDlg.close(1); };
+            bAppend.onClick = function () { choice = 2; askDlg.close(2); };
+            bCancel.onClick = function () { choice = 0; askDlg.close(0); };
+
+            askDlg.show();
+
+            if (choice === 0) {
+                logMsg("Import cancelled by user.");
+                return;
+            }
+            shouldReplace = (choice === 1);
+        }
+
+        if (shouldReplace) {
+            ranges = [];
+            rangeList.removeAll();
+        }
+
+        var importedCount = 0;
+        for (var i = 0; i < itemsList.length; i++) {
+            var it = itemsList[i];
+            var inF = 0;
+            var outF = 0;
+
+            if (it.inFrame !== undefined && it.outFrame !== undefined) {
+                inF = parseInt(it.inFrame, 10);
+                outF = parseInt(it.outFrame, 10);
+            } else if (it.startTimeSeconds !== undefined && it.durationSeconds !== undefined) {
+                inF = Math.round(parseFloat(it.startTimeSeconds) * fps);
+                outF = Math.round((parseFloat(it.startTimeSeconds) + parseFloat(it.durationSeconds)) * fps);
+            } else if (it.inTimecode && it.outTimecode) {
+                inF = timecodeToFrame(it.inTimecode, fps, df);
+                outF = timecodeToFrame(it.outTimecode, fps, df);
+            } else {
+                continue;
+            }
+
+            var suffix = (it.suffix !== undefined && it.suffix !== null) ? String(it.suffix) : "";
+            var r = createRangeObj(inF, outF, suffix);
+            ranges.push(r);
+            importedCount++;
+        }
+
+        refreshRangeList();
+
+        setStatus("Imported " + importedCount + " range(s) from " + selectedFile.name);
+        logMsg("Imported " + importedCount + " range(s) from " + selectedFile.fsName + (matchedComp ? " (Target Comp: " + matchedComp.name + ")" : ""));
+        alert("Imported " + importedCount + " range(s) successfully!\n\nFile: " + selectedFile.name + (matchedComp ? "\nTarget Comp: " + matchedComp.name : "") + "\n\nAll ranges restored. Ready to render!");
     }
 
     // =========================================================================
@@ -1310,13 +1578,13 @@
 
         if (!targetComp) {
             logMsg("Error: No target comp selected.");
-            setStatus("⚠ No comp selected.");
+            setStatus("No comp selected.");
             showLogDialog();
             return;
         }
         if (ranges.length === 0) {
             logMsg("Error: No ranges added.");
-            setStatus("⚠ No ranges. Mark In/Out or add layers first.");
+            setStatus("No ranges. Mark In/Out or add layers first.");
             showLogDialog();
             return;
         }
@@ -1433,10 +1701,10 @@
                 queued++;
             }
 
-            if (queued > 0) setStatus("✓ Queued " + queued + " range(s) → " + draftFolder.fsName);
+            if (queued > 0) setStatus("Queued " + queued + " range(s) -> " + draftFolder.fsName);
         } catch (e) {
             logMsg("Critical Error in Render Loop: " + e.message);
-            setStatus("✗ Error: " + e.message);
+            setStatus("Error: " + e.message);
         }
 
         app.endUndoGroup();
@@ -1454,12 +1722,12 @@
             logMsg("Current om.file name: " + currentName);
 
             if (currentName !== ci.fileNameWithExt) {
-                logMsg("⚠ Reversion detected! Re-applying safeSetOMFile outside UndoGroup...");
+                logMsg("Reversion detected! Re-applying safeSetOMFile outside UndoGroup...");
                 var reApplied = safeSetOMFile(ci.om, ci.draftFolder, ci.fileNameWithExt);
                 logMsg("Re-apply result: " + reApplied);
                 if (!reApplied) allVerified = false;
             } else {
-                logMsg("✓ Verified om.file match.");
+                logMsg("Verified om.file match.");
             }
         }
 
@@ -1479,15 +1747,15 @@
             logMsg("Triggering app.project.renderQueue.render()...");
             try {
                 app.project.renderQueue.render();
-                logMsg("✓ app.project.renderQueue.render() completed successfully.");
-                setStatus("✓ Render complete." + (exportPPro ? " Timing data exported." : ""));
+                logMsg("app.project.renderQueue.render() completed successfully.");
+                setStatus("Render complete." + (exportPPro ? " Timing data exported." : ""));
 
                 if (syncPPro && timingItems.length > 0) {
                     syncToPremiereViaBridgeTalk(timingItems, draftFolder);
                 }
             } catch (rErr) {
-                logMsg("✗ Render Error: " + rErr.message);
-                setStatus("✗ Render Error: " + rErr.message);
+                logMsg("Render Error: " + rErr.message);
+                setStatus("Render Error: " + rErr.message);
                 showLogDialog();
             }
         }
@@ -1496,16 +1764,14 @@
     // --- BUTTON EVENT HANDLERS ---
 
     btnSyncPPro.onClick = function () {
-        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
-        if (ranges.length === 0) { setStatus("⚠ No ranges to sync. Add ranges first."); return; }
+        if (!targetComp) { setStatus("No comp selected."); return; }
+        if (ranges.length === 0) { setStatus("No ranges to sync. Add ranges first."); return; }
 
-        var rootFolder = getOutputRootFolder();
-        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
-        ensureFolderExists(draftFolder);
+        var draftFolder = getDraftFolder();
 
         var timingItems = collectTimingItems(draftFolder);
         if (timingItems.length === 0) {
-            setStatus("⚠ No valid ranges to sync.");
+            setStatus("No valid ranges to sync.");
             return;
         }
 
@@ -1514,32 +1780,32 @@
     };
 
     btnExportPPro.onClick = function () {
-        if (!targetComp) { setStatus("⚠ No comp selected."); return; }
-        if (ranges.length === 0) { setStatus("⚠ No ranges to export. Add ranges first."); return; }
+        if (!targetComp) { setStatus("No comp selected."); return; }
+        if (ranges.length === 0) { setStatus("No ranges to export. Add ranges first."); return; }
 
-        var rootFolder = getOutputRootFolder();
-        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
-        ensureFolderExists(draftFolder);
+        var draftFolder = getDraftFolder();
 
         var timingItems = collectTimingItems(draftFolder);
         if (timingItems.length === 0) {
-            setStatus("⚠ No valid ranges to export.");
+            setStatus("No valid ranges to export.");
             return;
         }
 
         var success = exportPProTimingData(timingItems, draftFolder, targetComp);
         if (success) {
-            setStatus("✓ Exported PPro timing: " + timingItems.length + " clips → Draft/");
-            alert("✓ Exported Premiere Pro Timing Data!\n\nFiles created in Draft/:\n• PPro_Footage_Timing.json\n• PPro_Footage_Timing.csv\n• Place_Footage_In_PPro.jsx\n\nRun 'Place_Footage_In_PPro.jsx' in Premiere Pro for 1-click placement!");
+            setStatus("Exported PPro timing: " + timingItems.length + " clips -> Draft/");
+            alert("Exported Premiere Pro Timing Data!\n\nFiles created in Draft/:\n- PPro_Footage_Timing.json\n- PPro_Footage_Timing.csv\n- Place_Footage_In_PPro.jsx\n\nRun 'Place_Footage_In_PPro.jsx' in Premiere Pro for 1-click placement!");
         } else {
-            setStatus("✗ Export failed. Check log.");
+            setStatus("Export failed. Check log.");
         }
     };
 
+    btnImportPPro.onClick = function () {
+        importPProTimingJson();
+    };
+
     btnOpenDraft.onClick = function () {
-        var rootFolder = getOutputRootFolder();
-        var draftFolder = new Folder((rootFolder.fsName + "/Draft").replace(/\\/g, "/"));
-        ensureFolderExists(draftFolder);
+        var draftFolder = getDraftFolder();
         draftFolder.execute();
     };
 

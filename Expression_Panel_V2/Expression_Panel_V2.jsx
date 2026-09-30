@@ -28,7 +28,7 @@
         "Scale Pulse": "// Settings\nminScale = 90;\nmaxScale = 110;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleVal = linear(s, 0, 1, minScale, maxScale);\n[scaleVal, scaleVal]",
         "Walk/Run Arc": "// Settings\nspeed = 100; // pixels per second\narcHeight = 20; // arc height in pixels\nfrequency = 2; // steps per second\ndirection = 1; // 1 for right, -1 for left\n\n// Calculate movement\nx = time * speed * direction;\ny = Math.sin(time * frequency * 2 * Math.PI) * arcHeight;\n\nvalue + [x, y]",
         "Audio Sync": "thisComp.layer(\"Audio Amplitude\").effect(\"Both Channels\")(\"Slider\")/75",
-        "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n[100, scaleY]",
+        "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\nvar multY = scaleY / 100;\nif (value.length === 3) [value[0], value[1] * multY, value[2]];\nelse [value[0], value[1] * multY];",
         "B Posterizer": "Enable time remapping on selected layers and apply posterizeTime"
     };
     var globalStatusText = null;
@@ -202,6 +202,12 @@
                     { "name": "Normal", "amount": 50, "size": 150, "speed": 360 },
                     { "name": "Strong", "amount": 25, "size": 75, "speed": 780 },
                     { "name": "Fire", "amount": 90, "size": 35, "speed": 988 }
+                ],
+                "squash2": [
+                    { "name": "98,4,5", "amount": 98, "pre": 4, "post": 5 },
+                    { "name": "98,5,5", "amount": 98, "pre": 5, "post": 5 },
+                    { "name": "95,6,9", "amount": 95, "pre": 6, "post": 9 },
+                    { "name": "90,5,9", "amount": 90, "pre": 5, "post": 9 }
                 ]
             }
         };
@@ -221,6 +227,9 @@
             if (content && content.length > 0) {
                 var parsed = JSON.parse(content);
                 if (parsed && parsed.presets) {
+                    if (!parsed.presets.squash2) {
+                        parsed.presets.squash2 = getDefaultConfig().presets.squash2;
+                    }
                     for (var cat in parsed.presets) {
                         if (parsed.presets.hasOwnProperty(cat)) {
                             var arr = parsed.presets[cat];
@@ -238,6 +247,10 @@
                                                     item.amount = n1;
                                                     item.size = n2;
                                                     item.speed = n3;
+                                                } else if (cat === "squash2") {
+                                                    item.amount = n1;
+                                                    item.pre = n2;
+                                                    item.post = n3;
                                                 } else {
                                                     item.min = n1;
                                                     item.max = n2;
@@ -369,11 +382,12 @@
         var catDropdown = catGroup.add("dropdownlist", undefined, [
             "V Scale (Vertical)",
             "Scale Pulse",
-            "Water Distortion"
+            "Water Distortion",
+            "Squash 2"
         ]);
         catDropdown.preferredSize = [200, 22];
 
-        var catKeys = ["vScale", "scalePulse", "waterDistortion"];
+        var catKeys = ["vScale", "scalePulse", "waterDistortion", "squash2"];
         var currentCatKey = initialCategory || "vScale";
         for (var k = 0; k < catKeys.length; k++) {
             if (catKeys[k] === currentCatKey) {
@@ -485,6 +499,10 @@
                 p1Lbl.text = "Amount:";
                 p2Lbl.text = "Size:";
                 p3Lbl.text = "Speed:";
+            } else if (cat === "squash2") {
+                p1Lbl.text = "Squash (%):";
+                p2Lbl.text = "Pre (f):";
+                p3Lbl.text = "Post (f):";
             } else {
                 p1Lbl.text = "Min (%):";
                 p2Lbl.text = "Max (%):";
@@ -503,6 +521,8 @@
                 var displayStr = "";
                 if (cat === "waterDistortion") {
                     displayStr = (p.name || ("Preset " + (i + 1))) + "  [Amt:" + p.amount + ", Sz:" + p.size + ", Spd:" + p.speed + "]";
+                } else if (cat === "squash2") {
+                    displayStr = (p.name || (p.amount + "," + p.pre + "," + p.post)) + "  [" + p.amount + "%, " + p.pre + "f, " + p.post + "f]";
                 } else {
                     displayStr = (p.name || (p.min + "," + p.max + "," + p.frames)) + "  [" + p.min + "%, " + p.max + "%, " + p.frames + "f]";
                 }
@@ -531,6 +551,10 @@
                 p1Input.text = String(p.amount !== undefined ? p.amount : "");
                 p2Input.text = String(p.size !== undefined ? p.size : "");
                 p3Input.text = String(p.speed !== undefined ? p.speed : "");
+            } else if (cat === "squash2") {
+                p1Input.text = String(p.amount !== undefined ? p.amount : "");
+                p2Input.text = String(p.pre !== undefined ? p.pre : "");
+                p3Input.text = String(p.post !== undefined ? p.post : "");
             } else {
                 p1Input.text = String(p.min !== undefined ? p.min : "");
                 p2Input.text = String(p.max !== undefined ? p.max : "");
@@ -586,6 +610,8 @@
             var updatedObj = {};
             if (cat === "waterDistortion") {
                 updatedObj = { name: name, amount: p1, size: p2, speed: p3 };
+            } else if (cat === "squash2") {
+                updatedObj = { name: name, amount: p1, pre: p2, post: p3 };
             } else {
                 updatedObj = { name: name, min: p1, max: p2, frames: p3 };
             }
@@ -612,6 +638,8 @@
             var newObj = {};
             if (cat === "waterDistortion") {
                 newObj = { name: name, amount: p1, size: p2, speed: p3 };
+            } else if (cat === "squash2") {
+                newObj = { name: name, amount: p1, pre: p2, post: p3 };
             } else {
                 newObj = { name: name, min: p1, max: p2, frames: p3 };
             }
@@ -938,6 +966,7 @@
             else if (key === "Thunder Flicker") showThunderFlickerDialog();
             else if (key === "Scale Pulse") showScalePulseDialog();
             else if (key === "V Scale") showVScaleDialog();
+            else if (key === "Squash 2") showSquash2Dialog();
             else if (key === "B Posterizer") showBPosterizerDialog();
             else if (key === "Walk/Run Arc") showWalkRunDialog();
             else handleExpressionClick(key, EXPRESSIONS[key]);
@@ -3793,18 +3822,21 @@
         presLbl.graphics.font = boldFont;
 
         function applyGlitter(offset, frames, minVal, maxVal, smooth) {
-            if (!offset || !frames || minVal === undefined || maxVal === undefined ||
-                isNaN(parseFloat(offset)) || isNaN(parseFloat(frames)) ||
-                isNaN(parseFloat(minVal)) || isNaN(parseFloat(maxVal))) {
+            var o = parseFloat(offset);
+            var f = parseFloat(frames);
+            var minV = parseFloat(minVal);
+            var maxV = parseFloat(maxVal);
+
+            if (isNaN(o) || isNaN(f) || isNaN(minV) || isNaN(maxV) || f <= 0) {
                 alert("Please enter valid numbers");
                 return;
             }
             var expression;
             if (smooth) {
-                expression = "offset = " + offset + ";\n" +
-                    "framesPerToggle = " + frames + ";\n" +
-                    "minVal = " + minVal + ";\n" +
-                    "maxVal = " + maxVal + ";\n" +
+                expression = "offset = " + o + ";\n" +
+                    "framesPerToggle = " + f + ";\n" +
+                    "minVal = " + minV + ";\n" +
+                    "maxVal = " + maxV + ";\n" +
                     "cycleTime = framesToTime(framesPerToggle * 2);\n" +
                     "t = (time - offset) % cycleTime;\n" +
                     "progress = t / cycleTime;\n" +
@@ -3813,9 +3845,9 @@
                     "flicker = linear(normalized, 0, 1, minVal, maxVal);\n" +
                     "flicker";
             } else {
-                expression = "offset = " + offset + ";\n" +
-                    "framesPerToggle = " + frames + ";\n" +
-                    "flicker = Math.floor(timeToFrames(time - offset)) % (framesPerToggle * 2) < framesPerToggle ? " + maxVal + " : " + minVal + ";\n" +
+                expression = "offset = " + o + ";\n" +
+                    "framesPerToggle = " + f + ";\n" +
+                    "flicker = Math.floor(timeToFrames(time - offset)) % (framesPerToggle * 2) < framesPerToggle ? " + maxV + " : " + minV + ";\n" +
                     "flicker";
             }
             handleExpressionClick("Glitter", expression);
@@ -4811,9 +4843,10 @@
                         '        if (stopTime >= 0 && dt >= 0 && dt < transDur) {',
                         '            var blend = linear(dt, 0, transDur, 0, 1);',
                         '            var scaleY = linear(blend, 0, 1, 99.0, 100);',
-                        '            [100, scaleY];',
+                        '            var multY = scaleY / 100;',
+                        '            (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
                         '        } else {',
-                        '            [100, 100];',
+                        '            value;',
                         '        }',
                         '    } else {',
                         '        var a0 = ampSlider.valueAtTime(time);',
@@ -4839,7 +4872,8 @@
                         '            var squishProgress = (t <= halfCycle) ? linear(t, 0, halfCycle, 0, 1) : linear(t, halfCycle, fullCycle, 1, 0);',
                         '            var squishAmt = linear(smoothAmp, threshold, 25, 0.35, 1.0);',
                         '            var scaleY = 100 - squishProgress * squishAmt * 1;',
-                        '            [100, scaleY];',
+                        '            var multY = scaleY / 100;',
+                        '            (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
                         '        } else {',
                         '            var framesSinceActive = 0;',
                         '            for (var k = 1; k <= halfCycle; k++) {',
@@ -4863,9 +4897,10 @@
                         '                var lastSquishAmt = linear(lastSmooth, threshold, 25, 0.35, 1.0);',
                         '                var startY = 100 - 1.0 * lastSquishAmt * 1;',
                         '                var scaleY = linear(framesSinceActive, 0, halfCycle, startY, 100);',
-                        '                [100, scaleY];',
+                        '                var multY = scaleY / 100;',
+                        '                (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
                         '            } else {',
-                        '                [100, 100];',
+                        '                value;',
                         '            }',
                         '        }',
                         '    }',
@@ -4903,7 +4938,9 @@
                             "    freq = 1 / (framesPerCycle * thisComp.frameDuration);\n" +
                             "    s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n" +
                             "    scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                            "    [100, scaleY];\n" +
+                            "    multY = scaleY / 100;\n" +
+                            "    if (value.length === 3) [value[0], value[1] * multY, value[2]];\n" +
+                            "    else [value[0], value[1] * multY];\n" +
                             "}";
                     } else if (stopTimeComponents) {
                         var stopTimeCalculation = "(" + stopTimeComponents.h + " * 3600) + (" + stopTimeComponents.m + " * 60) + " + stopTimeComponents.s + " + (" + stopTimeComponents.f + " * thisComp.frameDuration);";
@@ -4917,7 +4954,9 @@
                             "s = (Math.sin(t * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
                             "// Interpolate scale using linear easing\n" +
                             "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                            "[100, scaleY]";
+                            "multY = scaleY / 100;\n" +
+                            "if (value.length === 3) [value[0], value[1] * multY, value[2]];\n" +
+                            "else [value[0], value[1] * multY];";
                     } else {
                         expression = "// Settings\n" +
                             "minScaleY = " + yMin + ";\n" +
@@ -4928,7 +4967,9 @@
                             "s = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n" +
                             "// Interpolate scale using linear easing\n" +
                             "scaleY = linear(s, 0, 1, minScaleY, maxScaleY);\n" +
-                            "[100, scaleY]";
+                            "multY = scaleY / 100;\n" +
+                            "if (value.length === 3) [value[0], value[1] * multY, value[2]];\n" +
+                            "else [value[0], value[1] * multY];";
                     }
                 }
 
@@ -11566,37 +11607,158 @@
         }
     }
 
-    // Function to apply Squash 2 animation (staggered layer transition)
-    function applySquash2Animation() {
-        try {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                updateStatus("No active composition found");
-                return;
+    // Show Squash 2 dialog - staggered transition squash animation with control null
+    function showSquash2Dialog() {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition found");
+            alert("No active composition found");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length < 2) {
+            updateStatus("Please select at least 2 staggered layers");
+            alert("Please select at least 2 staggered layers");
+            return;
+        }
+
+        var dialog = new Window("dialog", "Squash 2 Settings");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 4;
+        dialog.margins = 8;
+        dialog.preferredSize.width = 240;
+
+        // Null Name Section
+        var nullGroup = dialog.add("group");
+        nullGroup.orientation = "row";
+        nullGroup.alignChildren = ["left", "center"];
+        nullGroup.spacing = 4;
+
+        var nullLbl = nullGroup.add("statictext", undefined, "Null Name:");
+        nullLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        nullLbl.preferredSize.width = 65;
+
+        var nullInput = nullGroup.add("edittext", undefined, "Squash_Null");
+        nullInput.preferredSize = [145, 18];
+        nullInput.helpTip = "Enter a name for the Squash Null object";
+
+        // Parameters Panel
+        var paramPanel = dialog.add("panel", undefined, "Squash Parameters");
+        paramPanel.orientation = "column";
+        paramPanel.alignChildren = ["fill", "top"];
+        paramPanel.spacing = 3;
+        paramPanel.margins = 6;
+
+        // Squash Amount
+        var amtGroup = paramPanel.add("group");
+        amtGroup.orientation = "row";
+        amtGroup.alignChildren = ["left", "center"];
+        amtGroup.spacing = 2;
+        var amtLbl = amtGroup.add("statictext", undefined, "Squash (%):");
+        amtLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        amtLbl.preferredSize.width = 65;
+        var amtInput = amtGroup.add("edittext", undefined, "98");
+        amtInput.preferredSize = [40, 18];
+        amtInput.helpTip = "Squash scale amount on Y axis (e.g. 98, 95, 90)";
+
+        // Pre Frames
+        var preGroup = paramPanel.add("group");
+        preGroup.orientation = "row";
+        preGroup.alignChildren = ["left", "center"];
+        preGroup.spacing = 2;
+        var preLbl = preGroup.add("statictext", undefined, "Pre (frames):");
+        preLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        preLbl.preferredSize.width = 65;
+        var preInput = preGroup.add("edittext", undefined, "4");
+        preInput.preferredSize = [40, 18];
+        preInput.helpTip = "Frames to ease down into squash before cut";
+
+        // Post Frames
+        var postGroup = paramPanel.add("group");
+        postGroup.orientation = "row";
+        postGroup.alignChildren = ["left", "center"];
+        postGroup.spacing = 2;
+        var postLbl = postGroup.add("statictext", undefined, "Post (frames):");
+        postLbl.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        postLbl.preferredSize.width = 65;
+        var postInput = postGroup.add("edittext", undefined, "5");
+        postInput.preferredSize = [40, 18];
+        postInput.helpTip = "Frames to ease back to normal after cut";
+
+        // Preset buttons dynamically loaded from config.json
+        var presetGroup = dialog.add("group");
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
+        presetGroup.spacing = 2;
+
+        var presetLabelGroup = presetGroup.add("group");
+        presetLabelGroup.orientation = "row";
+        presetLabelGroup.alignChildren = ["left", "center"];
+        presetLabelGroup.spacing = 4;
+
+        var presLbl = presetLabelGroup.add("statictext", undefined, "Presets:");
+        presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+        presLbl.helpTip = "Click any preset to apply directly. (Squash %, Pre Frames, Post Frames)";
+
+        var addPresetBtn = presetLabelGroup.add("button", undefined, "+");
+        addPresetBtn.preferredSize = [20, 18];
+        addPresetBtn.helpTip = "Add current input values as a custom preset into config.json";
+
+        var managePresetBtn = presetLabelGroup.add("button", undefined, "Edit");
+        managePresetBtn.preferredSize = [35, 18];
+        managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
+        managePresetBtn.onClick = function () {
+            showGlobalPresetManager("squash2", refreshSquash2Presets);
+        };
+
+        var presetButtonsContainer = presetGroup.add("group");
+        presetButtonsContainer.orientation = "column";
+        presetButtonsContainer.alignChildren = ["fill", "top"];
+        presetButtonsContainer.spacing = 2;
+
+        function applySquash2() {
+            var activeComp = app.project.activeItem;
+            if (!activeComp || !(activeComp instanceof CompItem)) {
+                alert("Please select a composition.");
+                return false;
             }
 
-            var selectedLayers = comp.selectedLayers;
-            if (selectedLayers.length < 2) {
-                updateStatus("Please select at least 2 staggered layers");
-                alert("Please select at least 2 staggered layers");
-                return;
+            var curSelectedLayers = activeComp.selectedLayers;
+            if (curSelectedLayers.length < 2) {
+                alert("Please select at least 2 staggered layers.");
+                return false;
             }
 
-            // Prompt user for null name
-            var nullName = prompt("Enter a name for the Squash Null object:", "Squash_Null");
-            if (nullName === null) {
-                return; // User cancelled
-            }
-            if (nullName.replace(/^\s+|\s+$/g, "") === "") {
+            var nullName = nullInput.text;
+            if (nullName === null || nullName.replace(/^\s+|\s+$/g, "") === "") {
                 nullName = "Squash_Null";
+            }
+
+            var squashAmt = parseFloat(amtInput.text);
+            var preFrames = parseFloat(preInput.text);
+            var postFrames = parseFloat(postInput.text);
+
+            if (isNaN(squashAmt) || isNaN(preFrames) || isNaN(postFrames)) {
+                alert("Please enter valid numeric values for all fields.");
+                return false;
             }
 
             app.beginUndoGroup("Squash 2 Animation");
 
-            // 1. Sort layers by inPoint to identify cuts chronologically
+            // 1. Identify topmost layer in the layer stack among selected layers
+            var topLayer = curSelectedLayers[0];
+            for (var i = 1; i < curSelectedLayers.length; i++) {
+                if (curSelectedLayers[i].index < topLayer.index) {
+                    topLayer = curSelectedLayers[i];
+                }
+            }
+
+            // 2. Sort layers by inPoint to identify cuts chronologically
             var sortedLayers = [];
-            for (var i = 0; i < selectedLayers.length; i++) {
-                sortedLayers.push(selectedLayers[i]);
+            for (var i = 0; i < curSelectedLayers.length; i++) {
+                sortedLayers.push(curSelectedLayers[i]);
             }
             sortedLayers.sort(function (a, b) {
                 return a.inPoint - b.inPoint;
@@ -11616,17 +11778,20 @@
                 markerTimes.push(sortedLayers[i].inPoint);
             }
 
-            // 2. Calculate the bounding box of all selected layers (evaluated at their respective inPoints)
+            // 3. Calculate bounding box of selected layers (evaluated at their respective inPoints)
             var bounds = calculateStaggeredLayerBounds(sortedLayers);
             if (!bounds) {
                 alert("Could not calculate bounding box of selected layers");
                 app.endUndoGroup();
-                return;
+                return false;
             }
 
-            // Create null object
-            var nullLayer = comp.layers.addNull();
+            // 4. Create null object and place it on top of the topmost selected/target layer
+            var nullLayer = activeComp.layers.addNull();
             nullLayer.name = nullName;
+            if (topLayer) {
+                nullLayer.moveBefore(topLayer);
+            }
 
             // Set duration of Null layer to cover the lifespan of the selected layers
             nullLayer.startTime = minInPoint;
@@ -11636,8 +11801,8 @@
             // Move anchor point of null to center bottom (local coords: 50, 100 on a 100x100 null)
             nullLayer.transform.anchorPoint.setValue([50, 100, 0]);
 
-            // Set scale to match the bounding box size (null starts as 100x100)
-            nullLayer.transform.scale.setValue([bounds.width, bounds.height, 100]);
+            // Keep Null scale at 100% so parented child layers maintain their original scale
+            nullLayer.transform.scale.setValue([100, 100, 100]);
 
             // Set position to the center bottom of the bounding box
             var posX = bounds.left + bounds.width / 2;
@@ -11659,13 +11824,11 @@
                 }
             }
 
-            // 3. Place SQ markers and apply expression on the Null scale property
+            // 5. Place SQ markers and apply expression on the Null scale property
             var scaleProp = nullLayer.transform.scale;
 
             for (var m = 0; m < markerTimes.length; m++) {
                 var mt = markerTimes[m];
-
-                // Place "SQ" marker on the Null
                 var mv = new MarkerValue("SQ");
                 nullLayer.property("Marker").setValueAtTime(mt, mv);
             }
@@ -11674,9 +11837,9 @@
             var expr = [
                 "// Squash 2 Animation Expression",
                 "var m = thisLayer.marker;",
-                "var squashAmt = 90; // EDIT THIS VALUE TO CHANGE SQUASH DEPTH (e.g. 95 for less squash)",
-                "var preFrames = 3;   // frames to go down",
-                "var postFrames = 4;  // frames to go back to normal",
+                "var squashAmt = " + squashAmt + "; // Squash depth",
+                "var preFrames = " + preFrames + ";   // frames to go down",
+                "var postFrames = " + postFrames + ";  // frames to go back to normal",
                 "var fd = thisComp.frameDuration;",
                 "",
                 "var squashY = 100;",
@@ -11709,16 +11872,119 @@
 
             scaleProp.expression = expr;
 
-            // Select the Null layer
-            nullLayer.selected = true;
+            // Auto lock the null layer so it cannot be clicked
+            nullLayer.locked = true;
 
             app.endUndoGroup();
             updateStatus("Applied Squash 2 to " + parentedCount + " layer(s) with Null '" + nullName + "'");
-
-        } catch (error) {
-            updateStatus("Error: " + error.toString());
-            alert("Error applying Squash 2: " + error.toString());
+            dialog.close();
+            return true;
         }
+
+        function refreshSquash2Presets() {
+            while (presetButtonsContainer.children.length > 0) {
+                presetButtonsContainer.remove(presetButtonsContainer.children[0]);
+            }
+
+            var presets = getPresets("squash2");
+            var currentRow = null;
+            for (var i = 0; i < presets.length; i++) {
+                if (i % 3 === 0) {
+                    currentRow = presetButtonsContainer.add("group");
+                    currentRow.orientation = "row";
+                    currentRow.spacing = 2;
+                }
+                (function (p, index) {
+                    var amtVal = p.amount;
+                    var preVal = p.pre;
+                    var postVal = p.post;
+                    if (p.name) {
+                        var parts = p.name.split(',');
+                        if (parts.length === 3) {
+                            var n1 = parseFloat(parts[0]);
+                            var n2 = parseFloat(parts[1]);
+                            var n3 = parseFloat(parts[2]);
+                            if (!isNaN(n1) && !isNaN(n2) && !isNaN(n3)) {
+                                amtVal = n1;
+                                preVal = n2;
+                                postVal = n3;
+                            }
+                        }
+                    }
+                    if (amtVal === undefined) amtVal = 98;
+                    if (preVal === undefined) preVal = 4;
+                    if (postVal === undefined) postVal = 5;
+
+                    var btnName = p.name || (amtVal + "," + preVal + "," + postVal);
+                    var btn = currentRow.add("button", undefined, btnName);
+                    btn.preferredSize = [60, 18];
+                    btn.helpTip = "Click to apply (" + amtVal + "%, " + preVal + "f, " + postVal + "f). Alt+Click to delete.";
+                    btn.onClick = function () {
+                        if (ScriptUI.environment && ScriptUI.environment.keyboardState && ScriptUI.environment.keyboardState.altKey) {
+                            if (confirm("Delete preset '" + btnName + "' from config.json?")) {
+                                deletePreset("squash2", index);
+                                refreshSquash2Presets();
+                            }
+                        } else {
+                            amtInput.text = String(amtVal);
+                            preInput.text = String(preVal);
+                            postInput.text = String(postVal);
+                            applySquash2();
+                        }
+                    };
+                })(presets[i], i);
+            }
+            dialog.layout.layout(true);
+        }
+
+        addPresetBtn.onClick = function () {
+            var amtVal = parseFloat(amtInput.text);
+            var preVal = parseFloat(preInput.text);
+            var postVal = parseFloat(postInput.text);
+
+            if (isNaN(amtVal) || isNaN(preVal) || isNaN(postVal)) {
+                alert("Please enter valid numeric values before adding a preset.");
+                return;
+            }
+
+            var defaultName = amtVal + "," + preVal + "," + postVal;
+            var presetName = prompt("Enter a name for this preset:", defaultName);
+            if (presetName !== null && presetName !== "") {
+                var newPreset = {
+                    name: presetName,
+                    amount: amtVal,
+                    pre: preVal,
+                    post: postVal
+                };
+                addPreset("squash2", newPreset);
+                refreshSquash2Presets();
+            }
+        };
+
+        refreshSquash2Presets();
+
+        // Buttons
+        var buttonGroup = dialog.add("group");
+        buttonGroup.orientation = "row";
+        buttonGroup.alignment = "center";
+        buttonGroup.spacing = 4;
+
+        var okBtn = buttonGroup.add("button", undefined, "Apply");
+        okBtn.preferredSize = [60, 18];
+        okBtn.helpTip = "Apply Squash 2 animation with current settings";
+        okBtn.onClick = function () {
+            applySquash2();
+        };
+
+        // Layout and show dialog
+        dialog.layout.layout(true);
+        dialog.center();
+        dialog.show();
+    }
+
+    // Function to apply Squash 2 animation (staggered layer transition)
+    function applySquash2Animation() {
+        showSquash2Dialog();
     }
 
     // Helper to calculate bounding box of selected layers evaluated at their respective inPoints

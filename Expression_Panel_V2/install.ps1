@@ -229,11 +229,39 @@ foreach ($target in $selectedTargets) {
         $dst = Join-Path $target.Path $script
 
         if (Test-Path $src) {
-            if (Test-Path $dst) {
-                Remove-Item -Path $dst -Force -ErrorAction SilentlyContinue
+            if ($script -eq "config.json" -and (Test-Path $dst)) {
+                # Merge new config settings without overwriting existing presets
+                try {
+                    $destJson = Get-Content $dst -Raw | ConvertFrom-Json
+                    $srcJson = Get-Content $src -Raw | ConvertFrom-Json
+                    $modified = $false
+                    if (-not $destJson.presets) {
+                        $destJson | Add-Member -MemberType NoteProperty -Name "presets" -Value $srcJson.presets
+                        $modified = $true
+                    } else {
+                        foreach ($prop in $srcJson.presets.PSObject.Properties) {
+                            if (-not $destJson.presets.PSObject.Properties[$prop.Name]) {
+                                $destJson.presets | Add-Member -MemberType NoteProperty -Name $prop.Name -Value $prop.Value
+                                $modified = $true
+                            }
+                        }
+                    }
+                    if ($modified) {
+                        $destJson | ConvertTo-Json -Depth 10 | Set-Content $dst -Encoding UTF8
+                        Write-Host "  [MERGE] Merged new settings into: $script" -ForegroundColor Cyan
+                    } else {
+                        Write-Host "  [KEEP] Existing settings up-to-date: $script" -ForegroundColor Green
+                    }
+                } catch {
+                    Write-Host "  [WARN] Could not merge $script : $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            } else {
+                if (Test-Path $dst) {
+                    Remove-Item -Path $dst -Force -ErrorAction SilentlyContinue
+                }
+                Copy-Item -Path $src -Destination $dst -Force
+                Write-Host "  [OK] Copied: $script" -ForegroundColor Green
             }
-            Copy-Item -Path $src -Destination $dst -Force
-            Write-Host "  [OK] Copied: $script" -ForegroundColor Green
         } else {
             Write-Host "  [SKIP] Not found in source: $script" -ForegroundColor DarkGray
         }
@@ -253,7 +281,31 @@ foreach ($target in $selectedTargets) {
                 Copy-Item -Path $srcConfig -Destination $userConfigFile -Force
                 Write-Host "  [OK] Initialized User Preset: $userConfigFile" -ForegroundColor Green
             } else {
-                Write-Host "  [KEEP] Existing User Preset found: $userConfigFile" -ForegroundColor Yellow
+                # Merge new configuration settings without deleting or replacing existing user data
+                try {
+                    $userJson = Get-Content $userConfigFile -Raw | ConvertFrom-Json
+                    $srcJson = Get-Content $srcConfig -Raw | ConvertFrom-Json
+                    $modified = $false
+                    if (-not $userJson.presets) {
+                        $userJson | Add-Member -MemberType NoteProperty -Name "presets" -Value $srcJson.presets
+                        $modified = $true
+                    } else {
+                        foreach ($prop in $srcJson.presets.PSObject.Properties) {
+                            if (-not $userJson.presets.PSObject.Properties[$prop.Name]) {
+                                $userJson.presets | Add-Member -MemberType NoteProperty -Name $prop.Name -Value $prop.Value
+                                $modified = $true
+                            }
+                        }
+                    }
+                    if ($modified) {
+                        $userJson | ConvertTo-Json -Depth 10 | Set-Content $userConfigFile -Encoding UTF8
+                        Write-Host "  [MERGE] Merged new settings into User Preset: $userConfigFile" -ForegroundColor Cyan
+                    } else {
+                        Write-Host "  [KEEP] Existing User Preset up-to-date: $userConfigFile" -ForegroundColor Yellow
+                    }
+                } catch {
+                    Write-Host "  [KEEP] Existing User Preset found: $userConfigFile" -ForegroundColor Yellow
+                }
             }
         }
     } catch {

@@ -30,6 +30,12 @@
       { "name": "Normal", "amount": 50, "size": 150, "speed": 360 },
       { "name": "Strong", "amount": 25, "size": 75, "speed": 780 },
       { "name": "Fire", "amount": 90, "size": 35, "speed": 988 }
+    ],
+    "squash2": [
+      { "name": "98,4,5", "amount": 98, "pre": 4, "post": 5 },
+      { "name": "98,5,5", "amount": 98, "pre": 5, "post": 5 },
+      { "name": "95,6,9", "amount": 95, "pre": 6, "post": 9 },
+      { "name": "90,5,9", "amount": 90, "pre": 5, "post": 9 }
     ]
   }
 }

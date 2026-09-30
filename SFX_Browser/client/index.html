@@ -4,321 +4,41 @@
 <head>
     <meta charset="UTF-8">
     <title>SFX Browser</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #232323;
-            color: #e0e0e0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 12px;
-            padding: 8px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            cursor: default;
-        }
-
-        /* Header */
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 6px;
-        }
-
-        .header h1 {
-            font-size: 13px;
-            font-weight: 600;
-            color: #00bfff;
-            white-space: nowrap;
-        }
-
-        /* Search */
-        .search-row {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 6px;
-        }
-
-        #searchInput {
-            flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #444;
-            color: #e0e0e0;
-            padding: 5px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            outline: none;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-            user-select: text;
-        }
-
-        #searchInput:focus {
-            border-color: #00bfff;
-        }
-
-        #searchInput::placeholder {
-            color: #777;
-        }
-
-        .btn {
-            background: #333;
-            color: #e0e0e0;
-            border: 1px solid #555;
-            padding: 4px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .btn:hover {
-            background: #444;
-            border-color: #00bfff;
-        }
-
-        .btn:active {
-            background: #00bfff;
-            color: #000;
-        }
-
-        .btn.recording {
-            color: #f44336;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        /* Options */
-        .options-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 6px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .options-row label {
-            font-size: 11px;
-            color: #aaa;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            cursor: pointer;
-        }
-
-        .options-row select {
-            background: #1a1a1a;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
-
-        /* List */
-        #audioList {
-            flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 3px;
-            overflow-y: auto;
-            min-height: 0;
-        }
-
-        .list-item {
-            padding: 6px 8px;
-            cursor: pointer;
-            border-bottom: 1px solid #2a2a2a;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: background 0.1s;
-        }
-
-        .list-item:hover {
-            background: #2d2d2d;
-        }
-
-        .list-item:active {
-            background: #00bfff;
-            color: #000;
-        }
-
-        .list-item .icon {
-            color: #00bfff;
-            font-size: 11px;
-            flex-shrink: 0;
-        }
-
-        .list-item .name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .list-item .path {
-            color: #666;
-            font-size: 10px;
-            flex-shrink: 0;
-            max-width: 100px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .list-item .actions {
-            display: flex;
-            gap: 4px;
-            margin-left: auto;
-        }
-
-        .list-item .action-btn {
-            background: transparent;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 2px 4px;
-            border-radius: 3px;
-            outline: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 24px;
-            height: 24px;
-            transition: all 0.1s;
-        }
-
-        .list-item .action-btn:hover {
-            background: #444;
-            color: #e0e0e0;
-        }
-
-        .list-item .action-btn.star {
-            font-size: 16px;
-        }
-
-        .list-item .action-btn.star:hover,
-        .list-item .action-btn.star.active {
-            color: #ffc107;
-            text-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
-        }
-
-        .list-item .action-btn.play {
-            font-size: 12px;
-        }
-
-        .list-item .action-btn.play.playing {
-            color: #f44336;
-        }
-
-        .list-item .action-btn.play:not(.playing):hover {
-            color: #4caf50;
-        }
-
-        .empty-msg {
-            padding: 20px;
-            text-align: center;
-            color: #555;
-            font-style: italic;
-        }
-
-        /* Gain row */
-        .gain-row {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 6px;
-            align-items: center;
-        }
-
-        .gain-row span {
-            font-size: 10px;
-            color: #888;
-            margin-right: 2px;
-        }
-
-        .gain-btn {
-            background: #2a2a2a;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 600;
-        }
-
-        .gain-btn:hover {
-            background: #444;
-            border-color: #ff9800;
-        }
-
-        .gain-btn:active {
-            background: #ff9800;
-            color: #000;
-        }
-
-        .gain-btn.positive {
-            color: #4caf50;
-        }
-
-        .gain-btn.negative {
-            color: #ff9800;
-        }
-
-        /* Status */
-        #statusBar {
-            margin-top: 6px;
-            padding: 4px 6px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 3px;
-            font-size: 10px;
-            color: #888;
-            min-height: 20px;
-        }
-
-        #statusBar.success {
-            color: #4caf50;
-        }
-
-        #statusBar.error {
-            color: #f44336;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>🔊 SFX Browser</h1>
-        <button class="btn" id="syncAEFootageBtn" title="1-Click: Sync AE Rendered Footage to Timeline (Top Video, A3 Audio)" style="background: linear-gradient(135deg, #0077b6, #00b4d8); color: #fff; font-weight: 700; border: none; padding: 3px 8px; font-size: 10px;">⚡ Place AE Footage</button>
+    <!-- Top Header -->
+    <div class="header">
+        <h1>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            SFX Browser
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-timeline" id="pasteTimelineBtn" title="Paste timeline timestamps to auto-generate markers on active sequence">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                Paste Timeline
+            </button>
+            <button class="btn btn-footage" id="syncAEFootageBtn" title="1-Click: Sync AE Rendered Footage to Timeline (Top Video, A3 Audio)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                Place AE Footage
+            </button>
+        </div>
     </div>
 
+    <!-- Search & Mic Bar -->
     <div class="search-row">
         <input type="text" id="searchInput" placeholder="Search audio files..." />
-        <button class="btn" id="recordBtn" title="Record Mic">🎤</button>
+        <button class="btn" id="recordBtn" title="Record Mic">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        </button>
         <button class="btn" id="sortBtn" title="Toggle Sort (A-Z / Z-A)">A-Z</button>
-        <button class="btn" id="refreshBtn" title="Refresh audio list from project">⟳</button>
+        <button class="btn" id="refreshBtn" title="Refresh audio list from project">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
     </div>
 
+    <!-- Options Row -->
     <div class="options-row">
         <label>
             <input type="checkbox" id="autoTrimCheck" checked />
@@ -335,6 +55,7 @@
         </label>
     </div>
 
+    <!-- Gain Quick Adjust -->
     <div class="gain-row">
         <span>Gain:</span>
         <button class="gain-btn positive" data-gain="6">+6 dB</button>
@@ -343,13 +64,152 @@
         <button class="gain-btn negative" data-gain="-26">-26 dB</button>
     </div>
 
+    <!-- Recorded Mic Result Item -->
     <div id="recordResult" style="display: none; margin-bottom: 6px;"></div>
 
+    <!-- Audio List -->
     <div id="audioList">
-        <div class="empty-msg">Click ⟳ to scan project for audio files</div>
+        <div class="empty-msg">Click Refresh to scan project for audio files</div>
     </div>
 
+    <!-- Active Player Dock with Audio Waveform & Interactive Range Trimming -->
+    <div id="activePlayerDock">
+        <div class="dock-header">
+            <div class="dock-title-group">
+                <span class="dock-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                </span>
+                <span id="dockTrackName" class="dock-track-name" title="">Track Name</span>
+                <span id="dockTimeBadge" class="dock-time-badge"><span id="dockCurrentTime">00:00</span> / <span id="dockDuration">00:00</span></span>
+            </div>
+            <div class="dock-actions">
+                <div id="dockDragBtn" class="dock-drag-chip" draggable="true" title="Drag to Timeline: Click and drag this segment directly onto Premiere Pro timeline">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                    <span id="dockDragText">Drag Segment</span>
+                </div>
+                <button id="dockInsertBtn" class="dock-btn-action insert" title="Place segment at playhead (Enter)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span id="dockInsertText">Place at Playhead</span>
+                </button>
+                <button id="dockCloseBtn" class="dock-btn-action close" title="Close player">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Waveform Visualization (Click to seek, Drag horizontally to select segment) -->
+        <div class="waveform-wrapper" id="waveformWrapper" title="Click to seek, or drag left/right to select segment">
+            <canvas id="waveformCanvas"></canvas>
+            <div id="waveformLoading" class="waveform-loading" style="display: none;">
+                <span>Analyzing audio waveform...</span>
+            </div>
+            <div id="waveformHoverLine" class="waveform-hover-line"></div>
+            <div id="waveformTooltip" class="waveform-tooltip">00:00</div>
+        </div>
+
+
+        <!-- Scrubber Slider -->
+        <div class="slider-wrapper">
+            <input type="range" id="dockSlider" class="player-slider" min="0" max="100" step="0.05" value="0" title="Scrub audio position" />
+        </div>
+
+        <!-- Player Controls -->
+        <div class="dock-controls">
+            <div class="dock-ctrl-left">
+                <button id="dockPlayPauseBtn" class="ctrl-btn play-circle" title="Play / Pause (Space)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </button>
+                <button id="dockStopBtn" class="ctrl-btn" title="Stop">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="1.5"/></svg>
+                </button>
+                <button id="dockLoopBtn" class="ctrl-btn" title="Toggle Loop">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                </button>
+                <button id="dockBack5Btn" class="ctrl-btn step-btn" title="Rewind 5s">-5s</button>
+                <button id="dockFwd5Btn" class="ctrl-btn step-btn" title="Forward 5s">+5s</button>
+            </div>
+            <div class="dock-ctrl-right">
+                <button id="dockMuteBtn" class="ctrl-btn" title="Mute/Unmute">
+                    <svg id="volumeIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                </button>
+                <input type="range" id="dockVolume" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Volume" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
     <div id="statusBar">Ready</div>
+
+    <!-- Paste Timeline Modal -->
+    <div id="pasteTimelineModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    Paste Timeline to Markers
+                </h3>
+                <button id="closeTimelineModalBtn" class="modal-close-btn" title="Close">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">
+                    Paste timeline timestamps line-by-line (e.g. <code>00:00:00 - 00:01:03</code>) to auto-generate spanned music guide markers on the active Premiere Pro sequence.
+                </p>
+
+                <div class="tool-bar-row">
+                    <button id="pasteClipboardBtn" class="tool-btn">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                        Paste Clipboard
+                    </button>
+                    <button id="loadExampleBtn" class="tool-btn">Load Example</button>
+                    <button id="clearTimelineBtn" class="tool-btn">Clear</button>
+                </div>
+
+                <textarea id="timelineInput" placeholder="00:00:00 - 00:01:03&#10;00:01:03 - 00:02:49&#10;00:02:49 - 00:03:52&#10;00:03:52 - 00:05:23&#10;00:05:23 - 00:06:50&#10;00:06:50 - 00:08:10"></textarea>
+
+                <div class="modal-options-grid">
+                    <div class="modal-field">
+                        <label for="markerColorSelect">Marker Color:</label>
+                        <select id="markerColorSelect">
+                            <option value="7" selected>Cyan (Music Standard)</option>
+                            <option value="0">Green</option>
+                            <option value="4">Yellow</option>
+                            <option value="3">Orange</option>
+                            <option value="1">Red</option>
+                            <option value="2">Purple</option>
+                            <option value="6">Blue</option>
+                            <option value="5">White</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-field">
+                        <label for="markerPrefixInput">Label Prefix:</label>
+                        <input type="text" id="markerPrefixInput" value="Music " placeholder="e.g. Music " />
+                    </div>
+                </div>
+
+                <div class="modal-checkboxes">
+                    <label>
+                        <input type="checkbox" id="durationMarkersCheck" checked />
+                        Duration markers (span start to end on ruler)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="clearExistingMarkersCheck" />
+                        Clear existing markers on sequence first
+                    </label>
+                </div>
+
+                <div id="timelineParseSummary" class="timeline-summary-badge">
+                    <span>Paste or type timestamps above to preview</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelTimelineBtn" class="btn-cancel">Cancel</button>
+                <button id="submitTimelineBtn" class="btn-create-markers">Create Markers on Sequence</button>
+            </div>
+        </div>
+    </div>
 
     <script src="CSInterface.js"></script>
     <script src="main.js"></script>
