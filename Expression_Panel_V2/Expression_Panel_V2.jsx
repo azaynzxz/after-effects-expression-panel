@@ -11778,15 +11778,19 @@
                 markerTimes.push(sortedLayers[i].inPoint);
             }
 
-            // 3. Calculate bounding box of selected layers (evaluated at their respective inPoints)
-            var bounds = calculateStaggeredLayerBounds(sortedLayers);
+            // 3. Calculate bounding box of all selected layers
+            var bounds = calculateSelectedLayersBounds(curSelectedLayers);
             if (!bounds) {
-                alert("Could not calculate bounding box of selected layers");
+                alert("Could not calculate bounding box of selected layers.");
                 app.endUndoGroup();
                 return false;
             }
 
-            // 4. Create null object and place it on top of the topmost selected/target layer
+            // Set position to bottom-center of the combined bounding box
+            var posX = bounds.left + bounds.width / 2;
+            var posY = bounds.top + bounds.height;
+
+            // 4. Create null object and place it on top of the topmost selected layer
             var nullLayer = activeComp.layers.addNull();
             nullLayer.name = nullName;
             if (topLayer) {
@@ -11798,20 +11802,25 @@
             nullLayer.inPoint = minInPoint;
             nullLayer.outPoint = maxOutPoint;
 
-            // Move anchor point of null to center bottom (local coords: 50, 100 on a 100x100 null)
-            nullLayer.transform.anchorPoint.setValue([50, 100, 0]);
+            // Check if any selected layer is 3D
+            var has3D = false;
+            for (var i = 0; i < curSelectedLayers.length; i++) {
+                if (curSelectedLayers[i].threeDLayer) {
+                    has3D = true;
+                    break;
+                }
+            }
 
-            // Keep Null scale at 100% so parented child layers maintain their original scale
-            nullLayer.transform.scale.setValue([100, 100, 100]);
-
-            // Set position to the center bottom of the bounding box
-            var posX = bounds.left + bounds.width / 2;
-            var posY = bounds.top + bounds.height;
-            var curPosVal = nullLayer.transform.position.value;
-            if (curPosVal.length > 2) {
-                nullLayer.transform.position.setValue([posX, posY, curPosVal[2]]);
+            // Move anchor point of null to center bottom (local coords: [50, 100] on a 100x100 null)
+            if (has3D) {
+                nullLayer.threeDLayer = true;
+                nullLayer.transform.anchorPoint.setValue([50, 100, 0]);
+                nullLayer.transform.position.setValue([posX, posY, 0]);
+                nullLayer.transform.scale.setValue([100, 100, 100]);
             } else {
+                nullLayer.transform.anchorPoint.setValue([50, 100]);
                 nullLayer.transform.position.setValue([posX, posY]);
+                nullLayer.transform.scale.setValue([100, 100]);
             }
 
             // Parent the selected layers to the Null layer, keeping their world transforms
@@ -11819,7 +11828,7 @@
             for (var i = 0; i < sortedLayers.length; i++) {
                 var layer = sortedLayers[i];
                 if (layer !== nullLayer) {
-                    parentAndCompensate(layer, nullLayer);
+                    layer.parent = nullLayer;
                     parentedCount++;
                 }
             }
@@ -11987,8 +11996,139 @@
         showSquash2Dialog();
     }
 
-    // Helper to calculate bounding box of selected layers evaluated at their respective inPoints
-    function calculateStaggeredLayerBounds(layers) {
+    // Helper to get position of a layer at time t, handling separated dimensions
+    function getLayerPosAtTime(layer, t) {
+        try {
+            if (layer && layer.transform) {
+                var posProp = layer.transform.position;
+                if (posProp && posProp.dimensionsSeparated) {
+                    var xp = layer.transform.xPosition || layer.transform.property("X Position") || layer.transform.property("ADBE Position_0") || layer.transform.property("ADBE Position 0");
+                    var yp = layer.transform.yPosition || layer.transform.property("Y Position") || layer.transform.property("ADBE Position_1") || layer.transform.property("ADBE Position 1");
+                    var zp = layer.transform.zPosition || layer.transform.property("Z Position") || layer.transform.property("ADBE Position_2") || layer.transform.property("ADBE Position 2");
+                    var xVal = xp ? xp.valueAtTime(t, false) : 0;
+                    var yVal = yp ? yp.valueAtTime(t, false) : 0;
+                    if (zp && layer.threeDLayer) {
+                        return [xVal, yVal, zp.valueAtTime(t, false)];
+                    }
+                    return [xVal, yVal];
+                } else if (posProp) {
+                    return posProp.valueAtTime(t, false);
+                }
+            }
+        } catch (e) {}
+        return [0, 0];
+    }
+
+    // Helper to set position of a layer, handling separated dimensions
+    function setLayerPosition(layer, pos) {
+        if (!layer || !layer.transform) return;
+        try {
+            var posProp = layer.transform.position;
+            if (posProp && posProp.dimensionsSeparated) {
+                var xp = layer.transform.xPosition || layer.transform.property("X Position") || layer.transform.property("ADBE Position_0") || layer.transform.property("ADBE Position 0");
+                var yp = layer.transform.yPosition || layer.transform.property("Y Position") || layer.transform.property("ADBE Position_1") || layer.transform.property("ADBE Position 1");
+                if (xp) xp.setValue(pos[0]);
+                if (yp) yp.setValue(pos[1]);
+                if (pos.length > 2) {
+                    var zp = layer.transform.zPosition || layer.transform.property("Z Position") || layer.transform.property("ADBE Position_2") || layer.transform.property("ADBE Position 2");
+                    if (zp) zp.setValue(pos[2]);
+                }
+            } else if (posProp) {
+                var curPos = posProp.value;
+                if (curPos && curPos.length > 2 && pos.length === 2) {
+                    posProp.setValue([pos[0], pos[1], curPos[2]]);
+                } else {
+                    posProp.setValue(pos);
+                }
+            }
+        } catch (e) {
+            try {
+                if (layer.transform && layer.transform.position) {
+                    layer.transform.position.setValue(pos);
+                }
+            } catch (e2) {}
+        }
+    }
+
+    // Helper to convert a local layer point to composition coordinates analytically without moving comp playhead
+    function localPointToComp(layer, pt, t) {
+        var curLayer = layer;
+        var x = pt[0];
+        var y = pt[1];
+        var z = (pt && pt.length > 2) ? pt[2] : 0;
+        var isFirstLayer = true;
+
+        while (curLayer != null && curLayer.transform) {
+            var ap = [0, 0];
+            var pos = [0, 0];
+            var sc = [100, 100];
+            var rot = 0;
+
+            try {
+                if (curLayer.transform.anchorPoint) {
+                    ap = curLayer.transform.anchorPoint.valueAtTime(t, false);
+                }
+            } catch (e) {}
+
+            try {
+                pos = getLayerPosAtTime(curLayer, t);
+            } catch (e) {}
+
+            try {
+                if (curLayer.transform && curLayer.transform.scale) {
+                    sc = curLayer.transform.scale.valueAtTime(t, false);
+                }
+            } catch (e) {}
+
+            try {
+                if (curLayer.transform && curLayer.transform.rotation) {
+                    rot = curLayer.transform.rotation.valueAtTime(t, false);
+                } else if (curLayer.transform && curLayer.transform.zRotation) {
+                    rot = curLayer.transform.zRotation.valueAtTime(t, false);
+                }
+            } catch (e) {}
+
+            var sx = (sc && sc[0] !== undefined ? sc[0] : 100) / 100;
+            var sy = (sc && sc[1] !== undefined ? sc[1] : 100) / 100;
+            var sz = (sc && sc[2] !== undefined ? sc[2] : 100) / 100;
+
+            var dx, dy, dz;
+            if (isFirstLayer) {
+                // In innermost layer, pt is in layer pixel coordinates, so offset from anchor point
+                dx = (x - (ap && ap[0] !== undefined ? ap[0] : 0)) * sx;
+                dy = (y - (ap && ap[1] !== undefined ? ap[1] : 0)) * sy;
+                dz = (z - (ap && ap[2] !== undefined ? ap[2] : 0)) * sz;
+                isFirstLayer = false;
+            } else {
+                // In parent layers, coordinates are already relative to the parent anchor point origin (0, 0)
+                dx = x * sx;
+                dy = y * sy;
+                dz = z * sz;
+            }
+
+            if (rot) {
+                var rad = rot * Math.PI / 180;
+                var cosA = Math.cos(rad);
+                var sinA = Math.sin(rad);
+                x = (pos && pos[0] !== undefined ? pos[0] : 0) + (dx * cosA - dy * sinA);
+                y = (pos && pos[1] !== undefined ? pos[1] : 0) + (dx * sinA + dy * cosA);
+            } else {
+                x = (pos && pos[0] !== undefined ? pos[0] : 0) + dx;
+                y = (pos && pos[1] !== undefined ? pos[1] : 0) + dy;
+            }
+            z = (pos && pos[2] !== undefined ? pos[2] : 0) + dz;
+
+            curLayer = curLayer.parent;
+        }
+
+        if (layer.threeDLayer) {
+            return [x, y, z];
+        }
+        return [x, y];
+    }
+
+    // Helper to calculate bounding box of selected layers
+    function calculateSelectedLayersBounds(layers) {
         var minLeft = Infinity;
         var minTop = Infinity;
         var maxRight = -Infinity;
@@ -11997,95 +12137,78 @@
         var comp = app.project.activeItem;
         if (!comp) return null;
 
-        for (var i = 0; i < layers.length; i++) {
-            var layer = layers[i];
-            var t = layer.inPoint;
+        var currentTime = comp.time;
 
-            // Clamp time to valid composition limits to prevent "invalid time value" errors
+        // Filter out null layers if real visual layers exist in the selection
+        var visualLayers = [];
+        for (var i = 0; i < layers.length; i++) {
+            if (!layers[i].nullLayer) {
+                visualLayers.push(layers[i]);
+            }
+        }
+        var targetLayers = (visualLayers.length > 0) ? visualLayers : layers;
+
+        for (var i = 0; i < targetLayers.length; i++) {
+            var layer = targetLayers[i];
+
+            // Sample time: evaluate at current comp time if within layer range, otherwise at layer.inPoint
+            var t;
+            if (currentTime >= layer.inPoint && currentTime <= layer.outPoint) {
+                t = currentTime;
+            } else if (currentTime > layer.outPoint) {
+                t = Math.max(layer.inPoint, layer.outPoint - (comp.frameDuration || 0.04));
+            } else {
+                t = layer.inPoint;
+            }
+
+            // Clamp time to valid composition limits
             if (t < 0) t = 0;
             if (t > comp.duration) t = comp.duration;
 
-            var calculated = false;
+            var rect = null;
 
-            // Method 1: Try sourceRectAtTime + toComp for precise bounds (Text, Shapes, Solids, Comps)
+            // Method 1: sourceRectAtTime (precise content bounds for text, shapes, footage, comps)
             try {
                 if (layer.sourceRectAtTime && typeof layer.sourceRectAtTime === "function") {
-                    var rect = layer.sourceRectAtTime(t, false);
-
-                    var p1 = [rect.left, rect.top];
-                    var p2 = [rect.left + rect.width, rect.top];
-                    var p3 = [rect.left, rect.top + rect.height];
-                    var p4 = [rect.left + rect.width, rect.top + rect.height];
-
-                    var origTime = comp.time;
-                    try {
-                        comp.time = t;
-                    } catch (timeErr) {
-                        // Ignore time-setting errors, just use current playhead time
-                    }
-
-                    var c1 = layer.toComp(p1);
-                    var c2 = layer.toComp(p2);
-                    var c3 = layer.toComp(p3);
-                    var c4 = layer.toComp(p4);
-
-                    try {
-                        comp.time = origTime; // restore
-                    } catch (restoreErr) {
-                        // Ignore
-                    }
-
-                    var xs = [c1[0], c2[0], c3[0], c4[0]];
-                    var ys = [c1[1], c2[1], c3[1], c4[1]];
-
-                    var l = Math.min.apply(null, xs);
-                    var r = Math.max.apply(null, xs);
-                    var topVal = Math.min.apply(null, ys);
-                    var b = Math.max.apply(null, ys);
-
-                    minLeft = Math.min(minLeft, l);
-                    minTop = Math.min(minTop, topVal);
-                    maxRight = Math.max(maxRight, r);
-                    maxBottom = Math.max(maxBottom, b);
-                    calculated = true;
+                    rect = layer.sourceRectAtTime(t, false);
                 }
-            } catch (e) {
-                // Method 1 failed for this layer
-            }
+            } catch (e) {}
 
-            // Method 2: Fallback to basic layer width/height calculation (AVLayers, comps, solids)
-            if (!calculated) {
+            // Method 2: Fallback to layer or source dimensions if sourceRectAtTime is zero/unavailable
+            if (!rect || (rect.width === 0 && rect.height === 0)) {
                 try {
-                    var layerWidth = layer.width || (layer.source && layer.source.width) || 100;
-                    var layerHeight = layer.height || (layer.source && layer.source.height) || 100;
-
-                    var pos = layer.transform.position.valueAtTime(t, false);
-                    var anchor = layer.transform.anchorPoint.valueAtTime(t, false);
-                    var scale = layer.transform.scale.valueAtTime(t, false);
-
-                    var scaledWidth = layerWidth * (scale[0] / 100);
-                    var scaledHeight = layerHeight * (scale[1] / 100);
-
-                    var actualLeft, actualTop;
-                    if (layer.parent) {
-                        var worldPos = layer.toComp(anchor);
-                        actualLeft = worldPos[0] - (anchor[0] * scale[0] / 100);
-                        actualTop = worldPos[1] - (anchor[1] * scale[1] / 100);
-                    } else {
-                        actualLeft = pos[0] - (anchor[0] * scale[0] / 100);
-                        actualTop = pos[1] - (anchor[1] * scale[1] / 100);
-                    }
-                    var actualRight = actualLeft + scaledWidth;
-                    var actualBottom = actualTop + scaledHeight;
-
-                    minLeft = Math.min(minLeft, actualLeft);
-                    minTop = Math.min(minTop, actualTop);
-                    maxRight = Math.max(maxRight, actualRight);
-                    maxBottom = Math.max(maxBottom, actualBottom);
-                } catch (fallbackErr) {
-                    // Ignore this layer if both methods fail
-                }
+                    var w = layer.width || (layer.source && layer.source.width) || 100;
+                    var h = layer.height || (layer.source && layer.source.height) || 100;
+                    rect = { left: 0, top: 0, width: w, height: h };
+                } catch (e) {}
             }
+
+            if (!rect) continue;
+
+            // 4 corners in layer space
+            var p1 = [rect.left, rect.top];
+            var p2 = [rect.left + rect.width, rect.top];
+            var p3 = [rect.left, rect.top + rect.height];
+            var p4 = [rect.left + rect.width, rect.top + rect.height];
+
+            // Transform each corner to composition coordinates analytically
+            var c1 = localPointToComp(layer, p1, t);
+            var c2 = localPointToComp(layer, p2, t);
+            var c3 = localPointToComp(layer, p3, t);
+            var c4 = localPointToComp(layer, p4, t);
+
+            var xs = [c1[0], c2[0], c3[0], c4[0]];
+            var ys = [c1[1], c2[1], c3[1], c4[1]];
+
+            var l = Math.min.apply(null, xs);
+            var r = Math.max.apply(null, xs);
+            var topVal = Math.min.apply(null, ys);
+            var b = Math.max.apply(null, ys);
+
+            minLeft = Math.min(minLeft, l);
+            minTop = Math.min(minTop, topVal);
+            maxRight = Math.max(maxRight, r);
+            maxBottom = Math.max(maxBottom, b);
         }
 
         if (minLeft === Infinity) {
@@ -12101,95 +12224,8 @@
             height: maxBottom - minTop
         };
     }
+    var calculateStaggeredLayerBounds = calculateSelectedLayersBounds;
 
-    // Helper to convert world coordinates to local coordinates of a 0-rotated Null layer
-    function convertWorldPosToNullLocal(worldPos, nullLayer) {
-        var ax = nullLayer.transform.anchorPoint.value[0];
-        var ay = nullLayer.transform.anchorPoint.value[1];
-
-        var px = nullLayer.transform.position.value[0];
-        var py = nullLayer.transform.position.value[1];
-
-        var sx = nullLayer.transform.scale.value[0] / 100;
-        var sy = nullLayer.transform.scale.value[1] / 100;
-
-        var lx = ax + (worldPos[0] - px) / sx;
-        var ly = ay + (worldPos[1] - py) / sy;
-
-        if (worldPos.length > 2 && nullLayer.transform.position.value.length > 2) {
-            var az = nullLayer.transform.anchorPoint.value[2];
-            var pz = nullLayer.transform.position.value[2];
-            var sz = nullLayer.transform.scale.value[2] / 100;
-            var lz = az + (worldPos[2] - pz) / sz;
-            return [lx, ly, lz];
-        }
-
-        return [lx, ly];
-    }
-
-    // Helper to parent selected layer to the Null layer and compensate to prevent any jumping
-    function parentAndCompensate(layer, nullLayer) {
-        var origParent = layer.parent;
-        var t = layer.inPoint;
-
-        try {
-            // Get world values at inPoint (when it starts)
-            // Temporarily unparent to get clean world values if parented
-            layer.parent = null;
-            var worldPos = layer.transform.position.valueAtTime(t, false);
-            var worldScale = layer.transform.scale.valueAtTime(t, false);
-            var worldRot = layer.transform.rotation.valueAtTime(t, false);
-
-            // Parent to null
-            layer.parent = nullLayer;
-
-            // Compensate Scale
-            var nullScale = nullLayer.transform.scale.value;
-            if (layer.transform.scale.numKeys > 0) {
-                for (var k = 1; k <= layer.transform.scale.numKeys; k++) {
-                    var kVal = layer.transform.scale.keyValue(k);
-                    var newKVal = [kVal[0] * 100 / nullScale[0], kVal[1] * 100 / nullScale[1]];
-                    if (kVal.length > 2) newKVal.push(kVal[2] * 100 / nullScale[2]);
-                    layer.transform.scale.setValueAtKey(k, newKVal);
-                }
-            } else {
-                var newScale = [worldScale[0] * 100 / nullScale[0], worldScale[1] * 100 / nullScale[1]];
-                if (worldScale.length > 2) newScale.push(worldScale[2] * 100 / nullScale[2]);
-                layer.transform.scale.setValue(newScale);
-            }
-
-            // Compensate Rotation (Null layer has 0 rotation, so it's simple, but let's be robust)
-            var nullRot = nullLayer.transform.rotation.value;
-            if (layer.transform.rotation.numKeys > 0) {
-                for (var k = 1; k <= layer.transform.rotation.numKeys; k++) {
-                    var kVal = layer.transform.rotation.keyValue(k);
-                    layer.transform.rotation.setValueAtKey(k, kVal - nullRot);
-                }
-            } else {
-                layer.transform.rotation.setValue(worldRot - nullRot);
-            }
-
-            // Compensate Position
-            if (layer.transform.position.numKeys > 0) {
-                for (var k = 1; k <= layer.transform.position.numKeys; k++) {
-                    var kTime = layer.transform.position.keyTime(k);
-                    // Temporarily restore original parent connection to read world pos at this keyframe
-                    layer.parent = origParent;
-                    var wPos = layer.transform.position.valueAtTime(kTime, false);
-                    layer.parent = nullLayer;
-                    var lPos = convertWorldPosToNullLocal(wPos, nullLayer);
-                    layer.transform.position.setValueAtKey(k, lPos);
-                }
-            } else {
-                var localPos = convertWorldPosToNullLocal(worldPos, nullLayer);
-                layer.transform.position.setValue(localPos);
-            }
-        } catch (e) {
-            // Restore original parent if anything failed
-            layer.parent = origParent;
-            throw e;
-        }
-    }
 
     // Helper function to apply CSS cubic-bezier values to After Effects keyframes
     function applyCubicBezierToKeyframes(prop, keyIndex1, keyIndex2, cubicBezier) {
