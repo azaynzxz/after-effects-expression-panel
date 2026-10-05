@@ -2211,15 +2211,24 @@
     }
 
     // Yapp Mouth Expression generator (random mouth frame playback without audio)
-    function getYappMouthExpression() {
+    function getYappMouthExpression(frameCount) {
+        var maxFrames = (frameCount && frameCount > 0) ? frameCount : 4;
         return [
             'try {',
+            '    var fr = 8;',
+            '    try { fr = effect("Yapp Speed")("Slider").value; } catch(err) {}',
+            '    if (fr < 1) fr = 1;',
+            '    posterizeTime(fr);',
+            '    ',
             '    var isFrozen = false;',
             '    var mkr = marker;',
             '    try {',
             '        if (mkr.numKeys === 0) {',
-            '            if (thisComp.marker.numKeys > 0) mkr = thisComp.marker;',
-            '            else if (hasParent && parent.marker.numKeys > 0) mkr = parent.marker;',
+            '            if (thisComp.marker.numKeys > 0) {',
+            '                mkr = thisComp.marker;',
+            '            } else if (thisLayer.hasParent && thisLayer.parent.marker.numKeys > 0) {',
+            '                mkr = thisLayer.parent.marker;',
+            '            }',
             '        }',
             '    } catch(err) {}',
             '    ',
@@ -2242,32 +2251,22 @@
             '    if (isFrozen) {',
             '        0;',
             '    } else {',
-            '        var fr = 8;',
-            '        try { fr = effect("Yapp Speed")("Slider").value; } catch(err) {}',
-            '        var fDur = 1 / 30;',
-            '        try { fDur = source.frameDuration; } catch(err) {}',
-            '        ',
-            '        var totalFrames = 4;',
+            '        var totalFrames = ' + maxFrames + ';',
             '        try {',
-            '            if (source && source.numLayers > 1) {',
-            '                totalFrames = source.numLayers;',
-            '            } else if (source && source.duration > 0 && source.frameDuration > 0) {',
-            '                var dFrames = Math.round(source.duration / source.frameDuration);',
-            '                totalFrames = Math.min(Math.max(1, dFrames), 10);',
-            '            }',
+            '            var sld = effect("Mouth Frames")("Slider").value;',
+            '            if (sld > 1) totalFrames = Math.round(sld);',
             '        } catch(err) {}',
             '        ',
+            '        var fDur = thisComp.frameDuration;',
             '        var seg = Math.floor(time * fr);',
-            '        seedRandom(seg + index * 997, true);',
-            '        var f = Math.floor(random(0, totalFrames));',
-            '        ',
-            '        seedRandom(seg - 1 + index * 997, true);',
-            '        var prevF = Math.floor(random(0, totalFrames));',
+            '        var v = Math.abs(Math.sin((seg + index * 997) * 12.9898) * 43758.5453);',
+            '        var f = Math.floor((v - Math.floor(v)) * totalFrames);',
+            '        var prevV = Math.abs(Math.sin((seg - 1 + index * 997) * 12.9898) * 43758.5453);',
+            '        var prevF = Math.floor((prevV - Math.floor(prevV)) * totalFrames);',
             '        if (f === prevF && totalFrames > 1) {',
             '            f = (f + 1) % totalFrames;',
             '        }',
-            '        ',
-            '        (f * fDur) + 0.001;',
+            '        (f + 0.5) * fDur;',
             '    }',
             '} catch(e) {',
             '    value;',
@@ -2295,8 +2294,6 @@
                 undoStarted = true;
             }
 
-            var expression = getYappMouthExpression();
-
             for (var i = 0; i < selectedLayers.length; i++) {
                 var layer = selectedLayers[i];
 
@@ -2304,7 +2301,19 @@
                     layer.timeRemapEnabled = true;
                 }
 
-                layer.timeRemap.expression = expression;
+                var mouthFrames = 4;
+                try {
+                    if (layer.source && layer.source instanceof CompItem) {
+                        if (layer.source.numLayers > 1) {
+                            mouthFrames = layer.source.numLayers;
+                        } else {
+                            var cFrames = Math.round(layer.source.duration * layer.source.frameRate);
+                            if (cFrames > 1) mouthFrames = cFrames;
+                        }
+                    }
+                } catch (e) {}
+
+                layer.timeRemap.expression = getYappMouthExpression(mouthFrames);
             }
 
             if (undoStarted) app.endUndoGroup();
@@ -6836,13 +6845,13 @@
                 }
             }
 
-            // Auto-select priority: 1. Yapp / Yapping, 2. Lipsync, 3. Komat Kamit
+            // Auto-select priority: 1. Lipsync 2, 2. Lipsync, 3. Komat Kamit, 4. Mouth / Lip
             var foundMouthIndex = -1;
 
-            // Pass 1: Look for Yapp / Yapping (Highest Priority)
+            // Pass 1: Look for Lipsync 2 (Highest Priority)
             for (var p = 0; p < compSearch.dropdown.items.length; p++) {
                 var itemTextLower = compSearch.dropdown.items[p].text.toLowerCase();
-                if (itemTextLower.indexOf("yapp") !== -1) {
+                if (itemTextLower.indexOf("lipsync 2") !== -1 || itemTextLower.indexOf("lipsync2") !== -1 || itemTextLower.indexOf("lipsync_2") !== -1) {
                     foundMouthIndex = p;
                     break;
                 }
@@ -6868,6 +6877,17 @@
                 }
             }
 
+            // Pass 4: Look for Mouth or Lip
+            if (foundMouthIndex === -1) {
+                for (var p = 0; p < compSearch.dropdown.items.length; p++) {
+                    var itm = compSearch.dropdown.items[p].text.toLowerCase();
+                    if (itm.indexOf("mouth") !== -1 || itm.indexOf("lip") !== -1) {
+                        foundMouthIndex = p;
+                        break;
+                    }
+                }
+            }
+
             var optionsGroup = dialog.add("group");
             optionsGroup.orientation = "row";
             optionsGroup.alignment = "left";
@@ -6878,24 +6898,6 @@
             var yappCheckbox = optionsGroup.add("checkbox", undefined, "Yapp");
             yappCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             yappCheckbox.helpTip = "Random mouth movement without audio amplitude";
-
-            var yappManuallyChanged = false;
-            yappCheckbox.onClick = function () {
-                yappManuallyChanged = true;
-            };
-
-            function syncYappCheckboxWithComp() {
-                if (yappManuallyChanged) return;
-                var mouthName = compSearch.getSelectedName();
-                if (mouthName) {
-                    var mLower = mouthName.toLowerCase();
-                    if (mLower.indexOf("yapp") !== -1) {
-                        yappCheckbox.value = true;
-                    } else if (mLower.indexOf("lip") !== -1 || mLower.indexOf("sync") !== -1 || mLower.indexOf("komat") !== -1) {
-                        yappCheckbox.value = false;
-                    }
-                }
-            }
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
@@ -6908,14 +6910,12 @@
             cancelBtn.preferredSize = [60, 18];
 
             compSearch.dropdown.onChange = function () {
-                syncYappCheckboxWithComp();
                 updateMouthPreview();
             };
 
             var origSearchChanging = compSearch.searchInput.onChanging;
             compSearch.searchInput.onChanging = function () {
                 if (origSearchChanging) origSearchChanging();
-                syncYappCheckboxWithComp();
                 updateMouthPreview();
             };
 
@@ -6928,7 +6928,6 @@
             } else if (compSearch.dropdown.items.length > 0) {
                 compSearch.dropdown.selection = 0;
             }
-            syncYappCheckboxWithComp();
             updateMouthPreview();
 
             applyBtn.onClick = function () {
@@ -6987,7 +6986,16 @@
                     if (isYappActive) {
                         // Yapp Mode: Do NOT copy audio or generate audio amplitude / markers
                         // Enable time remap and apply random mouth expression
-                        var yappExpr = getYappMouthExpression();
+                        var mouthFrames = 4;
+                        try {
+                            if (mouthComp.numLayers > 1) {
+                                mouthFrames = mouthComp.numLayers;
+                            } else {
+                                var compFrames = Math.round(mouthComp.duration * mouthComp.frameRate);
+                                if (compFrames > 1) mouthFrames = compFrames;
+                            }
+                        } catch(e) {}
+                        var yappExpr = getYappMouthExpression(mouthFrames);
 
                         for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
                             var mL = newlyAddedMouthLayers[j];
