@@ -2210,6 +2210,112 @@
         }
     }
 
+    // Yapp Mouth Expression generator (random mouth frame playback without audio)
+    function getYappMouthExpression() {
+        return [
+            'try {',
+            '    var isFrozen = false;',
+            '    var mkr = marker;',
+            '    try {',
+            '        if (mkr.numKeys === 0) {',
+            '            if (thisComp.marker.numKeys > 0) mkr = thisComp.marker;',
+            '            else if (hasParent && parent.marker.numKeys > 0) mkr = parent.marker;',
+            '        }',
+            '    } catch(err) {}',
+            '    ',
+            '    if (mkr.numKeys > 0) {',
+            '        for (var i = 1; i <= mkr.numKeys; i++) {',
+            '            var mk = mkr.key(i);',
+            '            if (mk.time <= time) {',
+            '                var c = mk.comment.toLowerCase();',
+            '                if (c.indexOf("stop") !== -1) {',
+            '                    isFrozen = true;',
+            '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1) {',
+            '                    isFrozen = false;',
+            '                }',
+            '            } else {',
+            '                break;',
+            '            }',
+            '        }',
+            '    }',
+            '    ',
+            '    if (isFrozen) {',
+            '        0;',
+            '    } else {',
+            '        var fr = 8;',
+            '        try { fr = effect("Yapp Speed")("Slider").value; } catch(err) {}',
+            '        var fDur = 1 / 30;',
+            '        try { fDur = source.frameDuration; } catch(err) {}',
+            '        ',
+            '        var totalFrames = 4;',
+            '        try {',
+            '            if (source && source.numLayers > 1) {',
+            '                totalFrames = source.numLayers;',
+            '            } else if (source && source.duration > 0 && source.frameDuration > 0) {',
+            '                var dFrames = Math.round(source.duration / source.frameDuration);',
+            '                totalFrames = Math.min(Math.max(1, dFrames), 10);',
+            '            }',
+            '        } catch(err) {}',
+            '        ',
+            '        var seg = Math.floor(time * fr);',
+            '        seedRandom(seg + index * 997, true);',
+            '        var f = Math.floor(random(0, totalFrames));',
+            '        ',
+            '        seedRandom(seg - 1 + index * 997, true);',
+            '        var prevF = Math.floor(random(0, totalFrames));',
+            '        if (f === prevF && totalFrames > 1) {',
+            '            f = (f + 1) % totalFrames;',
+            '        }',
+            '        ',
+            '        (f * fDur) + 0.001;',
+            '    }',
+            '} catch(e) {',
+            '    value;',
+            '}'
+        ].join('\n');
+    }
+
+    function applyYappMouthExpression(skipUndo) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            updateStatus("No active composition");
+            return;
+        }
+
+        var selectedLayers = comp.selectedLayers;
+        if (selectedLayers.length === 0) {
+            updateStatus("No layers selected");
+            return;
+        }
+
+        var undoStarted = false;
+        try {
+            if (!skipUndo) {
+                app.beginUndoGroup("Apply Yapp Mouth Expression");
+                undoStarted = true;
+            }
+
+            var expression = getYappMouthExpression();
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+
+                if (!layer.timeRemapEnabled) {
+                    layer.timeRemapEnabled = true;
+                }
+
+                layer.timeRemap.expression = expression;
+            }
+
+            if (undoStarted) app.endUndoGroup();
+            updateStatus("Applied Yapp mouth to " + selectedLayers.length + " layer(s)");
+
+        } catch (error) {
+            if (undoStarted) app.endUndoGroup();
+            updateStatus("Error: " + error.toString());
+        }
+    }
+
     // MK CTRL dialog - add expression control markers at current playhead
     function showMKCtrlDialog() {
         var dlg = new Window("palette", "MK CTRL", undefined, { resizeable: false });
@@ -6647,7 +6753,7 @@
             dialog.alignChildren = ["fill", "top"];
             dialog.spacing = 4;
             dialog.margins = 8;
-            dialog.preferredSize.width = 240;
+            dialog.preferredSize.width = 250;
 
             var panel = dialog.add("panel", undefined, "Select Mouth Comp");
             panel.orientation = "column";
@@ -6730,12 +6836,13 @@
                 }
             }
 
-            // Auto-select priority: 1. Yapping, 2. Lipsync, 3. Komat Kamit
+            // Auto-select priority: 1. Yapp / Yapping, 2. Lipsync, 3. Komat Kamit
             var foundMouthIndex = -1;
 
-            // Pass 1: Look for Yapping (Highest Priority)
+            // Pass 1: Look for Yapp / Yapping (Highest Priority)
             for (var p = 0; p < compSearch.dropdown.items.length; p++) {
-                if (compSearch.dropdown.items[p].text.toLowerCase().indexOf("yapping") !== -1) {
+                var itemTextLower = compSearch.dropdown.items[p].text.toLowerCase();
+                if (itemTextLower.indexOf("yapp") !== -1) {
                     foundMouthIndex = p;
                     break;
                 }
@@ -6764,9 +6871,31 @@
             var optionsGroup = dialog.add("group");
             optionsGroup.orientation = "row";
             optionsGroup.alignment = "left";
+            optionsGroup.spacing = 8;
             optionsGroup.margins = [0, 0, 0, 2];
             var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Mouth (Horizontal)");
             flipCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            var yappCheckbox = optionsGroup.add("checkbox", undefined, "Yapp");
+            yappCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            yappCheckbox.helpTip = "Random mouth movement without audio amplitude";
+
+            var yappManuallyChanged = false;
+            yappCheckbox.onClick = function () {
+                yappManuallyChanged = true;
+            };
+
+            function syncYappCheckboxWithComp() {
+                if (yappManuallyChanged) return;
+                var mouthName = compSearch.getSelectedName();
+                if (mouthName) {
+                    var mLower = mouthName.toLowerCase();
+                    if (mLower.indexOf("yapp") !== -1) {
+                        yappCheckbox.value = true;
+                    } else if (mLower.indexOf("lip") !== -1 || mLower.indexOf("sync") !== -1 || mLower.indexOf("komat") !== -1) {
+                        yappCheckbox.value = false;
+                    }
+                }
+            }
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
@@ -6779,12 +6908,14 @@
             cancelBtn.preferredSize = [60, 18];
 
             compSearch.dropdown.onChange = function () {
+                syncYappCheckboxWithComp();
                 updateMouthPreview();
             };
 
             var origSearchChanging = compSearch.searchInput.onChanging;
             compSearch.searchInput.onChanging = function () {
                 if (origSearchChanging) origSearchChanging();
+                syncYappCheckboxWithComp();
                 updateMouthPreview();
             };
 
@@ -6797,6 +6928,7 @@
             } else if (compSearch.dropdown.items.length > 0) {
                 compSearch.dropdown.selection = 0;
             }
+            syncYappCheckboxWithComp();
             updateMouthPreview();
 
             applyBtn.onClick = function () {
@@ -6812,7 +6944,8 @@
                     return;
                 }
 
-                app.beginUndoGroup("Add Mouth, Sync & Markers");
+                var isYappActive = (yappCheckbox && yappCheckbox.value);
+                app.beginUndoGroup(isYappActive ? "Add Mouth (Yapp)" : "Add Mouth, Sync & Markers");
 
                 try {
                     var newlyAddedMouthLayers = [];
@@ -6851,49 +6984,73 @@
                         }
                     }
 
-                    // 1. Add Audio layer from main_comp (if available) - auto, no modal
-                    copyAndSyncAudioSilent();
+                    if (isYappActive) {
+                        // Yapp Mode: Do NOT copy audio or generate audio amplitude / markers
+                        // Enable time remap and apply random mouth expression
+                        var yappExpr = getYappMouthExpression();
 
-                    // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
-                    for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                    for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
-
-                    // 3. Auto Apply Audio Sync Expression to the mouth layers
-                    applyAudioSyncExpression(true, true);
-
-                    // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
-                    for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
-                        newlyAddedMouthLayers[j].startTime = 0;
-                        newlyAddedMouthLayers[j].outPoint = comp.duration;
-                    }
-
-                    // 4. Find and select the Audio layer for marker generation
-                    var audioLayerForMarkers = null;
-                    for (var i = 1; i <= comp.numLayers; i++) {
-                        var layerName = comp.layer(i).name.toLowerCase();
-                        if (layerName === "audio" || layerName.indexOf("audio") === 0) {
-                            audioLayerForMarkers = comp.layer(i);
-                            break;
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                            var mL = newlyAddedMouthLayers[j];
+                            if (!mL.timeRemapEnabled) {
+                                mL.timeRemapEnabled = true;
+                            }
+                            mL.timeRemap.expression = yappExpr;
+                            mL.startTime = 0;
+                            mL.outPoint = comp.duration;
                         }
-                    }
 
-                    if (audioLayerForMarkers) {
-                        var audioWasLocked = audioLayerForMarkers.locked;
-                        audioLayerForMarkers.locked = false;
+                        // Select newly added mouth layers
                         for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                        audioLayerForMarkers.selected = true;
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
-                        // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
-                        generateAudioSpikeMarkers(6, 8, false, true);
-
-                        // Ensure audio layer is locked by default
-                        audioLayerForMarkers.locked = true;
-                        audioLayerForMarkers.selected = false;
+                        updateStatus("Mouth (Yapp) attached to " + parentLayersToAttach.length + " layer(s)");
                     } else {
-                        generateAudioSpikeMarkers(6, 8, false, true);
+                        // Standard Audio Sync Mode:
+                        // 1. Add Audio layer from main_comp (if available) - auto, no modal
+                        copyAndSyncAudioSilent();
+
+                        // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
+                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
+
+                        // 3. Auto Apply Audio Sync Expression to the mouth layers
+                        applyAudioSyncExpression(true, true);
+
+                        // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                            newlyAddedMouthLayers[j].startTime = 0;
+                            newlyAddedMouthLayers[j].outPoint = comp.duration;
+                        }
+
+                        // 4. Find and select the Audio layer for marker generation
+                        var audioLayerForMarkers = null;
+                        for (var i = 1; i <= comp.numLayers; i++) {
+                            var layerName = comp.layer(i).name.toLowerCase();
+                            if (layerName === "audio" || layerName.indexOf("audio") === 0) {
+                                audioLayerForMarkers = comp.layer(i);
+                                break;
+                            }
+                        }
+
+                        if (audioLayerForMarkers) {
+                            var audioWasLocked = audioLayerForMarkers.locked;
+                            audioLayerForMarkers.locked = false;
+                            for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                            audioLayerForMarkers.selected = true;
+
+                            // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
+                            generateAudioSpikeMarkers(6, 8, false, true);
+
+                            // Ensure audio layer is locked by default
+                            audioLayerForMarkers.locked = true;
+                            audioLayerForMarkers.selected = false;
+                        } else {
+                            generateAudioSpikeMarkers(6, 8, false, true);
+                        }
+
+                        updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                     }
 
-                    updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                     dialog.close();
                 } catch (err) {
                     alert("Error during Add Mouth: " + err.toString());
