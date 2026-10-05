@@ -275,7 +275,7 @@
 
     var btnFromLayer = headerRow.add("button", undefined, "+ Layer");
     btnFromLayer.preferredSize = [54, 24];
-    btnFromLayer.helpTip = "Add range from selected layer(s). If multiple layers selected and 'Span' is checked, combines them into 1 range time.";
+    btnFromLayer.helpTip = "Add individual range for each selected layer";
 
     var btnFromSpan = headerRow.add("button", undefined, "+ Span");
     btnFromSpan.preferredSize = [50, 24];
@@ -286,28 +286,14 @@
     btnLog.helpTip = "View detailed execution log";
     btnLog.onClick = function () { showLogDialog(); };
 
-    // Sub-header row: multi-layer span checkbox & pending status label
+    // Sub-header row: pending status label (In marker feedback)
     var subHeaderRow = win.add("group");
     subHeaderRow.orientation = "row";
     subHeaderRow.alignChildren = ["fill", "center"];
     subHeaderRow.spacing = 6;
 
-    var cbSpanLayers = subHeaderRow.add("checkbox", undefined, "Span multi-layers into 1 range");
-    var savedSpan = "1";
-    if (app.settings && app.settings.haveSetting("BatchRendering", "span_multi_layers")) {
-        savedSpan = app.settings.getSetting("BatchRendering", "span_multi_layers");
-    }
-    cbSpanLayers.value = (savedSpan !== "0");
-    cbSpanLayers.helpTip = "When multiple layers are selected, combine them into 1 range time (earliest In to latest Out) instead of individual clips";
-    cbSpanLayers.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-    cbSpanLayers.onClick = function () {
-        if (app.settings) {
-            app.settings.saveSetting("BatchRendering", "span_multi_layers", this.value ? "1" : "0");
-        }
-    };
-
     var pendingLabel = subHeaderRow.add("statictext", undefined, "");
-    pendingLabel.alignment = ["right", "center"];
+    pendingLabel.alignment = ["fill", "center"];
     pendingLabel.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
 
     // --- ROW 2: Range List Box (Main area) ---
@@ -693,7 +679,7 @@
         return draft;
     }
 
-    function addRangesFromSelectedLayers(forceSpan) {
+    function addRangesFromSelectedLayers(isSpan) {
         var active = getActiveComp();
         if (active) {
             setTargetComp(active);
@@ -716,9 +702,8 @@
         }
 
         var fps = targetComp.frameRate;
-        var shouldSpan = (forceSpan === true) || (cbSpanLayers && cbSpanLayers.value);
 
-        if (selLayers.length > 1 && shouldSpan) {
+        if (isSpan === true) {
             var minIn = Infinity;
             var maxOut = -Infinity;
             var layerNames = [];
@@ -742,11 +727,12 @@
             addRangeUI(r, ranges.length - 1);
             updatePreview();
 
-            setStatus("Added combined span range from " + selLayers.length + " layers (" + r.inTimecode + " - " + r.outTimecode + ")");
+            setStatus("Added combined span range from " + selLayers.length + " layer(s) (" + r.inTimecode + " - " + r.outTimecode + ")");
             logMsg("Added combined span range: frames " + minIn + " - " + maxOut + " (" + selLayers.length + " layers: " + layerNames.join(", ") + ", suffix: " + spanSuffix + ")");
             return true;
         }
 
+        // Individual layer ranges (+ Layer mode)
         for (var i = 0; i < selLayers.length; i++) {
             var layer = selLayers[i];
             var inF = Math.round(layer.inPoint * fps);
@@ -758,7 +744,8 @@
         }
         updatePreview();
 
-        setStatus("Added " + selLayers.length + " range(s) from selected layer(s).");
+        setStatus("Added " + selLayers.length + " individual range(s) from selected layer(s).");
+        logMsg("Added " + selLayers.length + " individual layer range(s).");
         return true;
     }
 
@@ -800,7 +787,7 @@
             pendingLabel.text = "";
             setStatus("Range #" + ranges.length + " added.");
         } else {
-            if (!addRangesFromSelectedLayers()) {
+            if (!addRangesFromSelectedLayers(false)) {
                 setStatus("Mark In first, or select a layer in the timeline.");
             }
         }

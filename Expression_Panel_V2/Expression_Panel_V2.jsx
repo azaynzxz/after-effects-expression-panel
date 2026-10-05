@@ -1300,7 +1300,7 @@
         tabUtil.margins = 2;
 
         var utilItems = [
-            ["⛨ XLock", "XLock", function () { toggleXLockLayers(); }, "Toggle lock status for layers named 'x' or 'X' in main_comp"],
+            ["⛨ XLock", "XLock", function () { showXLockDialog(); }, "Toggle lock status for target layers (opens input modal) in main_comp and precomps"],
             ["✃ Auto Trim", "Auto Trim", function () { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
             ["♫ Copy Audio", "Copy Audio", function () { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
             ["♪ Audio Sync", "Audio Sync", function () { applyAudioSyncExpression(); }, "Apply audio sync expression to time remap property"],
@@ -2385,21 +2385,24 @@
 
             newAudioLayer.timeRemap.expression = expression;
 
-            // Auto-lock the audio layer to prevent overlapping with other layers
-            newAudioLayer.locked = true;
-
-            // Deselect all layers and select the audio layer
-            var allLayers = currentComp.selectedLayers;
-            for (var i = 0; i < allLayers.length; i++) {
-                allLayers[i].selected = false;
+            if (target.generateMarkers) {
+                newAudioLayer.locked = false;
+                var allLayers = currentComp.selectedLayers;
+                for (var i = 0; i < allLayers.length; i++) {
+                    allLayers[i].selected = false;
+                }
+                newAudioLayer.selected = true;
+                generateAudioSpikeMarkers(target.threshold, target.gap, target.applyToComp, true);
+                newAudioLayer.selected = false;
             }
-            newAudioLayer.selected = true;
+
+            // Each audio layer imported/copied must be locked by default
+            newAudioLayer.locked = true;
 
             if (undoStarted) app.endUndoGroup();
 
             if (target.generateMarkers) {
-                generateAudioSpikeMarkers(target.threshold, target.gap, target.applyToComp, true);
-                updateStatus("Copied, synced, and added markers from " + mainComp.name);
+                updateStatus("Copied, synced, locked, and added markers from " + mainComp.name);
             } else {
                 updateStatus("Copied, synced, and locked audio from " + mainComp.name);
             }
@@ -4597,7 +4600,7 @@
                 useMarkersCheck.enabled = false;
                 yMinInput.text = "100";
                 yMaxInput.text = "99";
-                speedInput.text = "3";
+                speedInput.text = "4";
             } else {
                 presetGroup.enabled = true;
                 yScalePanel.enabled = true;
@@ -4803,7 +4806,7 @@
 
                 var expression;
                 if (isReactAudio) {
-                    var halfCycle = (isNaN(speed) || speed < 1) ? 3 : Math.round(speed);
+                    var halfCycle = (isNaN(speed) || speed < 1) ? 4 : Math.round(speed);
                     expression = [
                         'try {',
                         '    var ampLayer = thisComp.layer("Audio Amplitude");',
@@ -6654,6 +6657,79 @@
 
             var compSearch = createSearchableDropdown(panel, "Mouth:", compNames);
 
+            // Preview Group & Image
+            var previewGrp = panel.add("group");
+            previewGrp.orientation = "column";
+            previewGrp.alignChildren = ["center", "center"];
+            previewGrp.alignment = ["fill", "top"];
+            previewGrp.margins = [0, 2, 0, 2];
+
+            var previewImg = previewGrp.add("image", undefined, undefined);
+            previewImg.preferredSize.width = 180;
+            previewImg.preferredSize.height = 180;
+
+            function updateMouthPreview() {
+                var mouthName = compSearch.getSelectedName();
+                if (!mouthName) {
+                    previewImg.image = null;
+                    return;
+                }
+                var selComp = compByName[mouthName];
+                if (!selComp || !(selComp instanceof CompItem)) {
+                    previewImg.image = null;
+                    return;
+                }
+
+                try {
+                    var isFlipped = (optionsGroup && flipCheckbox && flipCheckbox.value) ? true : false;
+                    var cacheKey = "mouth_prev_v2_" + selComp.id + (isFlipped ? "_flip" : "_norm");
+                    var tempFile = new File(Folder.temp.fsName.replace(/\\/g, "/") + "/" + cacheKey + ".png");
+
+                    if (!tempFile.exists) {
+                        var pw = 180;
+                        var ph = 180;
+                        var tempComp = null;
+                        try {
+                            tempComp = app.project.items.addComp("SmartRig_PreviewTemp", pw, ph, 1, 1, selComp.frameRate > 0 ? selComp.frameRate : 30);
+                            // White bg is default as requested
+                            tempComp.layers.addSolid([1, 1, 1], "BG", pw, ph, 1, 1);
+                            var srcLayer = tempComp.layers.add(selComp);
+
+                            srcLayer.property("Position").setValue([pw / 2, ph / 2]);
+
+                            var scaleX = pw / selComp.width;
+                            var scaleY = ph / selComp.height;
+                            // 82% margin prevents touching borders
+                            var scale = Math.min(scaleX, scaleY) * 82;
+
+                            if (isFlipped) {
+                                srcLayer.property("Scale").setValue([-scale, scale]);
+                            } else {
+                                srcLayer.property("Scale").setValue([scale, scale]);
+                            }
+
+                            tempComp.saveFrameToPng(0, tempFile);
+                        } catch (e) {
+                        } finally {
+                            if (tempComp) {
+                                try { tempComp.remove(); } catch (err) { }
+                            }
+                        }
+                    }
+
+                    if (tempFile.exists) {
+                        previewImg.image = tempFile;
+                    } else {
+                        previewImg.image = null;
+                    }
+                } catch (e) {
+                    previewImg.image = null;
+                }
+                if (dialog.layout) {
+                    dialog.layout.layout(true);
+                }
+            }
+
             // Auto-select priority: 1. Yapping, 2. Lipsync, 3. Komat Kamit
             var foundMouthIndex = -1;
 
@@ -6685,10 +6761,6 @@
                 }
             }
 
-            if (foundMouthIndex !== -1) {
-                compSearch.dropdown.selection = foundMouthIndex;
-            }
-
             var optionsGroup = dialog.add("group");
             optionsGroup.orientation = "row";
             optionsGroup.alignment = "left";
@@ -6705,6 +6777,27 @@
             applyBtn.preferredSize = [60, 18];
             var cancelBtn = btnGroup.add("button", undefined, "Cancel");
             cancelBtn.preferredSize = [60, 18];
+
+            compSearch.dropdown.onChange = function () {
+                updateMouthPreview();
+            };
+
+            var origSearchChanging = compSearch.searchInput.onChanging;
+            compSearch.searchInput.onChanging = function () {
+                if (origSearchChanging) origSearchChanging();
+                updateMouthPreview();
+            };
+
+            flipCheckbox.onClick = function () {
+                updateMouthPreview();
+            };
+
+            if (foundMouthIndex !== -1) {
+                compSearch.dropdown.selection = foundMouthIndex;
+            } else if (compSearch.dropdown.items.length > 0) {
+                compSearch.dropdown.selection = 0;
+            }
+            updateMouthPreview();
 
             applyBtn.onClick = function () {
                 var mouthName = compSearch.getSelectedName();
@@ -6785,12 +6878,20 @@
                     }
 
                     if (audioLayerForMarkers) {
+                        var audioWasLocked = audioLayerForMarkers.locked;
+                        audioLayerForMarkers.locked = false;
                         for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
                         audioLayerForMarkers.selected = true;
-                    }
 
-                    // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
-                    generateAudioSpikeMarkers(6, 8, false, true);
+                        // 5. Auto Apply Audio Marker on the selected layer (Audio layer). This also generates Audio Amplitude.
+                        generateAudioSpikeMarkers(6, 8, false, true);
+
+                        // Ensure audio layer is locked by default
+                        audioLayerForMarkers.locked = true;
+                        audioLayerForMarkers.selected = false;
+                    } else {
+                        generateAudioSpikeMarkers(6, 8, false, true);
+                    }
 
                     updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                     dialog.close();
@@ -6805,6 +6906,10 @@
                 dialog.close();
             };
 
+            if (dialog.layout) {
+                dialog.layout.layout(true);
+                dialog.layout.resize();
+            }
             dialog.center();
             dialog.show();
 
@@ -6972,10 +7077,15 @@
             } else {
                 for (var l = 0; l < selectedLayers.length; l++) {
                     var layer = selectedLayers[l];
+                    var wasL = layer.locked;
+                    if (wasL) layer.locked = false;
                     for (var s = 0; s < spikes.length; s++) {
                         var mv = new MarkerValue("");
-                        layer.property("Marker").setValueAtTime(spikes[s].time, mv);
+                        try {
+                            layer.property("Marker").setValueAtTime(spikes[s].time, mv);
+                        } catch (e) { }
                     }
+                    if (wasL) layer.locked = true;
                 }
                 updateStatus("Added " + spikes.length + " markers to " + selectedLayers.length + " layer(s)");
             }
@@ -10218,9 +10328,116 @@
         }
     }
 
-    // Toggle lock status of layers named 'x' or 'X' in main_comp
-    function toggleXLockLayers() {
+    // Show modal dialog to configure target layer names for XLock
+    function showXLockDialog() {
+        var cachedTargets = "x, hide";
+        if (app.settings && app.settings.haveSetting("ExpressionPanel", "xlock_targets")) {
+            cachedTargets = app.settings.getSetting("ExpressionPanel", "xlock_targets");
+        }
+
+        var dialog = new Window("dialog", "XLock Settings");
+        dialog.orientation = "column";
+        dialog.alignChildren = ["fill", "top"];
+        dialog.spacing = 6;
+        dialog.margins = 10;
+        dialog.preferredSize.width = 240;
+
+        var panel = dialog.add("panel", undefined, "Toggle Layer Locks");
+        panel.orientation = "column";
+        panel.alignChildren = ["fill", "top"];
+        panel.spacing = 5;
+        panel.margins = 8;
+
+        var lblPrompt = panel.add("statictext", undefined, "Target layers (comma-separated):");
+        lblPrompt.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        var txtTargets = panel.add("edittext", undefined, cachedTargets);
+        txtTargets.preferredSize = [200, 20];
+        txtTargets.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+        txtTargets.helpTip = "Target layer names (comma-separated, e.g. x, hide, null, audio)";
+
+        // Presets row
+        var presetGrp = panel.add("group");
+        presetGrp.orientation = "row";
+        presetGrp.alignChildren = ["left", "center"];
+        presetGrp.spacing = 3;
+
+        var lblPre = presetGrp.add("statictext", undefined, "Presets:");
+        lblPre.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+
+        var btnPre1 = presetGrp.add("button", undefined, "x");
+        btnPre1.preferredSize = [25, 18];
+        btnPre1.onClick = function () { txtTargets.text = "x"; };
+
+        var btnPre2 = presetGrp.add("button", undefined, "hide");
+        btnPre2.preferredSize = [35, 18];
+        btnPre2.onClick = function () { txtTargets.text = "hide"; };
+
+        var btnPre3 = presetGrp.add("button", undefined, "x, hide");
+        btnPre3.preferredSize = [48, 18];
+        btnPre3.onClick = function () { txtTargets.text = "x, hide"; };
+
+        var btnPre4 = presetGrp.add("button", undefined, "audio");
+        btnPre4.preferredSize = [40, 18];
+        btnPre4.onClick = function () { txtTargets.text = "audio"; };
+
+        var btnGroup = dialog.add("group");
+        btnGroup.orientation = "row";
+        btnGroup.alignment = "center";
+        btnGroup.spacing = 6;
+
+        var applyBtn = btnGroup.add("button", undefined, "Apply", { name: "ok" });
+        applyBtn.preferredSize = [65, 20];
+
+        var cancelBtn = btnGroup.add("button", undefined, "Cancel", { name: "cancel" });
+        cancelBtn.preferredSize = [65, 20];
+
+        applyBtn.onClick = function () {
+            var val = txtTargets.text;
+            if (app.settings) {
+                app.settings.saveSetting("ExpressionPanel", "xlock_targets", val);
+            }
+            dialog.close();
+            executeXLock(val);
+        };
+
+        cancelBtn.onClick = function () {
+            dialog.close();
+        };
+
+        dialog.center();
+        dialog.show();
+    }
+
+    // Toggle lock status of layers named 'x' or custom targets in main_comp and precomps
+    function toggleXLockLayers(targetsInput) {
+        if (typeof targetsInput === "string" && targetsInput !== "") {
+            executeXLock(targetsInput);
+        } else {
+            showXLockDialog();
+        }
+    }
+
+    function executeXLock(inputStr) {
         try {
+            if (!inputStr || inputStr === "") {
+                if (app.settings && app.settings.haveSetting("ExpressionPanel", "xlock_targets")) {
+                    inputStr = app.settings.getSetting("ExpressionPanel", "xlock_targets");
+                } else {
+                    inputStr = "x, hide";
+                }
+            }
+
+            var rawTargets = inputStr.split(",");
+            var targetList = [];
+            for (var t = 0; t < rawTargets.length; t++) {
+                var clean = rawTargets[t].replace(/^\s+|\s+$/g, '').toLowerCase();
+                if (clean.length > 0) targetList.push(clean);
+            }
+            if (targetList.length === 0) targetList = ["x"];
+
+            var toggledCount = 0;
+
             // Function to process a composition recursively
             function processComp(comp) {
                 for (var i = 1; i <= comp.numLayers; i++) {
@@ -10231,15 +10448,31 @@
                         processComp(layer.source); // Recursive
                     }
 
-                    // Check if name is "x", "X", or expressions like "X and x"
                     var layerNameStr = layer.name.toString().replace(/^\s+|\s+$/g, '').toLowerCase();
-                    if (layerNameStr === "x" || layerNameStr === "x and x" || layerNameStr === "x & x") {
+                    var match = false;
+                    for (var k = 0; k < targetList.length; k++) {
+                        var target = targetList[k];
+                        if (target === "x") {
+                            if (layerNameStr === "x" || layerNameStr === "x and x" || layerNameStr === "x & x") {
+                                match = true;
+                                break;
+                            }
+                        } else {
+                            if (layerNameStr === target) {
+                                match = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (match) {
                         layer.locked = !layer.locked; // Toggle lock status
+                        toggledCount++;
                     }
                 }
             }
 
-            // Try to start from a comp named "main_comp"
+            // Try to start from a comp named "main_comp", or fallback to active comp
             var mainComp = null;
             for (var i = 1; i <= app.project.numItems; i++) {
                 var item = app.project.item(i);
@@ -10248,12 +10481,15 @@
                     break;
                 }
             }
+            if (!mainComp && app.project.activeItem && app.project.activeItem instanceof CompItem) {
+                mainComp = app.project.activeItem;
+            }
 
             if (mainComp) {
-                app.beginUndoGroup("Toggle Lock for Layers Named 'x' or 'X'");
+                app.beginUndoGroup("Toggle Lock for Layers (" + targetList.join(", ") + ")");
                 processComp(mainComp);
                 app.endUndoGroup();
-                updateStatus("Toggled lock status for layers named 'x' or 'X' in main_comp and precomps");
+                updateStatus("Toggled lock status for " + toggledCount + " layer(s) matching (" + targetList.join(", ") + ") in " + mainComp.name + " and precomps");
             } else {
                 alert("Main Comp not found in the project.");
                 updateStatus("Main Comp not found");

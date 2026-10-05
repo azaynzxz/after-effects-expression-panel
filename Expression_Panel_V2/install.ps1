@@ -36,6 +36,8 @@ $ScriptsToInstall = @(
     "Sync_PSDs_Timeline.jsx",
     "BatchRendering.jsx",
     "SmartRig.jsx",
+    "Joystick.jsx",
+    "PupilJoystick.jsx",
     "config.json"
 )
 
@@ -256,15 +258,55 @@ foreach ($target in $selectedTargets) {
                     Write-Host "  [WARN] Could not merge $script : $($_.Exception.Message)" -ForegroundColor Yellow
                 }
             } else {
-                if (Test-Path $dst) {
-                    Remove-Item -Path $dst -Force -ErrorAction SilentlyContinue
+                try {
+                    if (Test-Path $dst) {
+                        Remove-Item -Path $dst -Force -ErrorAction SilentlyContinue
+                    }
+                    Copy-Item -Path $src -Destination $dst -Force -ErrorAction Stop
+                    Write-Host "  [OK] Copied to Program Files: $script" -ForegroundColor Green
+                } catch {
+                    Write-Host "  [WARN] Program Files copy skipped (Admin required): $script" -ForegroundColor Yellow
                 }
-                Copy-Item -Path $src -Destination $dst -Force
-                Write-Host "  [OK] Copied: $script" -ForegroundColor Green
             }
         } else {
             Write-Host "  [SKIP] Not found in source: $script" -ForegroundColor DarkGray
         }
+    }
+
+    # Also deploy to User AppData ScriptUI Panels (guaranteed to succeed without Admin rights)
+    try {
+        $appDataBase = Join-Path $env:APPDATA "Adobe\After Effects"
+        $majorVer = $target.Version -replace '^20', ''
+        $userVerFolders = @()
+        if (Test-Path $appDataBase) {
+            $userVerFolders = Get-ChildItem -Path $appDataBase -Directory | Where-Object { $_.Name -like "$majorVer.*" }
+        }
+        if ($userVerFolders.Count -eq 0) {
+            $fallbackUserDir = Join-Path $appDataBase "$majorVer.0"
+            $userVerFolders = @([PSCustomObject]@{ FullName = $fallbackUserDir; Name = "$majorVer.0" })
+        }
+
+        foreach ($uvf in $userVerFolders) {
+            $uPanelsPath = Join-Path $uvf.FullName "Scripts\ScriptUI Panels"
+            if (-not (Test-Path $uPanelsPath)) {
+                New-Item -ItemType Directory -Path $uPanelsPath -Force | Out-Null
+            }
+            Write-Host "  -> Deploying to User AppData ($($uvf.Name)): $uPanelsPath" -ForegroundColor Cyan
+            foreach ($script in $ScriptsToInstall) {
+                $src = Join-Path $SourceDir $script
+                $uDst = Join-Path $uPanelsPath $script
+                if (Test-Path $src) {
+                    if ($script -eq "config.json" -and (Test-Path $uDst)) {
+                        # Keep existing user config
+                    } else {
+                        Copy-Item -Path $src -Destination $uDst -Force
+                        Write-Host "     [OK] User Panel: $script" -ForegroundColor Green
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Host "  [WARN] Could not deploy to User AppData: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
     # Initialize User Documents Preset folder (writable by AE without Admin privileges)

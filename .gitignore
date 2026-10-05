@@ -13,3 +13,6 @@
 !SFX_Browser/
 !SFX_Browser/**
 !copy_to_ae.bat
+!agent/
+!agent/**
+!context.md
