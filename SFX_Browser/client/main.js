@@ -131,7 +131,13 @@ document.getElementById('refreshBtn').addEventListener('click', function () {
 
 // ─── Live Search Filter & Sorting ──────────────────────────────────────────────
 
+var filterTimer = null;
 document.getElementById('searchInput').addEventListener('input', function () {
+    if (filterTimer) clearTimeout(filterTimer);
+    filterTimer = setTimeout(applyFilter, 150);
+});
+
+document.getElementById('copyrightFreeCheck').addEventListener('change', function () {
     applyFilter();
 });
 
@@ -142,20 +148,21 @@ document.getElementById('sortBtn').addEventListener('click', function () {
 });
 
 function applyFilter() {
+    filterTimer = null;
     var q = document.getElementById('searchInput').value.toLowerCase().trim();
+    var copyrightFree = document.getElementById('copyrightFreeCheck').checked;
     var filtered = [];
 
-    if (!q) {
-        filtered = cachedItems.slice();
-    } else {
-        for (var i = 0; i < cachedItems.length; i++) {
-            var it = cachedItems[i];
-            var nameMatch = it.name && it.name.toLowerCase().indexOf(q) !== -1;
+    for (var i = 0; i < cachedItems.length; i++) {
+        var it = cachedItems[i];
+        var lname = (it.name || '').toLowerCase();
+        if (copyrightFree && lname.indexOf('_by_') === -1) continue;
+        if (q) {
+            var nameMatch = lname.indexOf(q) !== -1;
             var binMatch = it.binPath && it.binPath.toLowerCase().indexOf(q) !== -1;
-            if (nameMatch || binMatch) {
-                filtered.push(it);
-            }
+            if (!nameMatch && !binMatch) continue;
         }
+        filtered.push(it);
     }
 
     filtered.sort(function (a, b) {
@@ -177,6 +184,7 @@ function applyFilter() {
 
 function renderList(items) {
     var container = document.getElementById('audioList');
+    var frag = document.createDocumentFragment();
     container.innerHTML = '';
 
     if (items.length === 0) {
@@ -238,9 +246,10 @@ function renderList(items) {
                 insertItem(item);
             });
 
-            container.appendChild(div);
+            frag.appendChild(div);
         })(items[i]);
     }
+    container.appendChild(frag);
 }
 
 // ─── FFmpeg Audio Slicing for Exact Segment Drops & Inserts ───────────────────
@@ -298,6 +307,9 @@ function insertItem(item) {
         var segDur = rangeOut - rangeIn;
         var mediaSrc = item.mediaPath || '';
         var sliced = createAudioSlice(mediaSrc, rangeIn, rangeOut, item.name);
+        if (sliced === mediaSrc) {
+            setStatus('Could not cut segment (ffmpeg missing or failed); placing full audio', 'warning');
+        }
 
         if (sliced && fs && fs.existsSync(sliced)) {
             setStatus('Placing cut segment (' + segDur.toFixed(2) + 's)…');
@@ -454,6 +466,8 @@ function togglePlayTrack(item, btnElement, listItemElement) {
     activeListItemEl = listItemElement;
     activePlayBtn = btnElement;
 
+    currentDuration = 0;
+    currentPeaks = [];
     rangeIn = 0;
     rangeOut = 0;
     isRangeActive = false;
@@ -511,7 +525,11 @@ function startAudioWithWaveform(item, cleanPath) {
 
         currentAudio.addEventListener('ended', function () {
             if (!isLooping) {
-                stopPlayback();
+                // Keep the track loaded so the selected range can still be placed
+                pausePlayback();
+                try { currentAudio.currentTime = isRangeActive ? rangeIn : 0; } catch (e) {}
+                var d = currentAudio.duration || currentDuration || 1;
+                seekToPercentage((isRangeActive ? rangeIn : 0) / d);
                 setStatus('Finished: ' + item.name);
             }
         });

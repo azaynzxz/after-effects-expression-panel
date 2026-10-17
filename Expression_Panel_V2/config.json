@@ -4,7 +4,8 @@
   "description": "Configuration file and custom user presets for Expression Panel V2. Editable by user, scripts, or AI tools.",
   "settings": {
     "autoSave": true,
-    "theme": "dark"
+    "theme": "dark",
+    "autoApply": true
   },
   "presets": {
     "vScale": [

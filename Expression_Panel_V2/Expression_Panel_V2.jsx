@@ -176,7 +176,8 @@
             "description": "Configuration file and custom user presets for Expression Panel V2. Editable by user, scripts, or AI tools.",
             "settings": {
                 "autoSave": true,
-                "theme": "dark"
+                "theme": "dark",
+                "autoApply": true
             },
             "presets": {
                 "vScale": [
@@ -282,6 +283,34 @@
             alert("Error saving config.json: " + e.message);
             return false;
         }
+    }
+
+    function isAutoApplyEnabled() {
+        if (app.settings && app.settings.haveSetting("ExpressionPanelV2", "AutoApply")) {
+            return app.settings.getSetting("ExpressionPanelV2", "AutoApply") !== "false";
+        }
+        try {
+            var config = loadConfig();
+            if (config && config.settings && config.settings.autoApply !== undefined) {
+                return config.settings.autoApply === true;
+            }
+        } catch (e) {}
+        return true;
+    }
+
+    function setAutoApplyEnabled(val) {
+        var boolVal = val !== false;
+        if (app.settings) {
+            try {
+                app.settings.saveSetting("ExpressionPanelV2", "AutoApply", boolVal ? "true" : "false");
+            } catch (e) {}
+        }
+        try {
+            var config = loadConfig();
+            if (!config.settings) config.settings = {};
+            config.settings.autoApply = boolVal;
+            saveConfig(config);
+        } catch (e) {}
     }
 
     function getPresets(category) {
@@ -705,6 +734,19 @@
             }
         };
 
+        // General Settings Section
+        var settingsPanel = dialog.add("panel", undefined, "Settings");
+        settingsPanel.orientation = "row";
+        settingsPanel.alignChildren = ["left", "center"];
+        settingsPanel.margins = 8;
+
+        var autoApplyGlobalCheck = settingsPanel.add("checkbox", undefined, "Auto Apply");
+        autoApplyGlobalCheck.value = isAutoApplyEnabled();
+        autoApplyGlobalCheck.helpTip = "If checked, clicking preset buttons auto-applies presets directly. If unchecked, preset buttons populate input fields and require clicking the Apply button.";
+        autoApplyGlobalCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
+
         // Bottom dialog buttons
         var bottomRow = dialog.add("group");
         bottomRow.orientation = "row";
@@ -993,7 +1035,20 @@
             ["⤓ Squash 2", "Squash 2", function () { applySquash2Animation(); }, "Apply squash 2 (staggered transition) animation"],
             ["✦ Glitter", "Glitter", runAnim, "Apply glitter flashing animation"],
             ["↻ Time Rot", "Time Rotation", runAnim, "Continuous constant speed rotation"],
-            ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"]
+            ["⇄ Rot Ping", "Rotation PingPong", runAnim, "Burst rotation oscillations with pause"],
+            ["⧗ Posterize Time", "Posterize Time", runAnim, "Posterize time effect"],
+            ["⏸ Stop Motion", "Stop Motion", runAnim, "Stop motion effect"],
+            ["☇ Thunder Flicker", "Thunder Flicker", runAnim, "Flickering thunder effect"],
+            ["☽ Horror Light", "Horror Light", runAnim, "Horror flickering light effect"],
+            ["⧗ B Posterizer", "B Posterizer", runAnim, "Basic posterizer effect"],
+            ["⚏ Fish-like", "Fish-like", runAnim, "Fish-like swim animation"],
+            ["⇅ Choppy Flip", "Choppy Flip", function () { showChoppyFlipDialog(); }, "Flip layer in a choppy motion"],
+            ["◒ Blink", "Blink", function () { showBlinkDialog(); }, "Add blinking effect"],
+            ["⇾ Kick Out", "Kick Out", function () { showKickOutOfFrameDialog(); }, "Kick layer out of frame"],
+            ["⇿ Put Here", "Put Here", function () { showPutHereDialog(); }, "Put layer into frame"],
+            ["⧉ Tight Crop", "Tight Crop", function () { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
+            ["□ White BG", "White BG", function () { setPrecompBgWhite(); }, "Set precomp background to white"],
+            ["◐ Rev Opacity", "Reverse Opacity", function () { applyReverseOpacity(); }, "Reverse opacity keyframes"]
         ];
 
         var favUtilPairsAll = [
@@ -1005,7 +1060,18 @@
             ["⧈ Mask Fit", "Mask Fit", function () { applyMaskAutoFit(); }, "Use selected or first mask to auto-position and scale layer to fit comp"],
             ["⧈ X Crop", "X Crop", function () { openXCropTool(); }, "Open X Crop tool for smart composition cropping"],
             ["⧉ Tight Crop", "Tight Crop", function () { runUnprecompDirect(); }, "Crop precomp to content boundaries securely"],
-            ["⇆ Flip H", "Flip H", function () { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"]
+            ["⇆ Flip H", "Flip H", function () { flipHorizontal(); }, "Flip layers horizontally (invert X scale)"],
+            ["⛨ XLock", "XLock", function () { showXLockDialog(); }, "Toggle lock status for target layers (opens input modal) in main_comp and precomps"],
+            ["✃ Auto Trim", "Auto Trim", function () { autoTrimLayers(); }, "Trim overlapping layers automatically in main_comp"],
+            ["♫ Copy Audio", "Copy Audio", function () { copyAndSyncAudio(); }, "Copy audio, sync, and optionally generate markers"],
+            ["⚲ MK CTRL", "MK CTRL", function () { showMKCtrlDialog(); }, "Add expression markers (stop, sync, SQ, B, End, bow, nod) for animations"],
+            ["⚯ Puppet→Null", "Puppet→Null", function () { createPuppetNulls(); }, "Create null objects for puppet pins on selected layer(s)"],
+            ["↕ Flip V", "Flip V", function () { flipVertical(); }, "Flip layers vertically (invert Y scale)"],
+            ["☒ Hide Layer 2", "Hide Layer 2", function () { hideAllLayersNamedHide2(); }, "Hide all layers starting with 'hide' or 'x' in a user-selected comp"],
+            ["⧗ Batch Duration", "Batch Duration", function () { changeBatchDuration(); }, "Change duration of selected precomp source compositions"],
+            ["⧗ Batch FPS", "Batch FPS", function () { showBatchFramerateDialog(); }, "Change framerate of selected precomp source compositions in main_comp"],
+            ["⧈ Auto Size", "Auto Size", function () { autoSizeSelectedLayers(); }, "Resize selected layers/precomps to fit the composition"],
+            ["☒ Clean Tabs", "Clean Tabs Open", function () { cleanTabsOpen(); }, "Close all open viewers/tabs except main_comp and Render Queue"]
         ];
 
         var favLoopPairsAll = [
@@ -1017,7 +1083,24 @@
             ["☰ List Jumper", "List Jumper", function () {
                 var scriptFile = new File($.fileName).parent.absoluteURI + "/List_Jumper.jsx";
                 $.evalFile(new File(scriptFile));
-            }, "Open List Jumper - jump to timeline positions based on CSV word data"]
+            }, "Open List Jumper - jump to timeline positions based on CSV word data"],
+            ["∞ Looper", "Looper", function () { looperTool(); }, "Enable time remap loop on selected precomp layer"],
+            ["▢ Create Null", "Create Null", function () { createNullObject(); }, "Creates a null object for the selected layer"],
+            ["⇄ Reverse KF", "Reverse KF", function () { reverseAllKeyframes(); }, "Reverse selected keyframes"],
+            ["⤢ Batch Scale", "Batch Scale", function () { showBatchScaleDialog(); }, "Batch scale layers with presets"],
+            ["⧉ Smart Precomp", "Smart Precomp", function () { createSmartPrecomp(); }, "Create precomp retaining size, scale and position"],
+            ["⤎ CP Movement", "CP Movement", function () { showCPMovementDialog(); }, "Copy movement from a layer inside precomp"],
+            ["⌕ Auto Zoom", "Auto Zoom", function () { showAutoZoomDialog(); }, "Add zoom in/out keyframes to selected layers"],
+            ["⤏ Walk/Run", "Walk/Run", function () { showWalkRunDialog(); }, "Add walking/running arc movement"],
+            ["⚯ Attach Leg", "Attach Leg", function () { showAttachLegDialog(); }, "Attach a leg comp to the selected layer"],
+            ["⚲ Add Mouth", "Add Mouth", function () { showAttachMouthDialog(); }, "Attach a mouth comp to the selected layer (Add Lip)"],
+            ["⤓ Pinch", "Pinch", function () { showPinchDialog(); }, "Add a pinch preset animation"],
+            ["⧗ Text Counter", "Text Counter", function () { showTextCounterDialog(); }, "Create a text counter with dynamic formatting and custom slider limits"],
+            ["⚇ Smart Rig", "Smart Rig", function () { var scriptFile = new File($.fileName).parent.absoluteURI + "/SmartRig.jsx"; $.evalFile(new File(scriptFile)); }, "Open Smart Rig script"],
+            ["▤ Batch Render", "Batch Rendering", function () { var scriptFile = new File($.fileName).parent.absoluteURI + "/BatchRendering.jsx"; $.evalFile(new File(scriptFile)); }, "Open Batch Rendering script"],
+            ["◫ Sync PSDs", "Sync PSDs", function () { var scriptFile = new File($.fileName).parent.absoluteURI + "/Sync_PSDs_Timeline.jsx"; $.evalFile(new File(scriptFile)); }, "Open Sync PSDs to Timeline script"],
+            ["⚙ Presets", "Preset Manager", function () { showGlobalPresetManager(); }, "Open Global Preset Manager to edit, delete, and reorder presets"],
+            ["⤾ Anticipate", "Anticipate", function () { showTab(7); }, "Open Auto Anticipation & Overshoot tab"]
         ];
 
         function getFavSetting(category, defaultList) {
@@ -1557,43 +1640,6 @@
         sep4.alignment = ["fill", "top"];
         sep4.preferredSize = [10, 2];
 
-        // Custom Utils Row 1: Copy/Paste Anim
-        var animRow1 = tabLayerUtil.add("group");
-        animRow1.orientation = "row";
-        animRow1.alignChildren = ["center", "center"];
-        animRow1.alignment = ["center", "top"];
-        animRow1.spacing = 2;
-
-        var copyAnimBtn = animRow1.add("button", undefined, "[Copy Anim]");
-        copyAnimBtn.preferredSize = [69, 18];
-        copyAnimBtn.helpTip = "Copy keyframes to memory";
-        copyAnimBtn.onClick = function () { doCopyAnim(); };
-
-        var pasteAnimBtn = animRow1.add("button", undefined, "[Paste Anim]");
-        pasteAnimBtn.preferredSize = [69, 18];
-        pasteAnimBtn.helpTip = "Paste keyframes from memory";
-        pasteAnimBtn.onClick = function () { doPasteAnim(); };
-
-        var pasteEaseBtn = animRow1.add("button", undefined, "[Paste Ease]");
-        pasteEaseBtn.preferredSize = [69, 18];
-        pasteEaseBtn.helpTip = "Paste ONLY easing curves (Keep values)";
-        pasteEaseBtn.onClick = function () { doPasteEaseAnim(); };
-
-        var animRow2 = tabLayerUtil.add("group");
-        animRow2.orientation = "row";
-        animRow2.alignChildren = ["center", "center"];
-        animRow2.alignment = ["center", "top"];
-        animRow2.spacing = 2;
-
-        var saveAnimBtn = animRow2.add("button", undefined, "[Save Lib]");
-        saveAnimBtn.preferredSize = [69, 18];
-        saveAnimBtn.helpTip = "Save copied keyframes to a JSON preset";
-        saveAnimBtn.onClick = function () { saveAnimToJson(); };
-
-        var loadAnimBtn = animRow2.add("button", undefined, "[Load Lib]");
-        loadAnimBtn.preferredSize = [69, 18];
-        loadAnimBtn.helpTip = "Load and paste keyframes from a JSON preset";
-        loadAnimBtn.onClick = function () { loadAnimFromJson(); };
 
         // Custom Utils Row 2: Paste Asset
         var assetRow = tabLayerUtil.add("group");
@@ -2955,7 +3001,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Input settings in a more compact layout
         var inputGroup = dialog.add("group");
@@ -3069,13 +3115,27 @@
         presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presetLabel = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
 
         function applyUpDownPreset(amp, frames) {
             ampInput.text = amp.toString();
             framesInput.text = frames.toString();
-            okBtn.onClick();
+            if (autoApplyCheck.value) {
+                okBtn.onClick();
+            }
         }
 
         // First row of presets
@@ -3427,7 +3487,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Input settings in a more compact layout
         var inputGroup = dialog.add("group");
@@ -3541,13 +3601,27 @@
         presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presetLabel = presetGroup.add("statictext", undefined, "Presets:");
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presetLabel = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presetLabel.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
 
         function applyLeftRightPreset(amp, frames) {
             ampInput.text = amp.toString();
             framesInput.text = frames.toString();
-            okBtn.onClick();
+            if (autoApplyCheck.value) {
+                okBtn.onClick();
+            }
         }
 
         // First row of presets
@@ -3786,7 +3860,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 220;
+        dialog.preferredSize.width = 250;
 
         // Frequency setting
         var freqGroup = dialog.add("group");
@@ -3814,12 +3888,29 @@
 
         // Preset buttons
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 3;
 
-        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presLbl = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
+
+        var presetButtonsRow = presetGroup.add("group");
+        presetButtonsRow.orientation = "row";
+        presetButtonsRow.alignChildren = ["left", "center"];
+        presetButtonsRow.spacing = 3;
 
         function applyWaterFloat(fVal, aVal) {
             if (!fVal || !aVal || isNaN(parseFloat(fVal)) || isNaN(parseFloat(aVal))) {
@@ -3831,25 +3922,37 @@
             dialog.close();
         }
 
-        var gentleBtn = presetGroup.add("button", undefined, "Gentle");
+        var gentleBtn = presetButtonsRow.add("button", undefined, "Gentle");
         gentleBtn.preferredSize = [45, 18];
         gentleBtn.helpTip = "Apply Gentle float (0.5, 30) directly";
         gentleBtn.onClick = function () {
-            applyWaterFloat(0.5, 30);
+            freqInput.text = "0.5";
+            ampInput.text = "30";
+            if (autoApplyCheck.value) {
+                applyWaterFloat(0.5, 30);
+            }
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Norm");
+        var normalBtn = presetButtonsRow.add("button", undefined, "Norm");
         normalBtn.preferredSize = [45, 18];
         normalBtn.helpTip = "Apply Normal float (1, 50) directly";
         normalBtn.onClick = function () {
-            applyWaterFloat(1, 50);
+            freqInput.text = "1";
+            ampInput.text = "50";
+            if (autoApplyCheck.value) {
+                applyWaterFloat(1, 50);
+            }
         };
 
-        var roughBtn = presetGroup.add("button", undefined, "Rough");
+        var roughBtn = presetButtonsRow.add("button", undefined, "Rough");
         roughBtn.preferredSize = [45, 18];
         roughBtn.helpTip = "Apply Rough float (2, 70) directly";
         roughBtn.onClick = function () {
-            applyWaterFloat(2, 70);
+            freqInput.text = "2";
+            ampInput.text = "70";
+            if (autoApplyCheck.value) {
+                applyWaterFloat(2, 70);
+            }
         };
 
         var buttonGroup = dialog.add("group");
@@ -3875,7 +3978,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Helper font
         var regFont = ScriptUI.newFont("Arial", "REGULAR", 9);
@@ -3931,13 +4034,29 @@
 
         // Preset buttons
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignChildren = ["left", "center"];
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
-        presLbl.preferredSize = [48, 18];
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presLbl = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = boldFont;
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
+
+        var presetButtonsRow = presetGroup.add("group");
+        presetButtonsRow.orientation = "row";
+        presetButtonsRow.alignChildren = ["left", "center"];
+        presetButtonsRow.spacing = 2;
 
         function applyGlitter(offset, frames, minVal, maxVal, smooth) {
             var o = parseFloat(offset);
@@ -3972,32 +4091,56 @@
             dialog.close();
         }
 
-        var fastBtn = presetGroup.add("button", undefined, "Fast");
+        var fastBtn = presetButtonsRow.add("button", undefined, "Fast");
         fastBtn.preferredSize = [38, 18];
         fastBtn.helpTip = "Apply Fast glitter (6f) directly";
         fastBtn.onClick = function () {
-            applyGlitter(0, 6, 0, 100, smoothCheckbox.value);
+            offsetInput.text = "0";
+            framesInput.text = "6";
+            minInput.text = "0";
+            maxInput.text = "100";
+            if (autoApplyCheck.value) {
+                applyGlitter(0, 6, 0, 100, smoothCheckbox.value);
+            }
         };
 
-        var normalBtn = presetGroup.add("button", undefined, "Norm");
+        var normalBtn = presetButtonsRow.add("button", undefined, "Norm");
         normalBtn.preferredSize = [38, 18];
         normalBtn.helpTip = "Apply Normal glitter (12f) directly";
         normalBtn.onClick = function () {
-            applyGlitter(0.5, 12, 0, 100, smoothCheckbox.value);
+            offsetInput.text = "0.5";
+            framesInput.text = "12";
+            minInput.text = "0";
+            maxInput.text = "100";
+            if (autoApplyCheck.value) {
+                applyGlitter(0.5, 12, 0, 100, smoothCheckbox.value);
+            }
         };
 
-        var slowBtn = presetGroup.add("button", undefined, "Slow");
+        var slowBtn = presetButtonsRow.add("button", undefined, "Slow");
         slowBtn.preferredSize = [38, 18];
         slowBtn.helpTip = "Apply Slow glitter (24f) directly";
         slowBtn.onClick = function () {
-            applyGlitter(1, 24, 0, 100, smoothCheckbox.value);
+            offsetInput.text = "1";
+            framesInput.text = "24";
+            minInput.text = "0";
+            maxInput.text = "100";
+            if (autoApplyCheck.value) {
+                applyGlitter(1, 24, 0, 100, smoothCheckbox.value);
+            }
         };
 
-        var subtleBtn = presetGroup.add("button", undefined, "Subt");
+        var subtleBtn = presetButtonsRow.add("button", undefined, "Subt");
         subtleBtn.preferredSize = [38, 18];
         subtleBtn.helpTip = "Apply Subtle glitter (50-100) directly";
         subtleBtn.onClick = function () {
-            applyGlitter(0.5, 12, 50, 100, smoothCheckbox.value);
+            offsetInput.text = "0.5";
+            framesInput.text = "12";
+            minInput.text = "50";
+            maxInput.text = "100";
+            if (autoApplyCheck.value) {
+                applyGlitter(0.5, 12, 50, 100, smoothCheckbox.value);
+            }
         };
 
         var buttonGroup = dialog.add("group");
@@ -4256,7 +4399,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Input settings in a two-column layout
         var inputGroup = dialog.add("group");
@@ -4376,6 +4519,13 @@
         managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
         managePresetBtn.onClick = function () {
             showGlobalPresetManager("scalePulse", refreshScalePulsePresets);
+        };
+
+        var autoApplyCheck = presetLabelGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
         };
 
         var presetButtonsContainer = presetGroup.add("group");
@@ -4544,7 +4694,9 @@
                             minInput.text = String(minVal);
                             maxInput.text = String(maxVal);
                             speedInput.text = String(framesVal);
-                            applyScalePulse();
+                            if (autoApplyCheck.value) {
+                                applyScalePulse();
+                            }
                         }
                     };
                 })(presets[i], i);
@@ -4604,7 +4756,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Input settings in a two-column layout
         var inputGroup = dialog.add("group");
@@ -4754,6 +4906,13 @@
         managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
         managePresetBtn.onClick = function () {
             showGlobalPresetManager("vScale", refreshVScalePresets);
+        };
+
+        var autoApplyCheck = presetLabelGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
         };
 
         var presetButtonsContainer = presetGroup.add("group");
@@ -5148,7 +5307,9 @@
                             yMinInput.text = String(minVal);
                             yMaxInput.text = String(maxVal);
                             speedInput.text = String(framesVal);
-                            applyVScale();
+                            if (autoApplyCheck.value) {
+                                applyVScale();
+                            }
                         }
                     };
                 })(presets[i], i);
@@ -6898,6 +7059,9 @@
             var yappCheckbox = optionsGroup.add("checkbox", undefined, "Yapp");
             yappCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             yappCheckbox.helpTip = "Random mouth movement without audio amplitude";
+            var freezeCheckbox = optionsGroup.add("checkbox", undefined, "Freeze");
+            freezeCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            freezeCheckbox.helpTip = "Freeze mouth on the first frame";
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
@@ -6943,8 +7107,13 @@
                     return;
                 }
 
+                var isFreezeActive = (freezeCheckbox && freezeCheckbox.value);
                 var isYappActive = (yappCheckbox && yappCheckbox.value);
-                app.beginUndoGroup(isYappActive ? "Add Mouth (Yapp)" : "Add Mouth, Sync & Markers");
+                
+                var undoName = "Add Mouth, Sync & Markers";
+                if (isFreezeActive) undoName = "Add Mouth (Freeze)";
+                else if (isYappActive) undoName = "Add Mouth (Yapp)";
+                app.beginUndoGroup(undoName);
 
                 try {
                     var newlyAddedMouthLayers = [];
@@ -6983,7 +7152,28 @@
                         }
                     }
 
-                    if (isYappActive) {
+                    if (isFreezeActive) {
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
+                            var mL = newlyAddedMouthLayers[j];
+                            if (!mL.timeRemapEnabled) {
+                                mL.timeRemapEnabled = true;
+                            }
+                            if (mL.timeRemap.numKeys > 0) {
+                                mL.timeRemap.setInterpolationTypeAtKey(1, KeyframeInterpolationType.HOLD);
+                                while (mL.timeRemap.numKeys > 1) {
+                                    mL.timeRemap.removeKey(2);
+                                }
+                            }
+                            mL.startTime = 0;
+                            mL.outPoint = comp.duration;
+                        }
+
+                        // Select newly added mouth layers
+                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
+
+                        updateStatus("Mouth (Frozen) attached to " + parentLayersToAttach.length + " layer(s)");
+                    } else if (isYappActive) {
                         // Yapp Mode: Do NOT copy audio or generate audio amplitude / markers
                         // Enable time remap and apply random mouth expression
                         var mouthFrames = 4;
@@ -7589,7 +7779,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         var inputPanel = dialog.add("panel", undefined, "Parameters");
         inputPanel.orientation = "row";
@@ -7655,6 +7845,13 @@
         managePresetBtn.helpTip = "Open Preset Manager to edit, delete, or rearrange presets";
         managePresetBtn.onClick = function () {
             showGlobalPresetManager("waterDistortion", refreshWaterDistortionPresets);
+        };
+
+        var autoApplyCheck = presetLabelGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
         };
 
         var presetButtonsContainer = presetGroup.add("group");
@@ -7747,7 +7944,9 @@
                             amountInput.text = String(amtVal);
                             sizeInput.text = String(szVal);
                             speedInput.text = String(spdVal);
-                            applyWaterDistortion();
+                            if (autoApplyCheck.value) {
+                                applyWaterDistortion();
+                            }
                         }
                     };
                 })(presets[i], i);
@@ -8196,7 +8395,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Custom values group
         var customGroup = dialog.add("panel", undefined, "Custom Values");
@@ -8234,12 +8433,29 @@
 
         // Preset buttons group
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presLbl = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
+
+        var presetButtonsRow = presetGroup.add("group");
+        presetButtonsRow.orientation = "row";
+        presetButtonsRow.alignment = "center";
+        presetButtonsRow.spacing = 2;
 
         var presets = {
             "Gentle": { freq: 2, amp: 35 },
@@ -8280,12 +8496,16 @@
 
         // Add preset buttons
         for (var presetName in presets) {
-            var btn = presetGroup.add("button", undefined, presetName);
+            var btn = presetButtonsRow.add("button", undefined, presetName);
             btn.preferredSize = [45, 18];
             btn.preset = presets[presetName];
             btn.helpTip = "Apply " + presetName + " wiggle directly (" + presets[presetName].freq + ", " + presets[presetName].amp + ")";
             btn.onClick = function () {
-                applyWiggle(this.preset.freq, this.preset.amp, useMarkersCheck.value);
+                freqInput.text = String(this.preset.freq);
+                ampInput.text = String(this.preset.amp);
+                if (autoApplyCheck.value) {
+                    applyWiggle(this.preset.freq, this.preset.amp, useMarkersCheck.value);
+                }
             };
         }
 
@@ -8563,7 +8783,7 @@
         dialog.alignChildren = ["fill", "top"];
         dialog.spacing = 4;
         dialog.margins = 8;
-        dialog.preferredSize.width = 240;
+        dialog.preferredSize.width = 250;
 
         // Input settings in a two-column layout
         var inputGroup = dialog.add("group");
@@ -8649,12 +8869,29 @@
 
         // Preset buttons
         var presetGroup = dialog.add("group");
-        presetGroup.orientation = "row";
-        presetGroup.alignment = "center";
+        presetGroup.orientation = "column";
+        presetGroup.alignChildren = ["fill", "top"];
         presetGroup.spacing = 2;
 
-        var presLbl = presetGroup.add("statictext", undefined, "Presets:");
+        var presetHeaderGroup = presetGroup.add("group");
+        presetHeaderGroup.orientation = "row";
+        presetHeaderGroup.alignChildren = ["left", "center"];
+        presetHeaderGroup.spacing = 6;
+
+        var presLbl = presetHeaderGroup.add("statictext", undefined, "Presets:");
         presLbl.graphics.font = ScriptUI.newFont("Arial", "BOLD", 9);
+
+        var autoApplyCheck = presetHeaderGroup.add("checkbox", undefined, "Auto Apply");
+        autoApplyCheck.value = isAutoApplyEnabled();
+        autoApplyCheck.helpTip = "If checked, clicking a preset applies it immediately. If unchecked, clicking a preset fills the inputs and you click Apply.";
+        autoApplyCheck.onClick = function () {
+            setAutoApplyEnabled(this.value);
+        };
+
+        var presetButtonsRow = presetGroup.add("group");
+        presetButtonsRow.orientation = "row";
+        presetButtonsRow.alignment = "center";
+        presetButtonsRow.spacing = 2;
 
         var presets = [
             { name: "Gentle", amp: 2, speed: 1 },
@@ -8664,14 +8901,16 @@
         ];
 
         for (var i = 0; i < presets.length; i++) {
-            var btn = presetGroup.add("button", undefined, presets[i].name);
+            var btn = presetButtonsRow.add("button", undefined, presets[i].name);
             btn.preferredSize = [42, 18];
             btn.preset = presets[i];
             btn.helpTip = "Apply " + presets[i].name + " directly";
             btn.onClick = function () {
                 ampInput.text = this.preset.amp.toString();
                 speedInput.text = this.preset.speed.toString();
-                okBtn.onClick();
+                if (autoApplyCheck.value) {
+                    okBtn.onClick();
+                }
             };
         }
 

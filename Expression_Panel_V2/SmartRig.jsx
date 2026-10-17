@@ -10,12 +10,6 @@
         tpanel.alignChildren = ["fill", "fill"];
         tpanel.margins = 0;
 
-        var tabRig = tpanel.add("tab", undefined, "Rig Builder");
-        tabRig.orientation = "column";
-        tabRig.alignChildren = ["fill", "top"];
-        tabRig.spacing = 2;
-        tabRig.margins = 4;
-
         var tabPicker = tpanel.add("tab", undefined, "Smart Picker");
         tabPicker.orientation = "column";
         tabPicker.alignChildren = ["fill", "top"];
@@ -28,506 +22,16 @@
         tabSwitcher.spacing = 4;
         tabSwitcher.margins = 4;
 
+        tpanel.selection = tabPicker;
 
-        // Group 1 & 2: Top Bar (Add & Target)
-        var topBar = tabRig.add("group");
-        topBar.orientation = "row";
-        topBar.alignChildren = ["left", "center"];
-        topBar.spacing = 5;
-        topBar.margins = 0;
 
-        var btnAdd = topBar.add("button", undefined, "+");
-        btnAdd.helpTip = "Add New Rig from template";
-        btnAdd.preferredSize.width = 30;
-
-        var listRig = topBar.add("dropdownlist", undefined, ["Leg", "Hand", "Body"]);
-        listRig.selection = 0; // Default to Leg
-        listRig.preferredSize.width = 100;
-
-        var btnCopyChar = topBar.add("button", undefined, "Select Character to Copy");
-        btnCopyChar.helpTip = "Duplicate a character comp, rename it, and add it to the active comp";
-
-        // Group 2.5: Base Names (Editable)
-        var panelNames = tabRig.add("panel", undefined, "Base Layer Names (Edit if renamed)");
-        panelNames.orientation = "column";
-        panelNames.alignChildren = ["fill", "top"];
-        panelNames.spacing = 2;
-
-        var row1 = panelNames.add("group");
-        row1.orientation = "row";
-        row1.margins = 0; row1.spacing = 5;
-
-        var lblM = row1.add("statictext", undefined, "Master:");
-        lblM.preferredSize.width = 45;
-        var txtMaster = row1.add("edittext", undefined, "Body CTRL");
-        txtMaster.preferredSize.width = 65;
-
-        var lbl1 = row1.add("statictext", undefined, "Pt 1:");
-        lbl1.preferredSize.width = 25;
-        var txtP1 = row1.add("edittext", undefined, "K-Kanan");
-        txtP1.preferredSize.width = 65;
-
-        var row2 = panelNames.add("group");
-        row2.orientation = "row";
-        row2.margins = 0; row2.spacing = 5;
-
-        var lbl2 = row2.add("statictext", undefined, "Pt 2:");
-        lbl2.preferredSize.width = 45;
-        var txtP2 = row2.add("edittext", undefined, "K-Pinggang");
-        txtP2.preferredSize.width = 65;
-
-        var lbl3 = row2.add("statictext", undefined, "Pt 3:");
-        lbl3.preferredSize.width = 25;
-        var txtP3 = row2.add("edittext", undefined, "K-Kiri");
-        txtP3.preferredSize.width = 65;
-
-        // Group 3: Top Joint
-        var panelTop = tabRig.add("panel", undefined, "Top Joint Curvature");
-        panelTop.orientation = "column";
-        var groupTopX = panelTop.add("group");
-        groupTopX.add("statictext", undefined, "Bend (X):");
-        var slideTopX = groupTopX.add("slider", undefined, 350, -1000, 1000);
-        var txtTopX = groupTopX.add("edittext", undefined, "350");
-        txtTopX.characters = 5;
-
-        var groupTopY = panelTop.add("group");
-        groupTopY.add("statictext", undefined, "Height (Y):");
-        var slideTopY = groupTopY.add("slider", undefined, 150, -1000, 1000);
-        var txtTopY = groupTopY.add("edittext", undefined, "150");
-        txtTopY.characters = 5;
-
-        // Group 4: Bottom Joint
-        var panelBot = tabRig.add("panel", undefined, "Bottom Joint Curvature");
-        panelBot.orientation = "column";
-        var groupBotX = panelBot.add("group");
-        groupBotX.add("statictext", undefined, "Bend (X):");
-        var slideBotX = groupBotX.add("slider", undefined, -150, -1000, 1000);
-        var txtBotX = groupBotX.add("edittext", undefined, "-150");
-        txtBotX.characters = 5;
-
-        var groupBotY = panelBot.add("group");
-        groupBotY.add("statictext", undefined, "Height (Y):");
-        var slideBotY = groupBotY.add("slider", undefined, -350, -1000, 1000);
-        var txtBotY = groupBotY.add("edittext", undefined, "-350");
-        txtBotY.characters = 5;
-
-        // Group 5: Actions
-        var grpActions = tabRig.add("group");
-        var btnReset = grpActions.add("button", undefined, "Reset");
-        var btnApply = grpActions.add("button", undefined, "Update Expression");
-
-        // Slider syncing
-        function sync(slider, txt) {
-            slider.onChanging = function () { txt.text = Math.round(slider.value).toString(); };
-            txt.onChange = function () { slider.value = parseFloat(txt.text) || 0; };
-        }
-        sync(slideTopX, txtTopX); sync(slideTopY, txtTopY);
-        sync(slideBotX, txtBotX); sync(slideBotY, txtBotY);
-
-        var currentSuffix = "";
-
-        function updateDefaults() {
-            if (!listRig.selection) return;
-            var sel = listRig.selection.text;
-            if (sel === "Leg") {
-                slideTopX.value = 350; slideTopY.value = 150;
-                slideBotX.value = -150; slideBotY.value = -350;
-                txtMaster.text = "Body CTRL" + currentSuffix; txtP1.text = "K-Kanan" + currentSuffix; txtP2.text = "K-Pinggang" + currentSuffix; txtP3.text = "K-Kiri" + currentSuffix;
-            } else if (sel === "Hand") {
-                slideTopX.value = -250; slideTopY.value = 350;
-                slideBotX.value = 350; slideBotY.value = -150;
-                txtMaster.text = "Body CTRL" + currentSuffix; txtP1.text = "H-Kanan" + currentSuffix; txtP2.text = "H-Up" + currentSuffix; txtP3.text = "H-Kiri" + currentSuffix;
-            } else if (sel === "Body") {
-                slideTopX.value = 350; slideTopY.value = 150;
-                slideBotX.value = 350; slideBotY.value = 150;
-                txtMaster.text = "Body CTRL" + currentSuffix; txtP1.text = "Leher" + currentSuffix; txtP2.text = "Dada" + currentSuffix; txtP3.text = "Pinggang" + currentSuffix;
-            }
-            txtTopX.text = slideTopX.value; txtTopY.text = slideTopY.value;
-            txtBotX.text = slideBotX.value; txtBotY.text = slideBotY.value;
+        function isRigSuffix(name) {
+            if (!name) return false;
+            var trimmed = name.replace(/^\s+|\s+$/g, "");
+            return /[\-_ ]?rig(\s*[\-_]?\s*\d+)?$/i.test(trimmed);
         }
 
-        listRig.onChange = updateDefaults;
-        btnReset.onClick = updateDefaults;
-
-        function generateExpression(rigType, tx, ty, bx, by, masterName, p1, p2, p3) {
-            var mappingCode;
-            var nullArr = '["' + p1 + '", "' + p2 + '", "' + p3 + '"]';
-
-            if (rigType === "Leg") {
-                mappingCode =
-                    "var topHandle = linear(driverX, 50, -50, [" + tx + ", " + ty + "], [" + ty + ", " + tx + "]);\n" +
-                    "var botHandle = linear(driverX, 50, -50, [" + bx + ", " + by + "], [" + by + ", " + bx + "]);\n";
-            } else if (rigType === "Hand") {
-                mappingCode =
-                    "var topHandle = linear(driverX, 50, -50, [" + tx + ", " + ty + "], [" + (-ty) + ", " + (-tx) + "]);\n" +
-                    "var botHandle = linear(driverX, 50, -50, [" + bx + ", " + by + "], [" + (-by) + ", " + (-bx) + "]);\n";
-            } else {
-                mappingCode =
-                    "var topHandle = linear(driverX, 50, -50, [" + tx + ", " + ty + "], [" + ty + ", " + tx + "]);\n" +
-                    "var botHandle = linear(driverX, 50, -50, [" + bx + ", " + by + "], [" + by + ", " + bx + "]);\n";
-            }
-
-            var exp =
-                "// --- SMART RIG SETUP ---\n" +
-                "var nullLayerNames = " + nullArr + ";\n" +
-                "var origPath = thisProperty;\n" +
-                "var origPoints = origPath.points();\n" +
-                "var origInTang = origPath.inTangents();\n" +
-                "var origOutTang = origPath.outTangents();\n" +
-                "var getNullLayers = [];\n" +
-                "for (var i = 0, il = nullLayerNames.length; i < il; i++) {\n" +
-                "    try {\n" +
-                "        var targetName = nullLayerNames[i];\n" +
-                "        getNullLayers.push(thisComp.layer(targetName));\n" +
-                "    } catch (err) {\n" +
-                "        getNullLayers.push(null);\n" +
-                "    }\n" +
-                "}\n" +
-                "for (var i = 0, il = getNullLayers.length; i < il; i++) {\n" +
-                "    if (getNullLayers[i] != null && getNullLayers[i].index != thisLayer.index) {\n" +
-                "        origPoints[i] = fromCompToSurface(getNullLayers[i].toComp(getNullLayers[i].anchorPoint));\n" +
-                "    }\n" +
-                "}\n" +
-                "// --- EMBEDDED AUTO-MAPPING ---\n" +
-                "var masterScale = [100, 100];\n" +
-                "try { masterScale = thisComp.layer('" + masterName + "').transform.scale; } catch(e) {}\n" +
-                "var scaleX = masterScale[0] / 100;\n" +
-                "var scaleY = masterScale[1] / 100;\n" +
-                "var scaledInTang = [];\n" +
-                "var scaledOutTang = [];\n" +
-                "var driverX = 0;\n" +
-                "try { driverX = getNullLayers[2].transform.position[0]; } catch(e) {}\n\n" +
-                mappingCode + "\n" +
-                "scaledInTang.push([topHandle[0] * scaleX, topHandle[1] * scaleY]);\n" +
-                "scaledOutTang.push([-topHandle[0] * scaleX, -topHandle[1] * scaleY]);\n" +
-                "scaledInTang.push([0, 0]);\n" +
-                "scaledOutTang.push([0, 0]);\n" +
-                "scaledInTang.push([botHandle[0] * scaleX, botHandle[1] * scaleY]);\n" +
-                "scaledOutTang.push([-botHandle[0] * scaleX, -botHandle[1] * scaleY]);\n" +
-                "createPath(origPoints, scaledInTang, scaledOutTang, origPath.isClosed());";
-            return exp;
-        }
-
-        function getPathProperty(layer) {
-            try {
-                var contents = layer.property("ADBE Root Vectors Group");
-                for (var i = 1; i <= contents.numProperties; i++) {
-                    var group = contents.property(i);
-                    if (group.matchName === "ADBE Vector Group") {
-                        var pathGroup = group.property("ADBE Vectors Group");
-                        for (var j = 1; j <= pathGroup.numProperties; j++) {
-                            var shape = pathGroup.property(j);
-                            if (shape.matchName === "ADBE Vector Shape - Group") {
-                                return shape.property("ADBE Vector Shape");
-                            }
-                        }
-                    }
-                }
-            } catch (e) { }
-            return null;
-        }
-
-        btnApply.onClick = function () {
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                alert("Please select a composition.");
-                return;
-            }
-            if (comp.selectedLayers.length === 0) {
-                alert("Please select at least one Shape Layer (e.g., Leg, Hand).");
-                return;
-            }
-
-            app.beginUndoGroup("Update Smart Rig Expression");
-            try {
-                var selType = listRig.selection ? listRig.selection.text : "Leg";
-                var exp = generateExpression(selType, slideTopX.value, slideTopY.value, slideBotX.value, slideBotY.value, txtMaster.text, txtP1.text, txtP2.text, txtP3.text);
-
-                for (var i = 0; i < comp.selectedLayers.length; i++) {
-                    var layer = comp.selectedLayers[i];
-                    if (layer instanceof ShapeLayer) {
-                        var pathProp = getPathProperty(layer);
-                        if (pathProp) {
-                            pathProp.expression = exp;
-                        } else {
-                            alert("Could not find the Path property on layer: " + layer.name);
-                        }
-                    }
-                }
-            } finally {
-                app.endUndoGroup();
-            }
-        };
-
-        btnAdd.onClick = function () {
-            var activeComp = app.project.activeItem;
-            if (!activeComp || !(activeComp instanceof CompItem)) {
-                alert("Please open a composition first to add the rig into.");
-                return;
-            }
-
-            var allComps = [];
-            var bodyRigIdx = 0;
-            for (var i = 1; i <= app.project.numItems; i++) {
-                if (app.project.item(i) instanceof CompItem && app.project.item(i).id !== activeComp.id) {
-                    var c = app.project.item(i);
-                    allComps.push(c);
-                    if (c.name === "body-rig") bodyRigIdx = allComps.length - 1;
-                }
-            }
-
-            if (allComps.length === 0) {
-                alert("No other compositions found to copy from. Create a 'body-rig' template comp first.");
-                return;
-            }
-
-            var winDlg = new Window("dialog", "Add Rig Template", undefined, { resizeable: true });
-            winDlg.orientation = "column";
-            winDlg.alignChildren = ["fill", "top"];
-            winDlg.spacing = 10;
-            winDlg.margins = 16;
-
-            var grpComp = winDlg.add("group");
-            grpComp.add("statictext", undefined, "Source Comp:");
-            var ddComp = grpComp.add("dropdownlist", undefined, []);
-            for (var i = 0; i < allComps.length; i++) {
-                ddComp.add("item", allComps[i].name);
-            }
-            if (allComps.length > 0) ddComp.selection = bodyRigIdx;
-            ddComp.preferredSize.width = 180;
-
-            var grpSuffix = winDlg.add("group");
-            grpSuffix.add("statictext", undefined, "Suffix:");
-            var txtSuffix = grpSuffix.add("edittext", undefined, "");
-            txtSuffix.preferredSize.width = 100;
-            txtSuffix.helpTip = "e.g., _01 (Leave blank for no suffix)";
-
-            var grpBtns = winDlg.add("group");
-            grpBtns.alignment = ["center", "top"];
-            var btnOk = grpBtns.add("button", undefined, "Add");
-            var btnCancel = grpBtns.add("button", undefined, "Cancel");
-
-            btnOk.onClick = function () {
-                if (!ddComp.selection) {
-                    alert("Please select a composition.");
-                    return;
-                }
-                var selComp = allComps[ddComp.selection.index];
-                var suffix = txtSuffix.text;
-
-                // Auto-add separation if the user didn't type one
-                if (suffix !== "" && suffix.charAt(0) !== "_" && suffix.charAt(0) !== "-" && suffix.charAt(0) !== " ") {
-                    suffix = "_" + suffix;
-                }
-
-                var targetComp = app.project.activeItem;
-                if (!targetComp || !(targetComp instanceof CompItem)) {
-                    alert("Please select the target composition in the timeline/viewer.");
-                    return;
-                }
-
-                // Close the dialog immediately so it doesn't block AE
-                winDlg.close(1);
-
-                // 1. Prepare maps to restore parenting and track mattes, and handle locked layers.
-                var parentMap = {};
-                var matteMap = {};
-                var lockedLayers = [];
-                var aeVersion = parseFloat(app.version);
-
-                for (var i = 1; i <= selComp.numLayers; i++) {
-                    var l = selComp.layer(i);
-                    if (l.parent != null) {
-                        parentMap[i] = l.parent.index;
-                    }
-                    if (l.locked) {
-                        l.locked = false;
-                        lockedLayers.push(l);
-                    }
-                    try {
-                        if (l.trackMatteType !== TrackMatteType.NO_TRACK_MATTE) {
-                            if (aeVersion >= 23.0 && l.trackMatteLayer != null) {
-                                matteMap[i] = { type: l.trackMatteType, parentIdx: l.trackMatteLayer.index };
-                            } else {
-                                matteMap[i] = { type: l.trackMatteType, parentIdx: i - 1 };
-                            }
-                        }
-                    } catch (e) { }
-                }
-
-                // Deselect all in target comp so they paste cleanly
-                for (var i = 1; i <= targetComp.numLayers; i++) {
-                    try { targetComp.layer(i).selected = false; } catch (e) { }
-                }
-
-                // We use copyToComp to completely avoid viewer-switching lag.
-                // CRITICAL: We CANNOT have an Undo Group open here!
-                for (var i = selComp.numLayers; i >= 1; i--) {
-                    try {
-                        selComp.layer(i).copyToComp(targetComp);
-                    } catch (e) { }
-                }
-
-                // Restore locks in source comp
-                for (var i = 0; i < lockedLayers.length; i++) {
-                    lockedLayers[i].locked = true;
-                }
-
-                // Grab copied layers directly from targetComp (they remain selected)
-                var copiedLayers = [];
-                for (var i = 0; i < targetComp.selectedLayers.length; i++) {
-                    copiedLayers.push(targetComp.selectedLayers[i]);
-                }
-                copiedLayers.sort(function (a, b) { return a.index - b.index; });
-
-                if (copiedLayers.length !== selComp.numLayers) {
-                    // Fallback if selection was lost (rare, but just in case)
-                    copiedLayers = [];
-                    for (var i = 1; i <= selComp.numLayers; i++) {
-                        copiedLayers.push(targetComp.layer(i));
-                    }
-                }
-
-                // Fix physical timeline order if reversed
-                if (copiedLayers.length > 0) {
-                    var firstCopiedName = copiedLayers[0].name;
-                    var srcLast = selComp.layer(selComp.numLayers).name;
-
-                    if (firstCopiedName.substring(0, srcLast.length) === srcLast) {
-                        copiedLayers.reverse();
-
-                        // Physically fix their order in the timeline
-                        for (var i = copiedLayers.length - 1; i >= 0; i--) {
-                            copiedLayers[i].moveToBeginning();
-                        }
-                    }
-                }
-
-                // NOW we can begin the undo group for all the modifications
-                app.beginUndoGroup("Configure Rig: " + selComp.name);
-                try {
-                    // 3. Restore Parenting and Track Mattes
-                    for (var i = 0; i < copiedLayers.length; i++) {
-                        var srcIndex = i + 1;
-
-                        // Parenting
-                        if (parentMap[srcIndex] !== undefined) {
-                            var parentSrcIndex = parentMap[srcIndex];
-                            if (parentSrcIndex >= 1 && parentSrcIndex <= copiedLayers.length) {
-                                copiedLayers[i].parent = copiedLayers[parentSrcIndex - 1];
-                            }
-                        }
-
-                        // Track Mattes
-                        if (matteMap[srcIndex] !== undefined) {
-                            var matteData = matteMap[srcIndex];
-                            var matteParentSrcIndex = matteData.parentIdx;
-                            if (matteParentSrcIndex >= 1 && matteParentSrcIndex <= copiedLayers.length) {
-                                try {
-                                    if (aeVersion >= 23.0) {
-                                        copiedLayers[i].trackMatteLayer = copiedLayers[matteParentSrcIndex - 1];
-                                    }
-                                    copiedLayers[i].trackMatteType = matteData.type;
-                                } catch (e) { }
-                            }
-                        }
-                    }
-
-                    // 4. Rename with Suffix
-                    // Doing this AFTER copying all layers allows After Effects to safely auto-update 
-                    // any internal expressions that reference these layers by their original names.
-                    var nameMap = {};
-                    for (var i = 0; i < copiedLayers.length; i++) {
-                        var srcName = selComp.layer(i + 1).name;
-                        var newName = srcName;
-                        if (suffix !== "") {
-                            newName = srcName + suffix;
-                        }
-                        nameMap[srcName] = newName;
-                        copiedLayers[i].name = newName;
-                    }
-
-                    currentSuffix = suffix;
-                    updateDefaults(); // Update UI text boxes
-
-                    // Deeply scan layers to manually fix any expressions (like Stroke Width) 
-                    // that After Effects' engine might have missed or dropped during the rename.
-                    function forceUpdateExpressions(propGroup) {
-                        for (var p = 1; p <= propGroup.numProperties; p++) {
-                            var prop = propGroup.property(p);
-                            if (prop.propertyType === PropertyType.PROPERTY) {
-                                if (prop.canSetExpression && prop.expression !== "") {
-                                    var exp = prop.expression;
-                                    var modified = false;
-                                    for (var oldN in nameMap) {
-                                        var newN = nameMap[oldN];
-                                        if (oldN !== newN) {
-                                            var s1 = 'thisComp.layer("' + oldN + '")';
-                                            var r1 = 'thisComp.layer("' + newN + '")';
-                                            var s2 = "thisComp.layer('" + oldN + "')";
-                                            var r2 = "thisComp.layer('" + newN + "')";
-                                            var s3 = 'thisComp.layer("' + oldN + ' 2")';
-                                            var s4 = "thisComp.layer('" + oldN + " 2')";
-
-                                            if (exp.indexOf(s1) !== -1) { exp = exp.split(s1).join(r1); modified = true; }
-                                            if (exp.indexOf(s2) !== -1) { exp = exp.split(s2).join(r2); modified = true; }
-                                            if (exp.indexOf(s3) !== -1) { exp = exp.split(s3).join(r1); modified = true; }
-                                            if (exp.indexOf(s4) !== -1) { exp = exp.split(s4).join(r2); modified = true; }
-                                        }
-                                    }
-                                    if (modified) {
-                                        try { prop.expression = exp; } catch (e) { }
-                                    }
-                                }
-                            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
-                                forceUpdateExpressions(prop);
-                            }
-                        }
-                    }
-
-                    // 5. Apply Smart Rig expressions to shape layers
-                    for (var i = 0; i < copiedLayers.length; i++) {
-                        var layer = copiedLayers[i];
-
-                        // Run the expression fixer to catch Stroke Widths etc.
-                        forceUpdateExpressions(layer);
-
-                        if (layer instanceof ShapeLayer) {
-                            var rigType = null;
-                            var srcName = selComp.layer(i + 1).name;
-
-                            if (srcName.indexOf("Leg") !== -1) rigType = "Leg";
-                            else if (srcName.indexOf("Hand") !== -1) rigType = "Hand";
-                            else if (srcName.indexOf("Body") !== -1) rigType = "Body";
-
-                            if (rigType) {
-                                var exp = "";
-                                if (rigType === "Leg") {
-                                    exp = generateExpression("Leg", 350, 150, -150, -350, "Body CTRL" + suffix, "K-Kanan" + suffix, "K-Pinggang" + suffix, "K-Kiri" + suffix);
-                                } else if (rigType === "Hand") {
-                                    exp = generateExpression("Hand", -250, 350, 350, -150, "Body CTRL" + suffix, "H-Kanan" + suffix, "H-Up" + suffix, "H-Kiri" + suffix);
-                                } else {
-                                    exp = generateExpression("Body", 350, 150, 350, 150, "Body CTRL" + suffix, "Leher" + suffix, "Dada" + suffix, "Pinggang" + suffix);
-                                }
-
-                                var pathProp = getPathProperty(layer);
-                                if (pathProp) pathProp.expression = exp;
-                            }
-                        }
-                    }
-                } finally {
-                    app.endUndoGroup();
-                }
-            };
-
-            btnCancel.onClick = function () {
-                winDlg.close(0);
-            };
-
-            winDlg.show();
-        };
-
-        btnCopyChar.onClick = function () {
+        function openCopyCharacterDialog() {
             var activeComp = app.project.activeItem;
 
             if (!activeComp || !(activeComp instanceof CompItem)) {
@@ -623,8 +127,10 @@
                 if (listChar.selection) {
                     var selComp = filteredChars[listChar.selection.index];
                     if (selComp) {
-                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v2_" + selComp.id + ".png");
+                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v3_white_" + selComp.id + ".png");
                         if (tempFile.exists) tempFile.remove();
+                        var oldV2 = new File(Folder.temp.fsName + "/smartrig_preview_v2_" + selComp.id + ".png");
+                        if (oldV2.exists) oldV2.remove();
                         var oldV1 = new File(Folder.temp.fsName + "/smartrig_preview_" + selComp.id + ".png");
                         if (oldV1.exists) oldV1.remove();
                         listChar.onChange();
@@ -640,14 +146,14 @@
                 var selComp = filteredChars[listChar.selection.index];
                 if (selComp) {
                     try {
-                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v2_" + selComp.id + ".png");
+                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v3_white_" + selComp.id + ".png");
                         if (!tempFile.exists) {
                             var pw = 200;
                             var ph = 200;
                             var tempComp = null;
                             try {
                                 tempComp = app.project.items.addComp("SmartRig_PreviewTemp", pw, ph, 1, 1, selComp.frameRate > 0 ? selComp.frameRate : 30);
-                                var compBg = (selComp.bgColor && selComp.bgColor.length === 3) ? selComp.bgColor : [0.18, 0.18, 0.18];
+                                var compBg = [1.0, 1.0, 1.0];
                                 tempComp.layers.addSolid(compBg, "BG", pw, ph, 1, 1);
                                 var srcLayer = tempComp.layers.add(selComp);
 
@@ -687,6 +193,7 @@
                 var selFolderIdx = ddFolder.selection.index;
                 var selFolder = selFolderIdx > 0 ? allFolders[selFolderIdx - 1] : null;
 
+                var matched = [];
                 for (var i = 0; i < allComps.length; i++) {
                     var comp = allComps[i];
                     if (selFolder && comp.parentFolder !== selFolder) {
@@ -694,11 +201,28 @@
                     }
                     if (comp.id === activeComp.id) continue; // Skip target comp
 
-                    if (comp.name.toLowerCase().indexOf(q) !== -1) {
-                        listChar.add("item", comp.name);
-                        filteredChars.push(comp);
+                    if (q === "" || comp.name.toLowerCase().indexOf(q) !== -1) {
+                        matched.push(comp);
                     }
                 }
+
+                matched.sort(function (a, b) {
+                    var aRig = isRigSuffix(a.name);
+                    var bRig = isRigSuffix(b.name);
+                    if (aRig && !bRig) return -1;
+                    if (!aRig && bRig) return 1;
+                    var nameA = a.name.toLowerCase();
+                    var nameB = b.name.toLowerCase();
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
+                    return 0;
+                });
+
+                for (var i = 0; i < matched.length; i++) {
+                    listChar.add("item", matched[i].name);
+                    filteredChars.push(matched[i]);
+                }
+
                 if (listChar.items.length > 0) {
                     listChar.selection = 0;
                 } else {
@@ -848,7 +372,7 @@
             };
 
             winDlg.show();
-        };
+        }
         // --- SMART PICKER LOGIC ---
         function isAeLightMode() {
             if (app.settings && app.settings.haveSetting("SmartRig", "IconTheme")) {
@@ -890,7 +414,13 @@
                 "settings_dark": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000005249444154789c636018d240594df73f08e3e2936c102e034932185d13214c7f03493194a021c484133679ac8693e202a2d48e5003b12926641803ae4821e4029aa7c1c195530889130d701948b241830a00002704dd7939fcede20000000049454e44ae426082",
                 "load": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000004249444154789c636018055405771e3cfb8f0d5364203162141b4808936420398e202889cf25241b48c87b2419484c980dbc97878681f8004103c9c1a43a6214e007008fc7ef834b451d290000000049454e44ae426082",
                 "scan": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000006149444154789c63601816e0ce8367ff41982a86e0c2641b86ee42920d25563151eab029c2e7558286a22b20958fd540428ab1198ad775c8814fc810bc11447503a9ee655c8a298e14aa261ba215919abfa99af5b0194a71e180cb708a0c19340000484a87fc11e986520000000049454e44ae426082",
-                "settings": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000005249444154789c636018d2e0ce8367ff4118179f648370194892c1e89a0861fa1b488aa1040d21269cb0c963359c141710a576841a884d3121c31870450a2117d03c0d0eae9c42489c6880cb40920d1a540000928f27b71a3c57f70000000049454e44ae426082"
+                "settings": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000005249444154789c636018d2e0ce8367ff4118179f648370194892c1e89a0861fa1b488aa1040d21269cb0c963359c141710a576841a884d3121c31870450a2117d03c0d0eae9c42489c6880cb40920d1a540000928f27b71a3c57f70000000049454e44ae426082",
+                "plus_light": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000002c49444154789c636018057401771e3cfb0fc2a3060e908130cdc462fa1b88cf12b2348f1a481b0347015e000050999fad4c8625370000000049454e44ae426082",
+                "plus_dark": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000002b49444154789c636018057401ca6abaff4178d4c0013210a699584c7f03f1594296e651036963e028c00b00b170401d97a922640000000049454e44ae426082",
+                "plus": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000002c49444154789c636018057401771e3cfb0fc2a3060e908130cdc462fa1b88cf12b2348f1a481b0347015e000050999fad4c8625370000000049454e44ae426082",
+                "eye_light": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000004749444154789c63601805430fdc79f0ec3f32a6d82062c5091a460d353815e2732dd986916c282e096222852443c976213186926c18290ac94a3a544b87d80ca0d8a05140340000de1ba6ef1fb828510000000049454e44ae426082",
+                "eye_dark": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000004649444154789c63601805430f28abe9fe47c6141b44ac3841c3a8a106a7427cae25db30920dc525414ca4906428d92e24c650920d2345215949876ae9109b01141b340a8806004cb74307b721ddb60000000049454e44ae426082",
+                "eye": "89504e470d0a1a0a0000000d49484452000000140000001408060000008d891d0d0000004749444154789c63601805430fdc79f0ec3f32a6d82062c5091a460d353815e2732dd986916c282e096222852443c976213186926c18290ac94a3a544b87d80ca0d8a05140340000de1ba6ef1fb828510000000049454e44ae426082"
             };
 
             for (var k in hexData) {
@@ -931,7 +461,15 @@
             var iconScan = getIconFile("scan");
             var iconSettings = getIconFile("settings");
             var iconLoad = getIconFile("load");
+            var iconPlus = getIconFile("plus");
+            var iconEye = getIconFile("eye");
 
+            if (btnCopyChar && iconPlus) {
+                try { btnCopyChar.image = iconPlus; } catch (e) { }
+            }
+            if (btnBlinkOp && iconEye) {
+                try { btnBlinkOp.image = iconEye; } catch (e) { }
+            }
             if (btnScanAllProps && iconScan) {
                 try { btnScanAllProps.image = iconScan; } catch (e) { }
             }
@@ -953,9 +491,9 @@
         }
 
         var thumbSizes = {
-            "Small": { key: "sq_s4", btnSize: [42, 42], renderSize: [42, 42], cols: 5 },
-            "Medium": { key: "sq_m4", btnSize: [64, 64], renderSize: [64, 64], cols: 4 },
-            "Big": { key: "sq_b4", btnSize: [92, 92], renderSize: [92, 92], cols: 3 }
+            "Small": { key: "sq_s5", btnSize: [42, 42], renderSize: [42, 42], cols: 5 },
+            "Medium": { key: "sq_m5", btnSize: [64, 64], renderSize: [64, 64], cols: 4 },
+            "Big": { key: "sq_b5", btnSize: [92, 92], renderSize: [92, 92], cols: 3 }
         };
 
         var grpPickerTop = tabPicker.add("group");
@@ -964,15 +502,34 @@
         grpPickerTop.spacing = 4;
         grpPickerTop.margins = [2, 4, 2, 2];
 
-        // Row 1: Apply Blink with Target Dropdown
+        // Row 1: Copy Character (+) and Apply Blink (Eye) with Target Dropdown
         var grpBlinkRow = grpPickerTop.add("group");
         grpBlinkRow.orientation = "row";
         grpBlinkRow.alignChildren = ["left", "center"];
         grpBlinkRow.spacing = 4;
         grpBlinkRow.alignment = ["fill", "top"];
 
-        var btnBlinkOp = grpBlinkRow.add("button", undefined, "Apply Blink");
-        btnBlinkOp.preferredSize = [78, 22];
+        var plusIcon = getIconFile("plus");
+        var btnCopyChar;
+        if (plusIcon) {
+            btnCopyChar = grpBlinkRow.add("iconbutton", undefined, plusIcon, { style: "toolbutton" });
+            btnCopyChar.preferredSize = [24, 22];
+        } else {
+            btnCopyChar = grpBlinkRow.add("button", undefined, "+");
+            btnCopyChar.preferredSize = [24, 22];
+        }
+        btnCopyChar.helpTip = "Select Character to Copy / Add to Active Comp";
+        btnCopyChar.onClick = openCopyCharacterDialog;
+
+        var eyeIcon = getIconFile("eye");
+        var btnBlinkOp;
+        if (eyeIcon) {
+            btnBlinkOp = grpBlinkRow.add("iconbutton", undefined, eyeIcon, { style: "toolbutton" });
+            btnBlinkOp.preferredSize = [24, 22];
+        } else {
+            btnBlinkOp = grpBlinkRow.add("button", undefined, "Blink");
+            btnBlinkOp.preferredSize = [42, 22];
+        }
         btnBlinkOp.helpTip = "Adds blink expression (0% for 4 frames on 'B' marker) to the targeted property.";
 
         grpBlinkRow.add("statictext", undefined, "To:");
@@ -1433,81 +990,225 @@
 
         function promptLoadComp(pickerId) {
             var allComps = [];
+            var allFolders = [];
             for (var i = 1; i <= app.project.numItems; i++) {
-                if (app.project.item(i) instanceof CompItem) {
-                    allComps.push(app.project.item(i));
+                var item = app.project.item(i);
+                if (item instanceof CompItem) {
+                    allComps.push(item);
+                } else if (item instanceof FolderItem) {
+                    allFolders.push(item);
                 }
             }
-            allComps.sort(function (a, b) { return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1; });
 
-            var winDlg = new Window("dialog", "Select Source Comp", undefined, { resizeable: true });
+            if (allComps.length === 0) {
+                alert("No compositions found in the project.");
+                return;
+            }
+
+            allFolders.sort(function (a, b) {
+                var nameA = a.name.toLowerCase();
+                var nameB = b.name.toLowerCase();
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                return 0;
+            });
+
+            var winDlg = new Window("palette", "Select the target", undefined, { resizeable: true });
             winDlg.orientation = "column";
-            winDlg.alignChildren = ["fill", "top"];
-            winDlg.spacing = 6;
-            winDlg.margins = 12;
+            winDlg.alignChildren = ["fill", "fill"];
+            winDlg.spacing = 10;
+            winDlg.margins = 16;
+            winDlg.preferredSize.width = 400;
 
-            winDlg.add("statictext", undefined, "Select Composition containing poses/frames:");
+            var panelTarget = winDlg.add("panel", undefined, "Select the target");
+            panelTarget.orientation = "column";
+            panelTarget.alignChildren = ["fill", "fill"];
+            panelTarget.spacing = 5;
 
-            var grpSearch = winDlg.add("group");
-            grpSearch.orientation = "row";
-            grpSearch.alignChildren = ["left", "center"];
-            grpSearch.spacing = 4;
-            grpSearch.alignment = ["fill", "top"];
+            var savedFolderName = "All Folders";
+            if (app.settings && app.settings.haveSetting("SmartRig", "LastTargetFolder")) {
+                savedFolderName = app.settings.getSetting("SmartRig", "LastTargetFolder");
+            }
 
-            grpSearch.add("statictext", undefined, "Search:");
-            var txtSearch = grpSearch.add("edittext", undefined, "");
-            txtSearch.alignment = ["fill", "center"];
-            txtSearch.preferredSize.height = 22;
-            txtSearch.helpTip = "Type to search composition by name...";
+            var ddFolder = panelTarget.add("dropdownlist", undefined, ["All Folders"]);
+            var folderSelIdx = 0;
+            for (var i = 0; i < allFolders.length; i++) {
+                ddFolder.add("item", allFolders[i].name);
+                if (allFolders[i].name === savedFolderName) {
+                    folderSelIdx = i + 1;
+                }
+            }
+            ddFolder.selection = folderSelIdx;
 
-            var compList = winDlg.add("listbox", undefined, [], { multiselect: false });
-            compList.preferredSize = [280, 220];
+            // Default search keyword "rig" for faster navigation
+            var txtSearch = panelTarget.add("edittext", undefined, "rig");
+            txtSearch.helpTip = "Search composition by name (default: rig)...";
+
+            var mainContentGrp = panelTarget.add("group");
+            mainContentGrp.orientation = "row";
+            mainContentGrp.alignChildren = ["fill", "fill"];
+            mainContentGrp.spacing = 10;
+
+            var listComp = mainContentGrp.add("listbox", undefined, []);
+            listComp.preferredSize.height = 200;
+            listComp.preferredSize.width = 150;
+
+            var imgGrp = mainContentGrp.add("group");
+            imgGrp.orientation = "column";
+            imgGrp.alignChildren = ["center", "top"];
+            var previewImg = imgGrp.add("image", undefined, undefined);
+            previewImg.preferredSize.width = 200;
+            previewImg.preferredSize.height = 200;
+            var btnReloadThumb = imgGrp.add("button", undefined, "Reload Thumbnail");
 
             var filteredComps = [];
 
+            btnReloadThumb.onClick = function () {
+                if (listComp.selection) {
+                    var selComp = filteredComps[listComp.selection.index];
+                    if (selComp) {
+                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v3_white_" + selComp.id + ".png");
+                        if (tempFile.exists) tempFile.remove();
+                        var oldV2 = new File(Folder.temp.fsName + "/smartrig_preview_v2_" + selComp.id + ".png");
+                        if (oldV2.exists) oldV2.remove();
+                        var oldV1 = new File(Folder.temp.fsName + "/smartrig_preview_" + selComp.id + ".png");
+                        if (oldV1.exists) oldV1.remove();
+                        listComp.onChange();
+                    }
+                }
+            };
+
+            listComp.onChange = function () {
+                if (!listComp.selection) {
+                    previewImg.image = null;
+                    return;
+                }
+                var selComp = filteredComps[listComp.selection.index];
+                if (selComp) {
+                    try {
+                        var tempFile = new File(Folder.temp.fsName + "/smartrig_preview_v3_white_" + selComp.id + ".png");
+                        if (!tempFile.exists) {
+                            var pw = 200;
+                            var ph = 200;
+                            var tempComp = null;
+                            try {
+                                tempComp = app.project.items.addComp("SmartRig_PreviewTemp", pw, ph, 1, 1, selComp.frameRate > 0 ? selComp.frameRate : 30);
+                                var compBg = [1.0, 1.0, 1.0];
+                                tempComp.layers.addSolid(compBg, "BG", pw, ph, 1, 1);
+                                var srcLayer = tempComp.layers.add(selComp);
+
+                                srcLayer.property("Position").setValue([pw / 2, ph / 2]);
+
+                                var scaleX = pw / selComp.width;
+                                var scaleY = ph / selComp.height;
+                                // 18% margin (9% padding on all sides) so artwork is never squeezed or touching borders
+                                var scale = Math.min(scaleX, scaleY) * 82;
+                                srcLayer.property("Scale").setValue([scale, scale]);
+
+                                tempComp.saveFrameToPng(0, tempFile);
+                            } catch (e) {
+                            } finally {
+                                if (tempComp) {
+                                    try { tempComp.remove(); } catch (err) { }
+                                }
+                            }
+                        }
+                        if (tempFile.exists) {
+                            previewImg.image = tempFile;
+                        } else {
+                            previewImg.image = null;
+                        }
+                    } catch (e) {
+                        previewImg.image = null;
+                    }
+                }
+            };
+
             function populateCompList() {
-                compList.removeAll();
+                listComp.removeAll();
                 filteredComps = [];
                 var q = txtSearch.text.toLowerCase();
+                var selFolderIdx = ddFolder.selection ? ddFolder.selection.index : 0;
+                var selFolder = selFolderIdx > 0 ? allFolders[selFolderIdx - 1] : null;
 
+                var matched = [];
                 for (var i = 0; i < allComps.length; i++) {
-                    var c = allComps[i];
-                    if (q === "" || c.name.toLowerCase().indexOf(q) !== -1) {
-                        compList.add("item", c.name);
-                        filteredComps.push(c);
+                    var comp = allComps[i];
+                    if (selFolder && comp.parentFolder !== selFolder) {
+                        continue;
+                    }
+                    if (q === "" || comp.name.toLowerCase().indexOf(q) !== -1) {
+                        matched.push(comp);
                     }
                 }
 
-                if (compList.items.length > 0) {
-                    compList.selection = 0;
+                // If default "rig" search yielded 0 results, show all comps in folder so user doesn't see a blank list
+                if (matched.length === 0 && q === "rig") {
+                    for (var i = 0; i < allComps.length; i++) {
+                        var comp = allComps[i];
+                        if (selFolder && comp.parentFolder !== selFolder) {
+                            continue;
+                        }
+                        matched.push(comp);
+                    }
                 }
+
+                // Prioritize comp if it has name "rig" suffix (e.g. comp-rig, comp_rig, comp rig, or comprig)
+                matched.sort(function (a, b) {
+                    var aRig = isRigSuffix(a.name);
+                    var bRig = isRigSuffix(b.name);
+                    if (aRig && !bRig) return -1;
+                    if (!aRig && bRig) return 1;
+                    var nameA = a.name.toLowerCase();
+                    var nameB = b.name.toLowerCase();
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
+                    return 0;
+                });
+
+                for (var i = 0; i < matched.length; i++) {
+                    listComp.add("item", matched[i].name);
+                    filteredComps.push(matched[i]);
+                }
+
+                if (listComp.items.length > 0) {
+                    listComp.selection = 0;
+                } else {
+                    previewImg.image = null;
+                }
+                if (listComp.onChange) listComp.onChange();
             }
 
             txtSearch.onChanging = populateCompList;
+            ddFolder.onChange = function () {
+                if (ddFolder.selection) {
+                    app.settings.saveSetting("SmartRig", "LastTargetFolder", ddFolder.selection.text);
+                }
+                populateCompList();
+            };
+
             populateCompList();
 
-            var grpDlgButtons = winDlg.add("group");
-            grpDlgButtons.orientation = "row";
-            grpDlgButtons.alignment = ["center", "bottom"];
+            var grpBtns = winDlg.add("group");
+            grpBtns.alignment = ["center", "top"];
+            var btnOk = grpBtns.add("button", undefined, "Select Target");
+            var btnCancel = grpBtns.add("button", undefined, "Cancel");
 
-            var btnOk = grpDlgButtons.add("button", undefined, "OK");
-            var btnCancel = grpDlgButtons.add("button", undefined, "Cancel");
-
-            compList.onDoubleClick = function () {
+            listComp.onDoubleClick = function () {
                 btnOk.onClick();
             };
 
             btnOk.onClick = function () {
-                if (compList.selection !== null && filteredComps[compList.selection.index]) {
-                    var selectedComp = filteredComps[compList.selection.index];
-                    winDlg.close(1);
-                    if (app.settings) {
-                        app.settings.saveSetting("SmartRig", "comp_" + pickerId, selectedComp.name);
-                    }
-                    buildPickerGrid(pickerId, selectedComp);
-                } else {
-                    alert("Please select a composition first.");
+                if (!listComp.selection) {
+                    alert("Please select a target composition.");
+                    return;
                 }
+                var selectedComp = filteredComps[listComp.selection.index];
+                winDlg.close(1);
+                if (app.settings) {
+                    app.settings.saveSetting("SmartRig", "comp_" + pickerId, selectedComp.name);
+                }
+                buildPickerGrid(pickerId, selectedComp);
             };
 
             btnCancel.onClick = function () {
@@ -1633,6 +1334,62 @@
             })(pickersData[p]);
         }
 
+        // Union bounds [left, top, right, bottom] of visible artwork across the frames, in comp space.
+        // Handles position/scale/anchor and parent chains (rotation ignored). Returns null if unknown.
+        function getArtworkBounds(comp, numFrames) {
+            var L = 1e9, T = 1e9, R = -1e9, B = -1e9;
+            var found = false;
+
+            function layerToComp(layer, t, x, y) {
+                var guard = 0;
+                var cur = layer;
+                while (cur && guard < 20) {
+                    var a = cur.property("Anchor Point").valueAtTime(t, false);
+                    var p = cur.property("Position").valueAtTime(t, false);
+                    var s = cur.property("Scale").valueAtTime(t, false);
+                    x = (x - a[0]) * s[0] / 100 + p[0];
+                    y = (y - a[1]) * s[1] / 100 + p[1];
+                    cur = cur.parent;
+                    guard++;
+                }
+                return [x, y];
+            }
+
+            for (var f = 0; f < numFrames; f++) {
+                var t = f * comp.frameDuration;
+                for (var i = 1; i <= comp.numLayers; i++) {
+                    var lyr = comp.layer(i);
+                    try {
+                        if (!lyr.enabled || lyr.guideLayer) continue;
+                        if (t < lyr.inPoint || t >= lyr.outPoint) continue;
+                        if (lyr.property("Opacity").valueAtTime(t, false) <= 0) continue;
+                        if (lyr.nullLayer) continue;
+
+                        var rx = 0, ry = 0, rw = 0, rh = 0;
+                        if ((lyr instanceof ShapeLayer) || (lyr instanceof TextLayer)) {
+                            var r = lyr.sourceRectAtTime(t, false);
+                            rx = r.left; ry = r.top; rw = r.width; rh = r.height;
+                        } else if (lyr.source && lyr.source.width) {
+                            rw = lyr.source.width; rh = lyr.source.height;
+                        }
+                        if (rw <= 0 || rh <= 0) continue;
+
+                        var c1 = layerToComp(lyr, t, rx, ry);
+                        var c2 = layerToComp(lyr, t, rx + rw, ry + rh);
+                        L = Math.min(L, c1[0], c2[0]); R = Math.max(R, c1[0], c2[0]);
+                        T = Math.min(T, c1[1], c2[1]); B = Math.max(B, c1[1], c2[1]);
+                        found = true;
+                    } catch (e) { }
+                }
+            }
+            if (!found) return null;
+            // Clamp to comp and reject degenerate/near-full results
+            L = Math.max(0, L); T = Math.max(0, T);
+            R = Math.min(comp.width, R); B = Math.min(comp.height, B);
+            if (R - L < 2 || B - T < 2) return null;
+            return [L, T, R, B];
+        }
+
         function buildPickerGrid(pickerId, sourceComp) {
             try {
                 var ui = pickersUI[pickerId];
@@ -1688,23 +1445,25 @@
                         var rw = sizeConfig.renderSize[0];
                         var rh = sizeConfig.renderSize[1];
                         tempComp = app.project.items.addComp("SmartPicker_Temp", rw, rh, 1, sourceComp.duration, sourceComp.frameRate);
-                        var compBg = [0.88, 0.88, 0.88];
-                        if (sourceComp.bgColor && sourceComp.bgColor.length === 3) {
-                            var b = (sourceComp.bgColor[0] * 0.299 + sourceComp.bgColor[1] * 0.587 + sourceComp.bgColor[2] * 0.114);
-                            if (b >= 0.25) {
-                                compBg = sourceComp.bgColor;
-                            }
-                        }
+                        var compBg = [1.0, 1.0, 1.0];
                         tempComp.layers.addSolid(compBg, "BG", rw, rh, 1, sourceComp.duration);
                         var srcLayer = tempComp.layers.add(sourceComp);
 
-                        srcLayer.property("Position").setValue([rw / 2, rh / 2]);
-
-                        var scaleX = rw / sourceComp.width;
-                        var scaleY = rh / sourceComp.height;
-                        // Auto-fit into 1:1 square: uniform Math.min prevents stretching, 82% gives comfortable margins
-                        var scale = Math.min(scaleX, scaleY) * 82;
-                        srcLayer.property("Scale").setValue([scale, scale]);
+                        // Fit the ARTWORK bounds (not the whole canvas) into the square, uniform scale + margin
+                        var bounds = getArtworkBounds(sourceComp, numFrames);
+                        var bx0 = 0, by0 = 0, bx1 = sourceComp.width, by1 = sourceComp.height;
+                        if (bounds) { bx0 = bounds[0]; by0 = bounds[1]; bx1 = bounds[2]; by1 = bounds[3]; }
+                        var bw = bx1 - bx0;
+                        var bh = by1 - by0;
+                        var fit = Math.min(rw / bw, rh / bh) * 0.82; // 82% => 9% margin per side
+                        var bcx = (bx0 + bx1) / 2;
+                        var bcy = (by0 + by1) / 2;
+                        // Layer anchor defaults to source center; move bounds center to the thumbnail center
+                        srcLayer.property("Position").setValue([
+                            rw / 2 - (bcx - sourceComp.width / 2) * fit,
+                            rh / 2 - (bcy - sourceComp.height / 2) * fit
+                        ]);
+                        srcLayer.property("Scale").setValue([fit * 100, fit * 100]);
 
                         for (var i = 0; i < numFrames; i++) {
                             var pathStr = thumbDir.fsName.replace(/\\/g, "/") + "/comp_" + sourceComp.id + "_" + sizeConfig.key + "_f" + i + ".png";
