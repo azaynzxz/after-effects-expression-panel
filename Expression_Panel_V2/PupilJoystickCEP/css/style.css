@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body,
 html {
     margin: 0;
@@ -5,11 +9,13 @@ html {
     width: 100%;
     height: 100%;
     background-color: #232323;
-    color: #e0e0e0;
-    font-family: "Segoe UI", Arial, sans-serif;
+    color: #dcdcdc;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
     font-size: 11px;
     user-select: none;
     -webkit-user-select: none;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #content {
@@ -17,70 +23,182 @@ html {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    align-items: center;
+    align-items: stretch;
+    max-width: 280px;
+    margin: 0 auto;
 }
 
 .row {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     width: 100%;
-    justify-content: flex-start;
 }
 
-.labels-only {
-    justify-content: space-between;
-    padding: 0 10px;
-    font-weight: bold;
-    color: #4da6ff;
+.hidden {
+    display: none !important;
 }
 
+.lbl-inline {
+    color: #cccccc;
+    white-space: nowrap;
+}
+
+.axis-lbl {
+    width: 14px;
+    color: #cccccc;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+/* Panels (Origin & Sliders) */
+.panel {
+    background-color: #282828;
+    border: 1px solid #3c3c3c;
+    border-radius: 3px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.panel-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #9e9e9e;
+    margin-bottom: 1px;
+    letter-spacing: 0.2px;
+}
+
+/* Form Controls */
+select,
 input[type="text"],
 input[type="number"] {
-    background-color: #1e1e1e;
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 3px;
-    padding: 4px;
-    padding-left: 6px;
+    background-color: #1b1b1b;
+    color: #eeeeee;
+    border: 1px solid #444444;
+    border-radius: 2px;
+    padding: 3px 5px;
+    font-size: 11px;
+    font-family: inherit;
     outline: none;
+    height: 22px;
 }
 
-input[type="text"] {
-    width: 110px;
+select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus {
+    border-color: #2689ef;
 }
 
-input[type="number"] {
-    width: 45px;
+/* Remove number spinner arrows for compact layout */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
-input:focus {
-    border-color: #2673c4;
+.top-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+.custom-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.origin-input {
+    width: 48px;
+    flex-shrink: 1;
+    min-width: 38px;
+}
+
+.origin-inputs-row {
+    justify-content: space-between;
+}
+
+.origin-options-row {
+    justify-content: flex-start;
+    gap: 10px;
+    padding-top: 2px;
+}
+
+.range-row #txtRange {
+    width: 50px;
+}
+
+.btn-grow {
+    flex: 1;
 }
 
 .check-label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     cursor: pointer;
+    color: #d0d0d0;
+    white-space: nowrap;
 }
 
+.check-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: #2689ef;
+}
+
+/* Buttons */
+button {
+    background-color: #383838;
+    color: #e8e8e8;
+    border: 1px solid #525252;
+    border-radius: 2px;
+    padding: 0 7px;
+    height: 22px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.08s ease, border-color 0.08s ease;
+}
+
+button:hover {
+    background-color: #464646;
+    border-color: #666666;
+}
+
+button:active {
+    background-color: #2673c4;
+    border-color: #2673c4;
+    color: #ffffff;
+}
+
+.btn-muted {
+    background-color: #2e2e2e;
+    color: #b0b0b0;
+}
+
+/* 2D Joystick Pad */
 #pad-container {
-    margin-top: 5px;
-    width: 180px;
-    height: 180px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: 2px 0;
 }
 
 #pad {
     position: relative;
-    width: 100%;
-    height: 100%;
-    background-color: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 4px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) inset;
+    width: 220px;
+    height: 220px;
+    background-color: #2e2e2e;
+    border: 1px solid #595959;
+    border-radius: 3px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
     overflow: hidden;
+    cursor: crosshair;
+    flex-shrink: 0;
 }
 
 #crosshair-x {
@@ -89,7 +207,8 @@ input:focus {
     left: 0;
     width: 100%;
     height: 1px;
-    background-color: #444;
+    background-color: #525252;
+    pointer-events: none;
 }
 
 #crosshair-y {
@@ -98,46 +217,105 @@ input:focus {
     left: 50%;
     width: 1px;
     height: 100%;
-    background-color: #444;
+    background-color: #525252;
+    pointer-events: none;
+}
+
+#center-guide {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    left: calc(50% - 30px);
+    top: calc(50% - 30px);
+    border: 1px solid #404040;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+#pad-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#joy-line {
+    stroke: rgba(51, 153, 255, 0.55);
+    stroke-width: 2;
+    stroke-linecap: round;
 }
 
 #knob {
     position: absolute;
-    width: 24px;
-    height: 24px;
-    background-color: #2689ef;
-    border: 2px solid #fff;
+    width: 22px;
+    height: 22px;
+    background-color: #1a8cf2;
+    border: 2px solid #f2f2f2;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    /* initial center position minus half width */
-    left: calc(50% - 12px);
-    top: calc(50% - 12px);
-    cursor: grab;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+    left: calc(50% - 11px);
+    top: calc(50% - 11px);
     pointer-events: none;
-    /* Let pad capture events so it doesn't stutter on fast moves */
     will-change: left, top;
 }
 
-#pad:active #knob {
+#pad:active {
     cursor: grabbing;
 }
 
-button {
-    background-color: #383838;
-    color: #fff;
-    border: 1px solid #555;
-    border-radius: 3px;
-    padding: 4px 10px;
-    margin-top: 8px;
+#pad:active #knob {
+    background-color: #369eff;
+    box-shadow: 0 0 8px rgba(38, 137, 239, 0.75);
+}
+
+/* Sliders */
+.slider-row {
+    gap: 6px;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    background: #181818;
+    border: 1px solid #3d3d3d;
+    border-radius: 2px;
+    outline: none;
+    margin: 0;
     cursor: pointer;
-    font-weight: 500;
 }
 
-button:hover {
-    background-color: #484848;
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #1a8cf2;
+    border: 1.5px solid #f2f2f2;
+    cursor: grab;
 }
 
-button:active {
-    background-color: #2673c4;
-    border-color: #2673c4;
+input[type="range"]:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    background: #369eff;
+}
+
+.offset-input {
+    width: 48px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* Result Coordinate Label */
+.result-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6ab5ff;
+    padding: 2px 0;
+    letter-spacing: 0.2px;
 }

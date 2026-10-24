@@ -1,0 +1,61 @@
+try {
+    var ampLayer = thisComp.layer("Audio Amplitude");
+    var slider = ampLayer.effect("Both Channels")("Slider");
+    
+    // --- CONFIGURATION ---
+    var minAudio = 1.5;     // Audio below this shows Frame 0 (closed mouth)
+    var maxAudio = 35.0;    // Peak audio level (adjust to match your Audio Amplitude graph)
+    var totalLayers = 11;   // 11 layers total = Frames 0 to 10
+    var smoothWindow = 0.04; // Smooths audio slightly so the mouth doesn't flicker every 1 frame
+    
+    // Smooth the audio reading (remove .smooth if you want raw, instant 1-frame snapping)
+    var amp = slider.smooth(smoothWindow, 5);
+    
+    var isFrozen = false;
+    
+    if (marker.numKeys > 0) {
+        for (var i = 1; i <= marker.numKeys; i++) {
+            var mk = marker.key(i);
+            if (mk.time <= time) {
+                var c = mk.comment.toLowerCase();
+                if (c.indexOf("stop") !== -1) {
+                    isFrozen = true;
+                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1) {
+                    isFrozen = false;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    
+    if (isFrozen || amp < minAudio) {
+        0; // Frame 0: Closed mouth (m, b, p Outlines)
+    } else {
+        // Clamps volume strictly between Frame 1 and Frame 10
+        var targetFrame = Math.round(linear(amp, minAudio, maxAudio, 1, totalLayers - 1));
+        
+        // Uses the precomp's exact frame duration to prevent framerate mismatch bugs
+        targetFrame * thisLayer.source.frameDuration;
+    }
+} catch(e) {
+    value;
+}
+
+
+Note: the total layer here is 11, please update accordingly
+for lipsync comp, order to be like this based on opening:
+------------
+New Layer #Frame #Layer NameMouth Shape / Volume Level
+1Frame 0m, b, p Outlines   Closed (Silence / Pauses)
+2Frame 1F, V Outlines   Nearly Closed (Lip biting, very quiet)
+3Frame 2s,c,z,d,n,sh,t,g,ch,j Outlines   Clenched Teeth (Low volume consonants)
+4Frame 3TH Outlines   Slightly Parted (Tongue between teeth)
+5Frame 4R Outlines   Small Narrow Opening
+6Frame 5OOOUH Outlines   Small Round Pucker
+7Frame 6O,U Outlines   Medium Round Opening
+8Frame 7L Outlines   Medium Open (Tongue up)
+9Frame 8K, G, H Outlines   Medium-Wide Open
+10Frame 9E, Bebek Outlines   Wide Horizontal Smile/Open
+11Frame 10AEIU Outlines   Widest Full Open (Loudest vowel peaks)
+--------------

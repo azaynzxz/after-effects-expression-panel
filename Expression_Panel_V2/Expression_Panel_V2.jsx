@@ -27,7 +27,7 @@
         "Horror Light": "// Seed randomness per cycle\ncycleIndex = Math.floor(time);\nseedRandom(index + cycleIndex, true);\n\n// Random pause duration (0.3s–1.0s)\npauseDuration = 0.3 + random() * 0.7;\nflickerDuration = 0.4; // duration of flicker before pausing\ncycleTime = pauseDuration + flickerDuration;\n\nt = time % cycleTime;\n\n// If within flicker time, do horror flicker; otherwise, stay dim\nif (t < flickerDuration) {\n  // Seed for flicker randomness\n  seedRandom(index + Math.floor(time * 10), true);\n\n  rate = 10 + random() * 40;\n  flick = (Math.sin(time * rate * 6.2831) * 43758.5453) % 1;\n  flick = flick - Math.floor(flick); // same as fract()\n\n  // Flicker behavior\n  flickerValue = flick < 0.2 ? 100 :\n                 flick < 0.25 ? 70 :\n                 flick < 0.3 ? 40 : \n                 10 + flick * 20; // low-level jitter\n} else {\n  flickerValue = 0; // paused (off)\n}\n\nflickerValue;",
         "Scale Pulse": "// Settings\nminScale = 90;\nmaxScale = 110;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleVal = linear(s, 0, 1, minScale, maxScale);\n[scaleVal, scaleVal]",
         "Walk/Run Arc": "// Settings\nspeed = 100; // pixels per second\narcHeight = 20; // arc height in pixels\nfrequency = 2; // steps per second\ndirection = 1; // 1 for right, -1 for left\n\n// Calculate movement\nx = time * speed * direction;\ny = Math.sin(time * frequency * 2 * Math.PI) * arcHeight;\n\nvalue + [x, y]",
-        "Audio Sync": "thisComp.layer(\"Audio Amplitude\").effect(\"Both Channels\")(\"Slider\")/75",
+        "Audio Sync": "try { var amp = thisComp.layer(\"Audio Amplitude\").effect(\"Both Channels\")(\"Slider\").smooth(0.04, 5); (amp < 1.5) ? 0 : Math.round(linear(amp, 1.5, 35.0, 1, 10)) * thisLayer.source.frameDuration; } catch(e) { value; }",
         "V Scale": "// Settings\nminScaleY = 100;\nmaxScaleY = 102;\nframesPerCycle = 12; // frames per pulse cycle\n\n// Calculate oscillation\nfreq = 1 / (framesPerCycle * thisComp.frameDuration);\ns = (Math.sin(time * freq * 2 * Math.PI) + 1) / 2; // normalized between 0-1\n\n// Interpolate scale using linear easing\nscaleY = linear(s, 0, 1, minScaleY, maxScaleY);\nvar multY = scaleY / 100;\nif (value.length === 3) [value[0], value[1] * multY, value[2]];\nelse [value[0], value[1] * multY];",
         "B Posterizer": "Enable time remapping on selected layers and apply posterizeTime"
     };
@@ -2184,8 +2184,77 @@
             parseInt(s) + // Seconds
             parseFloat(f || 0); // Frames as decimal of a second
     }
+    // Calculate total layers / frame count from a lip comp or layer source
+    function getLipCompTotalLayers(item) {
+        if (!item) return 11;
+        try {
+            if (item instanceof CompItem) {
+                if (item.numLayers > 0) {
+                    return item.numLayers;
+                }
+                var compFrames = Math.round(item.duration * item.frameRate);
+                if (compFrames > 0) return compFrames;
+            }
+        } catch (e) { }
+        return 11;
+    }
+
+    // Build automate lipsync expression based on total layer count
+    function getAudioSyncExpression(totalLayers) {
+        var layersCount = (totalLayers && totalLayers > 1) ? Math.round(totalLayers) : 11;
+        return [
+            'try {',
+            '    var ampLayer = thisComp.layer("Audio Amplitude");',
+            '    var slider = ampLayer.effect("Both Channels")("Slider");',
+            '    ',
+            '    // --- CONFIGURATION ---',
+            '    var minAudio = 1.5;     // Audio below this shows Frame 0 (closed mouth)',
+            '    var maxAudio = 35.0;    // Peak audio level (adjust to match your Audio Amplitude graph)',
+            '    var totalLayers = ' + layersCount + ';   // ' + layersCount + ' layers total = Frames 0 to ' + (layersCount - 1),
+            '    var smoothWindow = 0.04; // Smooths audio slightly so the mouth doesn\'t flicker every 1 frame',
+            '    ',
+            '    // Smooth the audio reading (remove .smooth if you want raw, instant 1-frame snapping)',
+            '    var amp = slider.smooth(smoothWindow, 5);',
+            '    ',
+            '    var isFrozen = false;',
+            '    ',
+            '    var m = marker;',
+            '    if (m.numKeys === 0 && hasParent && parent.marker && parent.marker.numKeys > 0) {',
+            '        m = parent.marker;',
+            '    }',
+            '    if (m.numKeys > 0) {',
+            '        for (var i = 1; i <= m.numKeys; i++) {',
+            '            var mk = m.key(i);',
+            '            if (mk.time <= time) {',
+            '                var c = mk.comment.toLowerCase();',
+            '                if (c.indexOf("stop") !== -1 || c.indexOf("l_st") !== -1) {',
+            '                    isFrozen = true;',
+            '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1 || c.indexOf("l_sy") !== -1) {',
+            '                    isFrozen = false;',
+            '                }',
+            '            } else {',
+            '                break;',
+            '            }',
+            '        }',
+            '    }',
+            '    ',
+            '    if (isFrozen || amp < minAudio) {',
+            '        0; // Frame 0: Closed mouth',
+            '    } else {',
+            '        // Clamps volume strictly between Frame 1 and Frame ' + (layersCount - 1),
+            '        var targetFrame = Math.round(linear(amp, minAudio, maxAudio, 1, totalLayers - 1));',
+            '        ',
+            '        // Uses the precomp\'s exact frame duration to prevent framerate mismatch bugs',
+            '        targetFrame * thisLayer.source.frameDuration;',
+            '    }',
+            '} catch(e) {',
+            '    value;',
+            '}'
+        ].join('\n');
+    }
+
     // Audio Sync Expression function (Audio Amplitude)
-    function applyAudioSyncExpression(skipUndo) {
+    function applyAudioSyncExpression(skipUndo, totalLayersOverride) {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
             updateStatus("No active composition");
@@ -2198,44 +2267,17 @@
             return;
         }
 
+        // Ensure Audio Amplitude exists if missing
+        try {
+            ensureAudioAmplitude(comp);
+        } catch (e) { }
+
         var undoStarted = false;
         try {
             if (!skipUndo) {
                 app.beginUndoGroup("Apply Audio Sync Expression");
                 undoStarted = true;
             }
-
-            var expression = [
-                'try {',
-                '    var ampLayer = thisComp.layer("Audio Amplitude");',
-                '    var ampVal = ampLayer.effect("Both Channels")("Slider") / 75;',
-                '    var isFrozen = false;',
-                '    ',
-                '    if (marker.numKeys > 0) {',
-                '        for (var i = 1; i <= marker.numKeys; i++) {',
-                '            var mk = marker.key(i);',
-                '            if (mk.time <= time) {',
-                '                var c = mk.comment.toLowerCase();',
-                '                if (c.indexOf("stop") !== -1) {',
-                '                    isFrozen = true;',
-                '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1) {',
-                '                    isFrozen = false;',
-                '                }',
-                '            } else {',
-                '                break;',
-                '            }',
-                '        }',
-                '    }',
-                '    ',
-                '    if (isFrozen) {',
-                '        0;',
-                '    } else {',
-                '        ampVal;',
-                '    }',
-                '} catch(e) {',
-                '    value;',
-                '}'
-            ].join('\n');
 
             for (var i = 0; i < selectedLayers.length; i++) {
                 var layer = selectedLayers[i];
@@ -2244,7 +2286,11 @@
                     layer.timeRemapEnabled = true;
                 }
 
-                layer.timeRemap.expression = expression;
+                var count = (typeof totalLayersOverride === "number" && totalLayersOverride > 1)
+                    ? totalLayersOverride
+                    : getLipCompTotalLayers(layer.source);
+
+                layer.timeRemap.expression = getAudioSyncExpression(count);
             }
 
             if (undoStarted) app.endUndoGroup();
@@ -2634,7 +2680,267 @@
             newAudioLayer.selected = true;
 
         } catch (e) {
-            // Silently fail — Add Mouth will still work without audio
+            // Silently fail - Add Mouth will still work without audio
+        }
+    }
+
+    // Ensure Audio layer is present in comp; if missing, copy from main_comp without re-copying if already present
+    function ensureAudioLayer(comp) {
+        if (!comp || !(comp instanceof CompItem)) return null;
+        var audioLayer = null;
+        for (var a = 1; a <= comp.numLayers; a++) {
+            var lName = comp.layer(a).name.toLowerCase();
+            if (lName === "audio" || lName.indexOf("audio") === 0 || (comp.layer(a).hasAudio && comp.layer(a).audioEnabled)) {
+                audioLayer = comp.layer(a);
+                break;
+            }
+        }
+        if (!audioLayer) {
+            try {
+                copyAndSyncAudioSilent();
+            } catch (e) { }
+            for (var a = 1; a <= comp.numLayers; a++) {
+                var lName = comp.layer(a).name.toLowerCase();
+                if (lName === "audio" || lName.indexOf("audio") === 0 || (comp.layer(a).hasAudio && comp.layer(a).audioEnabled)) {
+                    audioLayer = comp.layer(a);
+                    break;
+                }
+            }
+        }
+        return audioLayer;
+    }
+
+    // Ensure Audio Amplitude layer exists; if missing, generate via Convert Audio to Keyframes
+    function ensureAudioAmplitude(comp) {
+        if (!comp || !(comp instanceof CompItem)) return null;
+        var ampLayer = null;
+        for (var a = 1; a <= comp.numLayers; a++) {
+            if (comp.layer(a).name === "Audio Amplitude") {
+                ampLayer = comp.layer(a);
+                break;
+            }
+        }
+        if (!ampLayer) {
+            var audioLayer = ensureAudioLayer(comp);
+            if (audioLayer) {
+                var wasLocked = audioLayer.locked;
+                if (wasLocked) audioLayer.locked = false;
+
+                var origSel = [];
+                for (var s = 0; s < comp.selectedLayers.length; s++) {
+                    origSel.push(comp.selectedLayers[s]);
+                }
+
+                for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                audioLayer.selected = true;
+
+                try {
+                    app.executeCommand(app.findMenuCommandId("Convert Audio to Keyframes"));
+                } catch (e) { }
+
+                if (wasLocked) audioLayer.locked = true;
+
+                // Restore selection
+                for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                for (var s = 0; s < origSel.length; s++) origSel[s].selected = true;
+
+                for (var a = 1; a <= comp.numLayers; a++) {
+                    if (comp.layer(a).name === "Audio Amplitude") {
+                        ampLayer = comp.layer(a);
+                        break;
+                    }
+                }
+            }
+        }
+        return ampLayer;
+    }
+
+    // Apply Audio React V Scale (squish Y 100% to 99%, ping-pong on audio amplitude) to target layers
+    function applyAudioReactVScaleToLayers(targetLayers, comp, speedVal) {
+        if (!targetLayers || targetLayers.length === 0 || !comp) return;
+
+        var speed = (isNaN(speedVal) || speedVal < 1) ? 4 : Math.round(speedVal);
+
+        // 1. Ensure Audio Amplitude layer exists (and Audio layer if missing, without re-copying if present)
+        ensureAudioAmplitude(comp);
+
+        // 2. Move anchor point to bottom center (keeping visual position)
+        try {
+            for (var i = 0; i < targetLayers.length; i++) {
+                try {
+                    var layer = targetLayers[i];
+                    if (layer.transform && layer.transform.anchorPoint && layer.sourceRectAtTime && !layer.locked) {
+                        var rect = layer.sourceRectAtTime(comp.time, false);
+                        var newAnchorX = rect.left + rect.width / 2;
+                        var newAnchorY = rect.top + rect.height;
+                        var oldAnchor = layer.transform.anchorPoint.value;
+
+                        var newAnchorZ = (oldAnchor.length > 2) ? oldAnchor[2] : 0;
+                        var newAnchor = [newAnchorX, newAnchorY, newAnchorZ];
+
+                        var newPos = layer.transform.position.value;
+                        var compensationSuccess = false;
+
+                        try {
+                            var vec = [newAnchorX, newAnchorY, newAnchorZ];
+                            var worldPos = layer.toComp(vec);
+                            if (layer.parent) {
+                                newPos = layer.parent.fromComp(worldPos);
+                            } else {
+                                newPos = worldPos;
+                            }
+                            compensationSuccess = true;
+                        } catch (compErr) {
+                            // toComp failed, try manual math
+                        }
+
+                        if (!compensationSuccess) {
+                            try {
+                                var scale = layer.transform.scale.value;
+                                var sx = scale[0] / 100;
+                                var sy = scale[1] / 100;
+
+                                var dx = (newAnchor[0] - oldAnchor[0]) * sx;
+                                var dy = (newAnchor[1] - oldAnchor[1]) * sy;
+
+                                var oldPos = layer.transform.position.value;
+                                if (oldPos.length === 2) {
+                                    newPos = [oldPos[0] + dx, oldPos[1] + dy];
+                                } else {
+                                    newPos = [oldPos[0] + dx, oldPos[1] + dy, oldPos[2]];
+                                }
+                                compensationSuccess = true;
+                            } catch (mathErr) {
+                                // Skip compensation
+                            }
+                        }
+
+                        layer.transform.anchorPoint.setValue(newAnchor);
+                        layer.transform.position.setValue(newPos);
+                    }
+                } catch (layerErr) {
+                    // Skip problematic layer
+                }
+            }
+        } catch (e) {
+            // Setup error
+        }
+
+        // 3. Build React to Audio expression
+        var halfCycle = speed;
+        var expression = [
+            'try {',
+            '    var ampLayer = thisComp.layer("Audio Amplitude");',
+            '    var ampSlider = ampLayer.effect("Both Channels")("Slider");',
+            '    var m = marker;',
+            '    if (m.numKeys === 0 && hasParent && parent.marker && parent.marker.numKeys > 0) {',
+            '        m = parent.marker;',
+            '    }',
+            '    var isFrozen = false;',
+            '    var stopTime = -1;',
+            '    if (m && m.numKeys > 0) {',
+            '        for (var i = 1; i <= m.numKeys; i++) {',
+            '            var mk = m.key(i);',
+            '            if (mk.time <= time) {',
+            '                var c = mk.comment.toLowerCase();',
+            '                if (c.indexOf("stop") !== -1 || c.indexOf("l_st") !== -1) {',
+            '                    isFrozen = true;',
+            '                    stopTime = mk.time;',
+            '                } else if (c.indexOf("sync") !== -1 || c.indexOf("resume") !== -1 || c.indexOf("l_sy") !== -1) {',
+            '                    isFrozen = false;',
+            '                    stopTime = -1;',
+            '                }',
+            '            } else {',
+            '                break;',
+            '            }',
+            '        }',
+            '    }',
+            '    ',
+            '    var fd = thisComp.frameDuration;',
+            '    var halfCycle = ' + halfCycle + ';',
+            '    var fullCycle = halfCycle * 2;',
+            '    var threshold = 3.5;',
+            '    ',
+            '    if (isFrozen) {',
+            '        var dt = time - stopTime;',
+            '        var transDur = halfCycle * fd;',
+            '        if (stopTime >= 0 && dt >= 0 && dt < transDur) {',
+            '            var blend = linear(dt, 0, transDur, 0, 1);',
+            '            var scaleY = linear(blend, 0, 1, 99.0, 100);',
+            '            var multY = scaleY / 100;',
+            '            (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
+            '        } else {',
+            '            value;',
+            '        }',
+            '    } else {',
+            '        var a0 = ampSlider.valueAtTime(time);',
+            '        var aPrev = (time >= fd) ? ampSlider.valueAtTime(time - fd) : a0;',
+            '        var aNext = ampSlider.valueAtTime(time + fd);',
+            '        var smoothAmp = (aPrev + a0 * 2 + aNext) / 4;',
+            '        ',
+            '        if (smoothAmp >= threshold) {',
+            '            var framesSinceOnset = 0;',
+            '            for (var k = 1; k <= 60; k++) {',
+            '                if (time - k * fd < 0) { framesSinceOnset = k; break; }',
+            '                var pastA0 = ampSlider.valueAtTime(time - k * fd);',
+            '                var pastAPrev = (time - (k + 1) * fd >= 0) ? ampSlider.valueAtTime(time - (k + 1) * fd) : pastA0;',
+            '                var pastANext = ampSlider.valueAtTime(time - (k - 1) * fd);',
+            '                var pastSmooth = (pastAPrev + pastA0 * 2 + pastANext) / 4;',
+            '                if (pastSmooth < threshold) {',
+            '                    framesSinceOnset = k - 1;',
+            '                    break;',
+            '                }',
+            '                framesSinceOnset = k;',
+            '            }',
+            '            var t = framesSinceOnset % fullCycle;',
+            '            var squishProgress = (t <= halfCycle) ? linear(t, 0, halfCycle, 0, 1) : linear(t, halfCycle, fullCycle, 1, 0);',
+            '            var squishAmt = linear(smoothAmp, threshold, 25, 0.35, 1.0);',
+            '            var scaleY = 100 - squishProgress * squishAmt * 1;',
+            '            var multY = scaleY / 100;',
+            '            (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
+            '        } else {',
+            '            var framesSinceActive = 0;',
+            '            for (var k = 1; k <= halfCycle; k++) {',
+            '                if (time - k * fd >= 0) {',
+            '                    var pastA0 = ampSlider.valueAtTime(time - k * fd);',
+            '                    var pastAPrev = (time - (k + 1) * fd >= 0) ? ampSlider.valueAtTime(time - (k + 1) * fd) : pastA0;',
+            '                    var pastANext = ampSlider.valueAtTime(time - (k - 1) * fd);',
+            '                    var pastSmooth = (pastAPrev + pastA0 * 2 + pastANext) / 4;',
+            '                    if (pastSmooth >= threshold) {',
+            '                        framesSinceActive = k;',
+            '                        break;',
+            '                    }',
+            '                }',
+            '            }',
+            '            if (framesSinceActive > 0) {',
+            '                var lastActiveTime = time - framesSinceActive * fd;',
+            '                var lastA0 = ampSlider.valueAtTime(lastActiveTime);',
+            '                var lastAPrev = (lastActiveTime >= fd) ? ampSlider.valueAtTime(lastActiveTime - fd) : lastA0;',
+            '                var lastANext = ampSlider.valueAtTime(lastActiveTime + fd);',
+            '                var lastSmooth = (lastAPrev + lastA0 * 2 + lastANext) / 4;',
+            '                var lastSquishAmt = linear(lastSmooth, threshold, 25, 0.35, 1.0);',
+            '                var startY = 100 - 1.0 * lastSquishAmt * 1;',
+            '                var scaleY = linear(framesSinceActive, 0, halfCycle, startY, 100);',
+            '                var multY = scaleY / 100;',
+            '                (value.length === 3) ? [value[0], value[1] * multY, value[2]] : [value[0], value[1] * multY];',
+            '            } else {',
+            '                value;',
+            '            }',
+            '        }',
+            '    }',
+            '} catch(e) {',
+            '    value;',
+            '}'
+        ].join('\n');
+
+        // 4. Apply to layers
+        for (var i = 0; i < targetLayers.length; i++) {
+            var layer = targetLayers[i];
+            if (!layer.transform || !layer.transform.scale) continue;
+            var wasLocked = layer.locked;
+            if (wasLocked) layer.locked = false;
+            layer.transform.scale.expression = expression;
+            if (wasLocked) layer.locked = true;
         }
     }
 
@@ -4963,52 +5269,12 @@
 
             app.beginUndoGroup(isReactAudio ? "Apply Audio React V Scale" : "Apply V Scale");
 
-            // Auto-generate Audio Amplitude layer if missing, like Add Mouth
             if (isReactAudio) {
-                try {
-                    var audioAmpLayer = null;
-                    for (var a = 1; a <= comp.numLayers; a++) {
-                        if (comp.layer(a).name === "Audio Amplitude") {
-                            audioAmpLayer = comp.layer(a);
-                            break;
-                        }
-                    }
-
-                    if (!audioAmpLayer) {
-                        try {
-                            copyAndSyncAudioSilent();
-                        } catch (e) { }
-
-                        var origSelection = [];
-                        for (var s = 0; s < selectedLayers.length; s++) {
-                            origSelection.push(selectedLayers[s]);
-                        }
-
-                        var generatedAudio = false;
-                        for (var a = 1; a <= comp.numLayers; a++) {
-                            if (comp.layer(a).hasAudio && comp.layer(a).audioEnabled) {
-                                var wasLocked = comp.layer(a).locked;
-                                if (wasLocked) comp.layer(a).locked = false;
-
-                                for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                                comp.layer(a).selected = true;
-
-                                try {
-                                    app.executeCommand(app.findMenuCommandId("Convert Audio to Keyframes"));
-                                    generatedAudio = true;
-                                } catch (e) { }
-
-                                if (wasLocked) comp.layer(a).locked = true;
-                                break;
-                            }
-                        }
-
-                        // Restore selection
-                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
-                        for (var j = 0; j < origSelection.length; j++) origSelection[j].selected = true;
-                        selectedLayers = origSelection;
-                    }
-                } catch (audioErr) { }
+                applyAudioReactVScaleToLayers(selectedLayers, comp, speed);
+                app.endUndoGroup();
+                updateStatus("Applied Audio React V Scale expression to selected layer(s)");
+                dialog.close();
+                return true;
             }
 
             // Move anchor point to bottom center (keeping visual position)
@@ -7050,18 +7316,34 @@
             }
 
             var optionsGroup = dialog.add("group");
-            optionsGroup.orientation = "row";
-            optionsGroup.alignment = "left";
-            optionsGroup.spacing = 8;
+            optionsGroup.orientation = "column";
+            optionsGroup.alignChildren = ["left", "top"];
+            optionsGroup.spacing = 3;
             optionsGroup.margins = [0, 0, 0, 2];
-            var flipCheckbox = optionsGroup.add("checkbox", undefined, "Flip Mouth (Horizontal)");
+
+            var optionsRow1 = optionsGroup.add("group");
+            optionsRow1.orientation = "row";
+            optionsRow1.alignment = "left";
+            optionsRow1.spacing = 8;
+
+            var flipCheckbox = optionsRow1.add("checkbox", undefined, "Flip Mouth (Horizontal)");
             flipCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
-            var yappCheckbox = optionsGroup.add("checkbox", undefined, "Yapp");
+            var yappCheckbox = optionsRow1.add("checkbox", undefined, "Yapp");
             yappCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             yappCheckbox.helpTip = "Random mouth movement without audio amplitude";
-            var freezeCheckbox = optionsGroup.add("checkbox", undefined, "Freeze");
+            var freezeCheckbox = optionsRow1.add("checkbox", undefined, "Freeze");
             freezeCheckbox.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
             freezeCheckbox.helpTip = "Freeze mouth on the first frame";
+
+            var optionsRow2 = optionsGroup.add("group");
+            optionsRow2.orientation = "row";
+            optionsRow2.alignment = "left";
+            optionsRow2.spacing = 8;
+
+            var autoReactAudioCheck = optionsRow2.add("checkbox", undefined, "Auto react audio parent layer");
+            autoReactAudioCheck.value = true;
+            autoReactAudioCheck.graphics.font = ScriptUI.newFont("Arial", "REGULAR", 9);
+            autoReactAudioCheck.helpTip = "Automatically apply Audio React V Scale (squish Y 100% to 99%, 4 frames) to the parent layer";
 
             var btnGroup = dialog.add("group");
             btnGroup.orientation = "row";
@@ -7109,10 +7391,12 @@
 
                 var isFreezeActive = (freezeCheckbox && freezeCheckbox.value);
                 var isYappActive = (yappCheckbox && yappCheckbox.value);
+                var isAutoReactAudioActive = (autoReactAudioCheck && autoReactAudioCheck.value);
                 
                 var undoName = "Add Mouth, Sync & Markers";
                 if (isFreezeActive) undoName = "Add Mouth (Freeze)";
                 else if (isYappActive) undoName = "Add Mouth (Yapp)";
+                if (isAutoReactAudioActive) undoName += " + Audio React Parent";
                 app.beginUndoGroup(undoName);
 
                 try {
@@ -7152,6 +7436,11 @@
                         }
                     }
 
+                    // Auto react audio to parent layer (Lip parent layer)
+                    if (isAutoReactAudioActive) {
+                        applyAudioReactVScaleToLayers(parentLayersToAttach, comp, 4);
+                    }
+
                     if (isFreezeActive) {
                         for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
                             var mL = newlyAddedMouthLayers[j];
@@ -7174,7 +7463,7 @@
 
                         updateStatus("Mouth (Frozen) attached to " + parentLayersToAttach.length + " layer(s)");
                     } else if (isYappActive) {
-                        // Yapp Mode: Do NOT copy audio or generate audio amplitude / markers
+                        // Yapp Mode: Do NOT copy audio or generate audio amplitude / markers for the mouth
                         // Enable time remap and apply random mouth expression
                         var mouthFrames = 4;
                         try {
@@ -7204,15 +7493,16 @@
                         updateStatus("Mouth (Yapp) attached to " + parentLayersToAttach.length + " layer(s)");
                     } else {
                         // Standard Audio Sync Mode:
-                        // 1. Add Audio layer from main_comp (if available) - auto, no modal
-                        copyAndSyncAudioSilent();
+                        // 1. Add Audio layer from main_comp if not already present (no need re-copy if Audio is present)
+                        ensureAudioLayer(comp);
 
                         // 2. Select ONLY the new mouth layers BEFORE executeCommand invalidates them
                         for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
                         for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
-                        // 3. Auto Apply Audio Sync Expression to the mouth layers
-                        applyAudioSyncExpression(true, true);
+                        // 3. Auto Apply Audio Sync Expression to the mouth layers (using dynamic totalLayers from mouthComp)
+                        var mouthTotalLayers = getLipCompTotalLayers(mouthComp);
+                        applyAudioSyncExpression(true, mouthTotalLayers);
 
                         // Now stretch layer duration across comp (doing this AFTER time remap is enabled ensures the layer doesn't disappear)
                         for (var j = 0; j < newlyAddedMouthLayers.length; j++) {
@@ -7245,6 +7535,10 @@
                         } else {
                             generateAudioSpikeMarkers(6, 8, false, true);
                         }
+
+                        // Select newly added mouth layers at the end
+                        for (var j = 1; j <= comp.numLayers; j++) comp.layer(j).selected = false;
+                        for (var j = 0; j < newlyAddedMouthLayers.length; j++) newlyAddedMouthLayers[j].selected = true;
 
                         updateStatus("Mouth attached, synced, and marked for " + parentLayersToAttach.length + " layer(s)");
                     }

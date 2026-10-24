@@ -535,7 +535,7 @@
         grpBlinkRow.add("statictext", undefined, "To:");
         var ddBlinkTarget = grpBlinkRow.add("dropdownlist", undefined, [
             "eye-open Opacity",
-            "eye-close Opacity",
+            "eye Opacity",
             "Opacity",
             "(Custom...)"
         ]);
@@ -570,7 +570,13 @@
             }
         };
 
-        btnBlinkOp.onClick = function () {
+        var blinkPresets = [
+            { name: "Slow", min: 3.5, max: 7, dur: 4 },
+            { name: "Medium", min: 1.5, max: 4, dur: 4 },
+            { name: "Fast", min: 0.4, max: 1.2, dur: 3 }
+        ];
+
+        function showBlinkPresetModal() {
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
                 alert("Please select a composition.");
@@ -581,14 +587,91 @@
                 return;
             }
 
+            var dlg = new Window("dialog", "Blink Settings");
+            dlg.orientation = "column";
+            dlg.alignChildren = ["fill", "top"];
+            dlg.spacing = 6;
+            dlg.margins = 10;
+            dlg.preferredSize.width = 240;
+
+            dlg.add("statictext", undefined, comp.selectedLayers.length + " layer(s) selected");
+
+            var grpFreq = dlg.add("group");
+            grpFreq.add("statictext", undefined, "Frequency:");
+            var ddFreq = grpFreq.add("dropdownlist", undefined, [
+                "Slow (3.5-7s)",
+                "Medium (1.5-4s)",
+                "Fast (0.4-1.2s)"
+            ]);
+            ddFreq.selection = 1;
+            ddFreq.preferredSize.width = 140;
+
+            var grpDur = dlg.add("group");
+            grpDur.add("statictext", undefined, "Closed (frames):");
+            var edDur = grpDur.add("edittext", undefined, "4");
+            edDur.preferredSize.width = 40;
+
+            var grpOff = dlg.add("group");
+            grpOff.add("statictext", undefined, "Offset per layer (s):");
+            var edOff = grpOff.add("edittext", undefined, "0.5");
+            edOff.preferredSize.width = 40;
+
+            ddFreq.onChange = function () {
+                if (this.selection) edDur.text = String(blinkPresets[this.selection.index].dur);
+            };
+            ddFreq.onChange();
+
+            var grpBtns = dlg.add("group");
+            grpBtns.alignment = "center";
+            var btnOk = grpBtns.add("button", undefined, "Apply", { name: "ok" });
+            grpBtns.add("button", undefined, "Cancel", { name: "cancel" });
+
+            btnOk.onClick = function () {
+                var p = blinkPresets[ddFreq.selection.index];
+                var cfg = {
+                    min: p.min,
+                    max: p.max,
+                    dur: Math.max(1, parseInt(edDur.text, 10) || p.dur),
+                    offset: parseFloat(edOff.text) || 0
+                };
+                dlg.close(1);
+                applyBlinkWithSettings(cfg);
+            };
+            dlg.center();
+            dlg.show();
+        }
+
+        btnBlinkOp.onClick = showBlinkPresetModal;
+
+        function applyBlinkWithSettings(cfg) {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) return;
+
             var targetPropName = (ddBlinkTarget && ddBlinkTarget.selection && ddBlinkTarget.selection.text !== "(Custom...)") ? ddBlinkTarget.selection.text : "eye-open Opacity";
             var countApplied = 0;
+            var fpsB = comp.frameRate;
 
             app.beginUndoGroup("Apply Blink Opacity");
             try {
                 for (var i = 0; i < comp.selectedLayers.length; i++) {
                     var layer = comp.selectedLayers[i];
                     var targetProp = null;
+
+                    // Place "B" markers on the layer, replacing existing B markers
+                    try {
+                        var mProp = layer.property("Marker");
+                        for (var mi = mProp.numKeys; mi >= 1; mi--) {
+                            var cm = mProp.keyValue(mi).comment.toUpperCase();
+                            if (cm === "B" || cm === "BLINK") mProp.removeKey(mi);
+                        }
+                        var seed = layer.index * 7 + i * 13 + 42;
+                        var tt = layer.inPoint + i * cfg.offset + cfg.min + ((seed = (seed * 9301 + 49297) % 233280) / 233280) * (cfg.max - cfg.min);
+                        while (tt + cfg.dur / fpsB <= layer.outPoint) {
+                            mProp.setValueAtTime(tt, new MarkerValue("B"));
+                            seed = (seed * 9301 + 49297) % 233280;
+                            tt += cfg.min + (seed / 233280) * (cfg.max - cfg.min);
+                        }
+                    } catch (eM) { }
 
                     try {
                         var essProps = layer.property("ADBE Master Properties");
@@ -615,7 +698,7 @@
                     if (targetProp && targetProp.canSetExpression) {
                         targetProp.expression = [
                             'try {',
-                            '    var holdFrames = 4;',
+                            '    var holdFrames = ' + cfg.dur + ';',
                             '    var fps = 1.0 / thisComp.frameDuration;',
                             '    var holdSec = holdFrames / fps;',
                             '    var op = value;',
@@ -646,7 +729,7 @@
             } finally {
                 app.endUndoGroup();
             }
-        };
+        }
 
         // Row 2: Clean toolbar with Scan All (icon) and Settings (icon)
         var grpPickerToolbar = grpPickerTop.add("group");

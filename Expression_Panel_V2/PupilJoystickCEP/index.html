@@ -3,39 +3,95 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Pupil Joystick</title>
+    <title>Joystick</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
     <div id="content">
-        <div class="row">
-            <label>Property:</label>
-            <input type="text" id="propName" value="pupil-ctrl Position" />
-        </div>
-        <div class="row">
-            <label>Range (Max):</label>
-            <input type="number" id="joyRange" value="100" />
-
-            <label class="check-label">
-                <input type="checkbox" id="chkMirrored" /> Mirrored
-            </label>
-        </div>
-
-        <div class="row labels-only">
-            <span>X: <span id="valX">0</span></span>
-            <span>Y: <span id="valY">0</span></span>
+        <!-- 1. Top Row: Target Dropdown & Scan Button -->
+        <div class="row top-row">
+            <label for="ddTarget" class="lbl-inline">Target:</label>
+            <select id="ddTarget" title="Select target property or effect">
+                <option value="Position">Position</option>
+                <option value="Anchor Point">Anchor Point</option>
+                <option value="pupil-ctrl Position">pupil-ctrl Position</option>
+                <option value="(Custom...)">(Custom...)</option>
+            </select>
+            <button id="btnScan" type="button" title="Scan Essential Properties, Effects, and Transform properties on the selected layer">Scan</button>
         </div>
 
+        <!-- Inline Custom Property Input (shown when (Custom...) is selected) -->
+        <div id="customTargetRow" class="row custom-row hidden">
+            <input type="text" id="txtCustomTarget" placeholder="Enter property or effect name..." />
+            <button id="btnAddCustom" type="button" title="Use custom target property">Set</button>
+            <button id="btnCancelCustom" type="button" class="btn-muted" title="Cancel custom property">Cancel</button>
+        </div>
+
+        <!-- 2. Origin (Base Position) Section -->
+        <div class="panel">
+            <div class="panel-title">Origin (Base Position)</div>
+            <div class="row origin-inputs-row">
+                <label for="txtOriginX" class="axis-lbl">X:</label>
+                <input type="number" id="txtOriginX" class="origin-input" value="0" step="0.1" />
+                <label for="txtOriginY" class="axis-lbl">Y:</label>
+                <input type="number" id="txtOriginY" class="origin-input" value="0" step="0.1" />
+                <button id="btnGetOrigin" type="button" title="Capture the current value/position of the selected layer as the base origin">Get Current</button>
+                <button id="btnResetOrigin" type="button" title="Reset object and joystick back to its original base position">Reset</button>
+            </div>
+            <div class="row origin-options-row">
+                <label class="check-label" title="When checked, joystick moves the object from its original base position instead of 0, 0.">
+                    <input type="checkbox" id="chkRelative" checked />
+                    <span>Relative</span>
+                </label>
+                <label class="check-label" title="Automatically sample the layer's current position when hovering, selecting layers, or starting a move.">
+                    <input type="checkbox" id="chkAutoSync" checked />
+                    <span>Auto-Sync</span>
+                </label>
+                <label class="check-label" title="Invert the X axis so it behaves properly for horizontally flipped compositions.">
+                    <input type="checkbox" id="chkMirrored" />
+                    <span>Invert X</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- 3. Range & Reset Row -->
+        <div class="row range-row">
+            <label for="txtRange" class="lbl-inline">Range:</label>
+            <input type="number" id="txtRange" value="100" min="1" step="1" />
+            <button id="btnReset" type="button" class="btn-grow" title="Reset joystick offset to 0, 0 (returns layer to its original base position)">Reset to Original</button>
+        </div>
+
+        <!-- 4. 2D Joystick Pad -->
         <div id="pad-container">
-            <div id="pad">
+            <div id="pad" title="Drag to move target property (Hold Shift to lock axis, Double-click to reset)">
                 <div id="crosshair-x"></div>
                 <div id="crosshair-y"></div>
+                <div id="center-guide"></div>
+                <svg id="pad-svg" viewBox="0 0 220 220" preserveAspectRatio="none">
+                    <line id="joy-line" x1="110" y1="110" x2="110" y2="110"></line>
+                </svg>
                 <div id="knob"></div>
             </div>
         </div>
 
-        <button id="btnReset">Reset to 0, 0</button>
+        <!-- 5. Sliders & Coordinate Controls -->
+        <div class="panel">
+            <div class="panel-title">Joystick Sliders (Offset)</div>
+            <div class="row slider-row">
+                <label for="txtValX" class="axis-lbl">X:</label>
+                <input type="range" id="sliderX" min="-100" max="100" step="0.1" value="0" />
+                <input type="number" id="txtValX" class="offset-input" value="0" step="0.1" />
+            </div>
+            <div class="row slider-row">
+                <label for="txtValY" class="axis-lbl">Y:</label>
+                <input type="range" id="sliderY" min="-100" max="100" step="0.1" value="0" />
+                <input type="number" id="txtValY" class="offset-input" value="0" step="0.1" />
+            </div>
+        </div>
+
+        <!-- 6. Result Coordinate Label -->
+        <div id="lblResult" class="result-label">Final Target: (0.0, 0.0)</div>
     </div>
 
     <!-- Adobe CSInterface script -->
